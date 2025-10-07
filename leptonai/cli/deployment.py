@@ -502,6 +502,18 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     ),
 )
 @click.option(
+    "--cserve",
+    is_flag=True,
+    default=False,
+    help="Enable cserve mode and attach cserve options to the deployment spec.",
+)
+@click.option(
+    "--cserve-options",
+    type=str,
+    default=None,
+    help="JSON string for cserve options (stored at spec.cserve).",
+)
+@click.option(
     "--resource-shape",
     type=str,
     help="Resource shape for the endpoint. Available types are: '"
@@ -826,6 +838,8 @@ def create(
     container_image,
     container_port,
     container_command,
+    cserve,
+    cserve_options,
     resource_shape,
     min_replicas,
     max_replicas,
@@ -1197,6 +1211,17 @@ def create(
 
         if log_collection is not None:
             spec.log = LeptonLog(enable_collection=log_collection)
+
+        if cserve and cserve_options is not None:
+            try:
+                # Validate JSON and use parsed object for options
+                cserve_options_obj = json.loads(cserve_options)
+            except json.JSONDecodeError:
+                console.print(
+                    f"[red]Invalid JSON for --cserve-options: {cserve_options}[/]"
+                )
+                sys.exit(1)
+            spec.cserve = {"options": cserve_options_obj}
 
     except ValueError as e:
         console.print(
@@ -1643,6 +1668,18 @@ def log(name, replica):
     ),
     default=None,
 )
+@click.option(
+    "--cserve",
+    is_flag=True,
+    default=False,
+    help="Enable cserve mode and attach cserve options to the deployment spec.",
+)
+@click.option(
+    "--cserve-options",
+    type=str,
+    default=None,
+    help="JSON string for cserve options (stored at spec.cserve).",
+)
 def update(
     name,
     id,
@@ -1660,6 +1697,8 @@ def update(
     log_collection,
     shared_memory_size,
     replica_spread,
+    cserve,
+    cserve_options,
 ):
     """
     Updates an endpoint. Note that for all the update options, changes are made
@@ -1794,6 +1833,17 @@ def update(
         ),
         auto_scaler=temp_auto_scaler,
     )
+
+    # Minimal cserve update support: only set when both flags are provided; validate JSON only
+    if cserve and cserve_options is not None:
+        try:
+            cserve_options_obj = json.loads(cserve_options)
+        except json.JSONDecodeError:
+            console.print(
+                f"[red]Invalid JSON for --cserve-options: {cserve_options}[/]"
+            )
+            sys.exit(1)
+        lepton_deployment_spec.cserve = {"options": cserve_options_obj}
 
     if replica_spread is not None:
         toggle = (
