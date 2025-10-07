@@ -573,7 +573,7 @@ class Client(object):
 
         :return: whether the deployment is healthily running.
         """
-        for path in ("/health", "/healthz"):
+        for path in ("/healthz", "/health"):
             try:
                 res = self._get(path)
                 self._get_proper_res_content(res)
