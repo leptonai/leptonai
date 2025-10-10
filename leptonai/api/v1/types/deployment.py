@@ -8,6 +8,7 @@ from leptonai.config import compatible_field_validator, v2only_field_validator
 from .affinity import LeptonResourceAffinity
 from .common import Metadata
 from .auth import AuthConfig
+from .ingress import LoadBalanceConfig
 
 DEFAULT_STORAGE_VOLUME_NAME = "default"
 
@@ -295,6 +296,16 @@ class LeptonDeploymentUserSpec(BaseModel):
     queue_config: Optional[QueueConfig] = None
     scheduling_policy: Optional[DeploymentSchedulingPolicy] = None
     auth_config: Optional[AuthConfig] = None
+    ingress_timeout_seconds: Optional[int] = None
+    load_balance_config: Optional[LoadBalanceConfig] = None
+
+    @compatible_field_validator("ingress_timeout_seconds")
+    def validate_ingress_timeout_seconds(cls, v):
+        if v is not None and (v < 300 or v > 6000):
+            raise ValueError(
+                "ingress_timeout_seconds must be between 300 and 6000 seconds."
+            )
+        return v
 
 
 class LeptonDeploymentState(str, Enum):
