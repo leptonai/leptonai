@@ -843,8 +843,8 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     ),
     default=None,
     help=(
-        "Load balancing strategy: least-request | sticky-routing-default | sticky-routing-by-host-name"
-        " | sticky-routing-by-resolved-ip"
+        "Load balancing strategy: least-request | sticky-routing-default |"
+        " sticky-routing-by-host-name | sticky-routing-by-resolved-ip"
     ),
 )
 def create(
@@ -1708,8 +1708,8 @@ def log(name, replica):
     ),
     default=None,
     help=(
-        "Load balancing strategy: least-request | sticky-routing-default | sticky-routing-by-host-name"
-        " | sticky-routing-by-resolved-ip"
+        "Load balancing strategy: least-request | sticky-routing-default |"
+        " sticky-routing-by-host-name | sticky-routing-by-resolved-ip"
     ),
 )
 def update(
@@ -1885,7 +1885,7 @@ def update(
             )
         elif lb == "sticky-routing-default":
             lepton_deployment_spec.load_balance_config = {
-                "maglev":{"useHostnameForHashing":None}
+                "maglev": {"useHostnameForHashing": None}
             }
         elif lb == "sticky-routing-by-host-name":
             lepton_deployment_spec.load_balance_config = LoadBalanceConfig(
