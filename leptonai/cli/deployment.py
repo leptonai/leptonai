@@ -835,16 +835,16 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     type=click.Choice(
         [
             "least-request",
-            "maglev-default",
-            "maglev-by-host-name",
-            "maglev-by-ip-resolver",
+            "sticky-routing-default",
+            "sticky-routing-by-host-name",
+            "sticky-routing-by-resolved-ip",
         ],
         case_sensitive=False,
     ),
     default=None,
     help=(
-        "Load balancing strategy: least-request | maglev-default | maglev-by-host-name"
-        " | maglev-by-ip-resolver"
+        "Load balancing strategy: least-request | sticky-routing-default | sticky-routing-by-host-name"
+        " | sticky-routing-by-resolved-ip"
     ),
 )
 def create(
@@ -1231,17 +1231,17 @@ def create(
                 spec.load_balance_config = LoadBalanceConfig(
                     least_request=LeastRequestLoadBalancer()
                 )
-            elif lb == "maglev-default":
+            elif lb == "sticky-routing-default":
                 spec.load_balance_config = LoadBalanceConfig(
                     maglev=MaglevLoadBalancer()
                 )
-            elif lb == "maglev-by-host-name":
+            elif lb == "sticky-routing-by-host-name":
                 spec.load_balance_config = LoadBalanceConfig(
-                    maglev=MaglevLoadBalancer(use_hostname_for_hashing=True)
+                    maglev=MaglevLoadBalancer(useHostnameForHashing=True)
                 )
-            elif lb == "maglev-by-ip-resolver":
+            elif lb == "sticky-routing-by-resolved-ip":
                 spec.load_balance_config = LoadBalanceConfig(
-                    maglev=MaglevLoadBalancer(use_hostname_for_hashing=False)
+                    maglev=MaglevLoadBalancer(useHostnameForHashing=False)
                 )
 
     except ValueError as e:
@@ -1700,16 +1700,16 @@ def log(name, replica):
     type=click.Choice(
         [
             "least-request",
-            "maglev-default",
-            "maglev-by-host-name",
-            "maglev-by-ip-resolver",
+            "sticky-routing-default",
+            "sticky-routing-by-host-name",
+            "sticky-routing-by-resolved-ip",
         ],
         case_sensitive=False,
     ),
     default=None,
     help=(
-        "Load balancing strategy: least-request | maglev-default | maglev-by-host-name"
-        " | maglev-by-ip-resolver"
+        "Load balancing strategy: least-request | sticky-routing-default | sticky-routing-by-host-name"
+        " | sticky-routing-by-resolved-ip"
     ),
 )
 def update(
@@ -1883,17 +1883,17 @@ def update(
             lepton_deployment_spec.load_balance_config = LoadBalanceConfig(
                 least_request=LeastRequestLoadBalancer()
             )
-        elif lb == "maglev-default":
+        elif lb == "sticky-routing-default":
+            lepton_deployment_spec.load_balance_config = {
+                "maglev":{"useHostnameForHashing":None}
+            }
+        elif lb == "sticky-routing-by-host-name":
             lepton_deployment_spec.load_balance_config = LoadBalanceConfig(
-                maglev=MaglevLoadBalancer()
+                maglev=MaglevLoadBalancer(useHostnameForHashing=True)
             )
-        elif lb == "maglev-by-host-name":
+        elif lb == "sticky-routing-by-resolved-ip":
             lepton_deployment_spec.load_balance_config = LoadBalanceConfig(
-                maglev=MaglevLoadBalancer(use_hostname_for_hashing=True)
-            )
-        elif lb == "maglev-by-ip-resolver":
-            lepton_deployment_spec.load_balance_config = LoadBalanceConfig(
-                maglev=MaglevLoadBalancer(use_hostname_for_hashing=False)
+                maglev=MaglevLoadBalancer(useHostnameForHashing=False)
             )
 
     # Set IP access control in auth_config (independent of tokens)
@@ -1957,10 +1957,11 @@ def update(
 
             console.print("Proceeding with the update...")
 
-    client.deployment.update(
+    updated_lepton_deployment = client.deployment.update(
         name_or_deployment=name,
         spec=new_lepton_deployment,
     )
+    logger.trace(json.dumps(updated_lepton_deployment.model_dump(), indent=2))
     console.print(f"Endpoint [green]{name}[/] updated.")
 
 
