@@ -256,13 +256,6 @@ def create(
     """
     Creates a pod with the given resource shape, mount, env and secret.
     """
-    if resource_shape is None and not file:
-        available_types = "\n      ".join(VALID_SHAPES)
-        console.print(
-            "[red]Error: Missing option '--resource-shape'.[/] "
-            f"Available types are:\n      {available_types} \n"
-        )
-        sys.exit(1)
 
     client = APIClient()
 
@@ -279,11 +272,10 @@ def create(
     if template:
         try:
             payload = {"run": run} if run else {}
-            rendered = client.template.render(template, payload)
-            spec_dict = rendered.spec.model_dump(by_alias=True, exclude_none=True)
-            spec_from_file = types.deployment.LeptonDeploymentUserSpec.model_validate(
-                spec_dict
-            )
+            rendered = client.template.render(template, payload, is_pod=True)
+            print("rendered")
+            print(rendered)
+            spec_from_file = rendered.spec
         except Exception as e:
             console.print(f"[red]Failed to render pod template[/]: {e}")
             sys.exit(1)
@@ -334,7 +326,13 @@ def create(
             )
         else:
             deployment_user_spec.resource_requirement.resource_shape = resource_shape
-
+    elif not deployment_user_spec.resource_requirement.resource_shape:
+        available_types = "\n      ".join(VALID_SHAPES)
+        console.print(
+            "[red]Error: Missing option '--resource-shape'.[/] "
+            f"Available types are:\n      {available_types} \n"
+        )
+        sys.exit(1)
     # Apply shared node group / queue / reservation config
     try:
         apply_nodegroup_and_queue_config(
