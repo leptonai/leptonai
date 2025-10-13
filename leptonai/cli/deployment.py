@@ -16,6 +16,9 @@ from .util import (
     click_group,
     _validate_queue_priority,
     apply_nodegroup_and_queue_config,
+    make_name_id_cell,
+    colorize_state,
+    format_timestamp_ms,
 )
 
 from leptonai.config import (
@@ -295,7 +298,6 @@ def _print_deployments_table(
     table.add_column("Node Group ID")
     table.add_column("Replicas")
     table.add_column("Shape")
-
     shape_totals = {}
 
     def _is_active_state(state_str: str) -> bool:
@@ -308,15 +310,10 @@ def _print_deployments_table(
 
         name = d.metadata.name if d.metadata else "-"
         dep_id = d.metadata.id_ if d.metadata else "-"
-
-        created_ts = (
-            datetime.fromtimestamp((d.metadata.created_at or 0) / 1000).strftime(
-                "%Y-%m-%d\n%H:%M:%S"
-            )
-            if d.metadata and d.metadata.created_at
-            else "N/A"
-        )
-        state = d.status.state.value if d.status and d.status.state else "-"
+        created_ts = format_timestamp_ms(getattr(d.metadata, "created_at", None))
+        state_raw = d.status.state if d.status and d.status.state else "-"
+        state_str = getattr(state_raw, "value", state_raw)
+        state_cell = colorize_state(state_raw)
         owner = d.metadata.owner if d.metadata and d.metadata.owner else ""
 
         ng_list = []
@@ -336,19 +333,16 @@ def _print_deployments_table(
 
         shape = rr.resource_shape if rr and rr.resource_shape else "-"
 
-        dep_url = None
-        if dashboard_base_url:
-            dep_url = f"{dashboard_base_url}/compute/deployments/detail/{dep_id}/demo"
-        name_id_cell = f"[bold #76b900]{name}[/]\n" + (
-            f"[link={dep_url}][bright_black]{dep_id}[/][/link]"
-            if dep_url
-            else f"[bright_black]{dep_id}[/]"
+        dep_url = (
+            f"{dashboard_base_url}/compute/deployments/detail/{dep_id}/demo"
+            if dashboard_base_url and dep_id
+            else None
         )
-
+        name_id_cell = make_name_id_cell(name, dep_id, link=dep_url, link_target="id")
         table.add_row(
             name_id_cell,
             created_ts,
-            f"{state}",
+            state_cell,
             owner or "",
             ng_str,
             desired_disp,
@@ -357,7 +351,7 @@ def _print_deployments_table(
 
         # Utilization summary uses desired only
         workers = desired if desired is not None else 0
-        if _is_active_state(state):
+        if _is_active_state(state_str):
             shape_totals[shape] = shape_totals.get(shape, 0) + workers
 
         count += 1

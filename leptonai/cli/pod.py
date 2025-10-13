@@ -11,7 +11,6 @@ session, similar to a cloud VM but much more lightweight.
 import subprocess
 import sys
 import json
-from datetime import datetime
 import re
 
 import click
@@ -32,6 +31,9 @@ from .util import (
     _get_only_replica_public_ip,
     _validate_queue_priority,
     apply_nodegroup_and_queue_config,
+    make_name_id_cell,
+    colorize_state,
+    format_timestamp_ms,
 )
 from .util import make_container_ports_from_str_list
 from ..api.v2.client import APIClient
@@ -471,7 +473,14 @@ def get(name, path):
     help="Regular expression pattern to filter pod names.",
     default=None,
 )
-def list_command(pattern):
+@click.option(
+    "--detail",
+    "-d",
+    is_flag=True,
+    default=False,
+    help="Show SSH/TCP/JupyterLab columns in the table.",
+)
+def list_command(pattern, detail):
     """
     Lists all pods in the current workspace.
     """
@@ -515,53 +524,150 @@ def list_command(pattern):
             pod_ips[index] = public_ip
     logger.trace(f"Pod IPs:\n{pod_ips}")
 
-    table = Table(title="pods", show_lines=True)
-    table.add_column("name")
-    table.add_column("resource shape")
-    table.add_column("status")
-    table.add_column("ssh command")
-    table.add_column("TCP port mapping")
-    table.add_column(
-        "TCP port mapping \n (Jupyterlab)",
-        justify="center",
-    )
-    table.add_column("created at")
+    # Build table with Node Group column and Shape moved to the last
+    if not detail:
+        headers = [
+            "Name / ID",
+            "Node Group ID",
+            "State",
+            "User ID",
+            "Created At",
+            "Shape",
+        ]
+    else:
+        headers = [
+            "Name / ID",
+            "Node Group ID",
+            "State",
+            "User ID",
+            "SSH Command",
+            "TCP Port Mapping",
+            "TCP Port Mapping (JupyterLab)",
+            "Created At",
+            "Shape",
+        ]
+
+    dashboard_base_url = client.get_dashboard_base_url()
+    rows = []
+    shape_totals = {}
     for pod, ssh_port, tcp_port, tcp_port_jupyterlab, pod_ip in zip(
         pods, ssh_ports, tcp_ports, tcp_ports_jupyterlab, pod_ips
     ):
-        Jupyter_lab_mapping = (
-            f"{tcp_port_jupyterlab[0]} -> {tcp_port_jupyterlab[1]} \n(pod  -> client)"
-            if tcp_port_jupyterlab
-            else "Not Available"
+        # Pod URLs use name, per existing ssh fallback hints
+        pod_url = (
+            f"{dashboard_base_url}/compute/pods/detail/{pod.metadata.name}/connect"
+            if dashboard_base_url
+            else None
         )
-        table.add_row(
+        name_cell = make_name_id_cell(
             pod.metadata.name,
-            pod.spec.resource_requirement.resource_shape,
-            pod.status.state,
-            (
+            getattr(pod.metadata, "id_", ""),
+            link=pod_url,
+            link_target="name",
+        )
+
+        state_raw = getattr(pod.status, "state", None)
+        state_cell = colorize_state(state_raw)
+
+        if detail:
+            ssh_cmd = (
                 f"ssh -p {ssh_port[1]} root@{pod_ip}"
                 if (pod_ip and ssh_port)
                 else "Not Available"
-            ),
-            (
+            )
+            tcp_map = (
                 f"{tcp_port[0]} -> {tcp_port[1]} \n(pod  -> client)"
                 if tcp_port
                 else "Not Available"
-            ),
-            Jupyter_lab_mapping,
-            datetime.fromtimestamp(pod.metadata.created_at / 1000).strftime(
-                "%Y-%m-%d\n%H:%M:%S"
-            ),
-        )
+            )
+            jupyter_map = (
+                f"{tcp_port_jupyterlab[0]} -> {tcp_port_jupyterlab[1]} \n(pod  ->"
+                " client)"
+                if tcp_port_jupyterlab
+                else "Not Available"
+            )
+
+        created_at = format_timestamp_ms(getattr(pod.metadata, "created_at", None))
+
+        # Node Group(s)
+        ng_list = []
+        rr = pod.spec.resource_requirement if pod.spec else None
+        if (
+            rr
+            and getattr(rr, "affinity", None)
+            and rr.affinity.allowed_dedicated_node_groups
+        ):
+            ng_list = rr.affinity.allowed_dedicated_node_groups
+        ng_str = "\n".join(ng_list).lower() if ng_list else ""
+
+        # Shape
+        shape = rr.resource_shape if rr and rr.resource_shape else "-"
+
+        # Owner
+        owner = getattr(pod.metadata, "owner", "") or ""
+
+        if not detail:
+            row = [
+                name_cell,
+                ng_str,
+                state_cell,
+                owner,
+                created_at,
+                shape,
+            ]
+        else:
+            row = [
+                name_cell,
+                ng_str,
+                state_cell,
+                owner,
+                ssh_cmd,
+                tcp_map,
+                jupyter_map,
+                created_at,
+                shape,
+            ]
+        rows.append(row)
+
+    # Print table
+    table = Table(title="pods", show_lines=True, show_header=True)
+    for h in headers:
+        table.add_column(h)
+    for row in rows:
+        table.add_row(*row)
     console.print(table)
+
+    # Resource Utilization Summary for pods: count pods per shape in active states
+    active_states = {"Ready", "Running", "Starting", "Updating", "Scaling", "Deleting"}
+    for pod in pods:
+        rr = pod.spec.resource_requirement if pod.spec else None
+        shape = rr.resource_shape if rr and rr.resource_shape else "-"
+        state_val = getattr(
+            getattr(pod.status, "state", None),
+            "value",
+            getattr(pod.status, "state", None),
+        )
+        if state_val in active_states:
+            shape_totals[shape] = shape_totals.get(shape, 0) + 1
+
     console.print(
-        "* TCP port mapping(JupyterLab) defaults to the port that JupyterLab"
-        " listens on."
+        f"[bold]Resource Utilization Summary for above [cyan]{len(pods)}[/] pods (Ready"
+        " / Running / Starting / Updating / Scaling / Deleting only):[/]"
     )
-    console.print(
-        "* Your initial ssh password is the workspace token.\n* Use `lep workspace"
-        " token` to get the token if needed."
-    )
+    for shape, total in sorted(
+        shape_totals.items(), key=lambda kv: kv[1], reverse=True
+    ):
+        console.print(f"  [bright_black]{shape}[/] : [bold cyan]{total}[/]")
+    console.print("\n")
+    if detail:
+        console.print(
+            "* TCP port mapping(JupyterLab) defaults to the port that JupyterLab"
+            " listens on."
+        )
+    else:
+        console.print(
+            "* use `lep pod list --detail` to show SSH/TCP/JupyterLab columns."
+        )
     return 0
 
 

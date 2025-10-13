@@ -4,7 +4,7 @@ Common utilities for the CLI.
 
 import sys
 import traceback
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 from urllib.parse import urlparse
 
 import click
@@ -665,3 +665,60 @@ def apply_nodegroup_and_queue_config(
             spec.reservation_config.allow_burst_to_other_reservations = True
 
     return spec
+
+
+def format_timestamp_ms(ms: Optional[int]) -> str:
+    """Format millisecond epoch to 'YYYY-MM-DD\nHH:MM:SS'."""
+    if not ms:
+        return "N/A"
+    from datetime import datetime
+
+    try:
+        return datetime.fromtimestamp(ms / 1000).strftime("%Y-%m-%d\n%H:%M:%S")
+    except Exception:
+        return "N/A"
+
+
+def _stringify_state(state: Optional[Union[str, Any]]) -> str:
+    """Extract string from enum or plain string; fall back to '-'."""
+    if state is None:
+        return "-"
+    value = getattr(state, "value", state)
+    return str(value)
+
+
+def colorize_state(state: Optional[Union[str, Any]]) -> str:
+    """Return rich-markup colored state string (green for Ready/Running)."""
+    text = _stringify_state(state)
+    if text in {"Ready", "Running"}:
+        return f"[green]{text}[/]"
+    return f"[yellow]{text}[/]" if text and text != "-" else "-"
+
+
+def make_name_id_cell(
+    name: Optional[str],
+    id_: Optional[str],
+    *,
+    link: Optional[str] = None,
+    link_target: str = "id",
+) -> str:
+    """Construct a two-line 'Name / ID' cell with optional link on ID or name.
+
+    - Name is bold green (nvidia green #76b900)
+    - ID is dim; if link provided, wrap ID with link markup
+    - If no ID, show only name
+    - If link provided but no ID, we will link the name instead
+    """
+    safe_name = name or "-"
+    safe_id = id_ or ""
+    name_markup = f"[bold #76b900]{safe_name}[/]"
+    if link and safe_id and link_target == "id":
+        id_markup = f"[link={link}][bright_black]{safe_id}[/][/link]"
+    elif link and link_target == "name":
+        # link the name when ID is missing
+        name_markup = f"[link={link}]{name_markup}[/link]"
+        id_markup = ""
+    else:
+        id_markup = f"[bright_black]{safe_id}[/]" if safe_id else ""
+
+    return name_markup if not id_markup else f"{name_markup}\n{id_markup}"
