@@ -1885,6 +1885,7 @@ def update(
             )
         elif lb == "sticky-routing-default":
             lepton_deployment_spec.load_balance_config = {
+                "least_request": None,
                 "maglev": {"useHostnameForHashing": None}
             }
         elif lb == "sticky-routing-by-host-name":
