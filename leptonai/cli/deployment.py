@@ -1570,6 +1570,15 @@ def log(name, replica):
     default=None,
 )
 @click.option(
+    "--container-image",
+    type=str,
+    default=None,
+    help=(
+        "Update the container image for a container-based endpoint. "
+        "Not supported for photon-based endpoints."
+    ),
+)
+@click.option(
     "--min-replicas",
     help=(
         "Number of replicas to update to. Pass `0` to scale the number"
@@ -1771,6 +1780,7 @@ def log(name, replica):
 def update(
     name,
     id,
+    container_image,
     min_replicas,
     resource_shape,
     public,
@@ -1841,6 +1851,24 @@ def update(
         ]
         id = sorted(records, key=lambda x: x[3])[-1][2]  # type: ignore
         console.print(f"Updating to latest photon id [green]{id}[/].")
+
+    # Validate container-image update constraints
+    if container_image is not None:
+        if id is not None:
+            console.print(
+                "[red]Error[/]: Cannot specify both --id (photon update) and "
+                "--container-image."
+            )
+            sys.exit(1)
+
+        current_spec = lepton_deployment.spec
+        if current_spec and current_spec.photon_id is not None:
+            console.print(
+                "[red]Error[/]: --container-image is only supported for container-"
+                "based endpoints. The current endpoint is photon-based. "
+                "Use `lep endpoint create --rerun --container-image ...` to switch."
+            )
+            sys.exit(1)
     if remove_tokens:
         # [] means removing all tokens
         tokens = []
@@ -1923,6 +1951,17 @@ def update(
         ),
         auto_scaler=temp_auto_scaler,
     )
+
+    # Apply container image update while preserving existing command/ports if present
+    if container_image is not None:
+        existing_container = (
+            lepton_deployment.spec.container if lepton_deployment.spec else None
+        )
+        lepton_deployment_spec.container = LeptonContainer(
+            image=container_image,
+            command=(existing_container.command if existing_container else None),
+            ports=(existing_container.ports if existing_container else None),
+        )
 
     # Minimal cserve update support: only set when both flags are provided; validate JSON only
     if cserve and cserve_options is not None:
