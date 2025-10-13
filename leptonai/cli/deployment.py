@@ -930,6 +930,13 @@ def create(
         )
         sys.exit(1)
 
+    # Enforce cserve options must be used with --cserve
+    if cserve_options is not None and not cserve:
+        console.print(
+            "[red]Error[/]: --cserve-options requires --cserve to be specified."
+        )
+        sys.exit(1)
+
     # Load spec from file if provided
     if file:
         try:
@@ -1869,6 +1876,12 @@ def update(
                 "Use `lep endpoint create --rerun --container-image ...` to switch."
             )
             sys.exit(1)
+    # Enforce cserve options must be used with --cserve
+    if cserve_options is not None and not cserve:
+        console.print(
+            "[red]Error[/]: --cserve-options requires --cserve to be specified."
+        )
+        sys.exit(1)
     if remove_tokens:
         # [] means removing all tokens
         tokens = []
