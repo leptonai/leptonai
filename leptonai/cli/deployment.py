@@ -21,17 +21,19 @@ from .util import (
     format_timestamp_ms,
 )
 
+
 # Ensure options-like tokens are not accepted as values for --cserve-options
 def _validate_cserve_options_flag_requires_value(ctx, param, value):
     if value is None:
         return value
     if isinstance(value, str) and value.strip().startswith("-"):
         # The next token looks like another option; treat as missing argument
-        opt_name = param.opts[-1] if getattr(param, "opts", None) else "--cserve-options"
-        raise click.UsageError(
-            f"Option '{opt_name}' requires an argument.", ctx=ctx
+        opt_name = (
+            param.opts[-1] if getattr(param, "opts", None) else "--cserve-options"
         )
+        raise click.UsageError(f"Option '{opt_name}' requires an argument.", ctx=ctx)
     return value
+
 
 from leptonai.config import (
     VALID_SHAPES,
