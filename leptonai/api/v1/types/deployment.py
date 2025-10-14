@@ -1,6 +1,6 @@
 from enum import Enum
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Union, Dict, Any
 from loguru import logger
 
 from leptonai.config import compatible_field_validator, v2only_field_validator
@@ -297,7 +297,7 @@ class LeptonDeploymentUserSpec(BaseModel):
     scheduling_policy: Optional[DeploymentSchedulingPolicy] = None
     auth_config: Optional[AuthConfig] = None
     ingress_timeout_seconds: Optional[int] = None
-    load_balance_config: Optional[LoadBalanceConfig] = None
+    load_balance_config: Optional[Union[LoadBalanceConfig, Dict[str, Any]]] = None
 
     @compatible_field_validator("ingress_timeout_seconds")
     def validate_ingress_timeout_seconds(cls, v):

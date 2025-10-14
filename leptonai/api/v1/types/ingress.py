@@ -1,6 +1,6 @@
 from enum import Enum
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Union, Dict, Any
 from loguru import logger
 
 from .common import Metadata
@@ -26,7 +26,7 @@ class MaglevLoadBalancer(BaseModel):
 class LeptonIngressEndpoint(BaseModel):
     deployment: Optional[str] = None
     weight: Optional[int] = None
-    load_balance_config: Optional[LoadBalanceConfig] = None
+    load_balance_config: Optional[Union[LoadBalanceConfig, Dict[str, Any]]] = None
 
 
 class WorkspaceTierRateLimiter(BaseModel):
