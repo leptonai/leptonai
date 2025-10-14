@@ -765,6 +765,8 @@ def create(
     logger.trace(json.dumps(job.model_dump(), indent=2))
     # Create job and display success message
     created_job = client.job.create(job)
+    logger.trace(f"created_job: ===========")
+    logger.trace(json.dumps(created_job.model_dump(), indent=2))
     new_job_id = created_job.metadata.id_
     console.print(
         f"🎉 [green]Job Created Successfully![/]\nName: [blue]{name}[/]\nID:"
