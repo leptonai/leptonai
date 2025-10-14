@@ -1880,22 +1880,25 @@ def update(
     if load_balance:
         lb = load_balance.lower()
         if lb == "least-request":
-            lepton_deployment_spec.load_balance_config = LoadBalanceConfig(
-                least_request=LeastRequestLoadBalancer()
-            )
+            lepton_deployment_spec.load_balance_config = {
+                "least_request": {"choice_count": None},
+                "maglev": None,
+            }
         elif lb == "sticky-routing-default":
             lepton_deployment_spec.load_balance_config = {
                 "least_request": None,
                 "maglev": {"useHostnameForHashing": None},
             }
         elif lb == "sticky-routing-by-host-name":
-            lepton_deployment_spec.load_balance_config = LoadBalanceConfig(
-                maglev=MaglevLoadBalancer(useHostnameForHashing=True)
-            )
+            lepton_deployment_spec.load_balance_config = {
+                "least_request": None,
+                "maglev": {"useHostnameForHashing": True},
+            }
         elif lb == "sticky-routing-by-resolved-ip":
-            lepton_deployment_spec.load_balance_config = LoadBalanceConfig(
-                maglev=MaglevLoadBalancer(useHostnameForHashing=False)
-            )
+            lepton_deployment_spec.load_balance_config = {
+                "least_request": None,
+                "maglev": {"useHostnameForHashing": False},
+            }
 
     # Set IP access control in auth_config (independent of tokens)
     if public is not None or ip_whitelist is not None:
