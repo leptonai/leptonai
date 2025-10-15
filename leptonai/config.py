@@ -225,7 +225,7 @@ BASE_IMAGE_REGISTRY = "default"
 BASE_IMAGE_REPO = f"{BASE_IMAGE_REGISTRY}/lepton"
 BASE_IMAGE = f"{BASE_IMAGE_REPO}:photon{'-rocm' if _is_rocm() else ''}-py{sys.version_info.major}.{sys.version_info.minor}-runner-{BASE_IMAGE_VERSION}"  # noqa: E501
 
-JOB_BASE_IMAGE= "nvcr.io/nvidia/pytorch:25.08-py3"
+JOB_BASE_IMAGE = "nvcr.io/nvidia/pytorch:25.08-py3"
 BASE_IMAGE_ARGS = ["--shm-size=1g"]
 
 # By default, platform runs lep ph run -f ${photon_file_path}
