@@ -401,8 +401,6 @@ def create(
 
     if log_collection is not None:
         deployment_user_spec.log = LeptonLog(enable_collection=log_collection)
-
-    # privileged mode for pod (deployment spec with is_pod=True)
     if privileged:
         if getattr(deployment_user_spec, "user_security_context", None) is None:
             deployment_user_spec.user_security_context = LeptonUserSecurityContext(
