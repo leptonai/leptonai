@@ -298,6 +298,7 @@ class LeptonDeploymentUserSpec(BaseModel):
     auth_config: Optional[AuthConfig] = None
     ingress_timeout_seconds: Optional[int] = None
     load_balance_config: Optional[Union[LoadBalanceConfig, Dict[str, Any]]] = None
+    cserve: Optional[dict] = None
 
     @compatible_field_validator("ingress_timeout_seconds")
     def validate_ingress_timeout_seconds(cls, v):

@@ -21,6 +21,20 @@ from .util import (
     format_timestamp_ms,
 )
 
+
+# Ensure options-like tokens are not accepted as values for --cserve-options
+def _validate_cserve_options_flag_requires_value(ctx, param, value):
+    if value is None:
+        return value
+    if isinstance(value, str) and value.strip().startswith("-"):
+        # The next token looks like another option; treat as missing argument
+        opt_name = (
+            param.opts[-1] if getattr(param, "opts", None) else "--cserve-options"
+        )
+        raise click.UsageError(f"Option '{opt_name}' requires an argument.", ctx=ctx)
+    return value
+
+
 from leptonai.config import (
     VALID_SHAPES,
     DEFAULT_TIMEOUT,
@@ -501,6 +515,19 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     ),
 )
 @click.option(
+    "--cserve",
+    is_flag=True,
+    default=False,
+    help="Enable cserve mode and attach cserve options to the deployment spec.",
+)
+@click.option(
+    "--cserve-options",
+    type=str,
+    default=None,
+    help="JSON string for cserve options (stored at spec.cserve).",
+    callback=_validate_cserve_options_flag_requires_value,
+)
+@click.option(
     "--resource-shape",
     "-rs",
     type=str,
@@ -858,6 +885,8 @@ def create(
     container_image,
     container_port,
     container_command,
+    cserve,
+    cserve_options,
     resource_shape,
     min_replicas,
     max_replicas,
@@ -913,6 +942,13 @@ def create(
             " public access\n  • [green]--tokens[/] – token-based auth (can be used"
             " alone)\n  • [green]--ip-whitelist[/] – IP allowlist (can be used alone)\n"
             "  • [green]--tokens[/] + [green]--ip-whitelist[/] – can be combined\n"
+        )
+        sys.exit(1)
+
+    # Enforce cserve options must be used with --cserve
+    if cserve_options is not None and not cserve:
+        console.print(
+            "[red]Error[/]: --cserve-options requires --cserve to be specified."
         )
         sys.exit(1)
 
@@ -1256,12 +1292,22 @@ def create(
                 spec.load_balance_config = LoadBalanceConfig(
                     maglev=MaglevLoadBalancer(useHostnameForHashing=False)
                 )
-                
+
         if privileged:
             if getattr(spec, "user_security_context", None) is None:
                 spec.user_security_context = LeptonUserSecurityContext(privileged=True)
             else:
                 spec.user_security_context.privileged = True
+        if cserve and cserve_options is not None:
+            try:
+                # Validate JSON and use parsed object for options
+                cserve_options_obj = json.loads(cserve_options)
+            except json.JSONDecodeError:
+                console.print(
+                    f"[red]Invalid JSON for --cserve-options: {cserve_options}[/]"
+                )
+                sys.exit(1)
+            spec.cserve = {"options": cserve_options_obj}
 
     except ValueError as e:
         console.print(
@@ -1546,6 +1592,15 @@ def log(name, replica):
     default=None,
 )
 @click.option(
+    "--container-image",
+    type=str,
+    default=None,
+    help=(
+        "Update the container image for a container-based endpoint. "
+        "Not supported for photon-based endpoints."
+    ),
+)
+@click.option(
     "--min-replicas",
     help=(
         "Number of replicas to update to. Pass `0` to scale the number"
@@ -1732,9 +1787,23 @@ def log(name, replica):
         " sticky-routing-by-host-name | sticky-routing-by-resolved-ip"
     ),
 )
+@click.option(
+    "--cserve",
+    is_flag=True,
+    default=False,
+    help="Enable cserve mode and attach cserve options to the deployment spec.",
+)
+@click.option(
+    "--cserve-options",
+    type=str,
+    default=None,
+    help="JSON string for cserve options (stored at spec.cserve).",
+    callback=_validate_cserve_options_flag_requires_value,
+)
 def update(
     name,
     id,
+    container_image,
     min_replicas,
     resource_shape,
     public,
@@ -1751,6 +1820,8 @@ def update(
     replica_spread,
     ingress_timeout_seconds,
     load_balance,
+    cserve,
+    cserve_options,
 ):
     """
     Updates an endpoint. Note that for all the update options, changes are made
@@ -1803,6 +1874,30 @@ def update(
         ]
         id = sorted(records, key=lambda x: x[3])[-1][2]  # type: ignore
         console.print(f"Updating to latest photon id [green]{id}[/].")
+
+    # Validate container-image update constraints
+    if container_image is not None:
+        if id is not None:
+            console.print(
+                "[red]Error[/]: Cannot specify both --id (photon update) and "
+                "--container-image."
+            )
+            sys.exit(1)
+
+        current_spec = lepton_deployment.spec
+        if current_spec and current_spec.photon_id is not None:
+            console.print(
+                "[red]Error[/]: --container-image is only supported for container-"
+                "based endpoints. The current endpoint is photon-based. "
+                "Use `lep endpoint create --rerun --container-image ...` to switch."
+            )
+            sys.exit(1)
+    # Enforce cserve options must be used with --cserve
+    if cserve_options is not None and not cserve:
+        console.print(
+            "[red]Error[/]: --cserve-options requires --cserve to be specified."
+        )
+        sys.exit(1)
     if remove_tokens:
         # [] means removing all tokens
         tokens = []
@@ -1885,6 +1980,28 @@ def update(
         ),
         auto_scaler=temp_auto_scaler,
     )
+
+    # Apply container image update while preserving existing command/ports if present
+    if container_image is not None:
+        existing_container = (
+            lepton_deployment.spec.container if lepton_deployment.spec else None
+        )
+        lepton_deployment_spec.container = LeptonContainer(
+            image=container_image,
+            command=(existing_container.command if existing_container else None),
+            ports=(existing_container.ports if existing_container else None),
+        )
+
+    # Minimal cserve update support: only set when both flags are provided; validate JSON only
+    if cserve and cserve_options is not None:
+        try:
+            cserve_options_obj = json.loads(cserve_options)
+        except json.JSONDecodeError:
+            console.print(
+                f"[red]Invalid JSON for --cserve-options: {cserve_options}[/]"
+            )
+            sys.exit(1)
+        lepton_deployment_spec.cserve = {"options": cserve_options_obj}
 
     if replica_spread is not None:
         toggle = (
