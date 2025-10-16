@@ -49,7 +49,12 @@ from ..api.v1.types.deployment import (
     SchedulingToggle,
 )
 from ..api.v1.types.photon import PhotonDeploymentTemplate
-from ..api.v1.types.ingress import AuthConfig
+from ..api.v1.types.ingress import (
+    AuthConfig,
+    LoadBalanceConfig,
+    LeastRequestLoadBalancer,
+    MaglevLoadBalancer,
+)
 
 
 def _same_major_version(version_str_list: List[str]) -> bool:
@@ -819,6 +824,32 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     ),
     default=None,
 )
+@click.option(
+    "--ingress-timeout-seconds",
+    type=int,
+    default=None,
+    help=(
+        "Ingress request timeout in seconds (300-6000). If not specified, defaults to"
+        " 300."
+    ),
+)
+@click.option(
+    "--load-balance",
+    type=click.Choice(
+        [
+            "least-request",
+            "sticky-routing-default",
+            "sticky-routing-by-host-name",
+            "sticky-routing-by-resolved-ip",
+        ],
+        case_sensitive=False,
+    ),
+    default=None,
+    help=(
+        "Load balancing strategy: least-request | sticky-routing-default |"
+        " sticky-routing-by-host-name | sticky-routing-by-resolved-ip"
+    ),
+)
 def create(
     name,
     file,
@@ -859,6 +890,8 @@ def create(
     with_reservation,
     allow_burst_to_other_reservation,
     replica_spread,
+    ingress_timeout_seconds,
+    load_balance,
 ):
     """
     Creates an endpoint from either a photon or container image.
@@ -1200,6 +1233,30 @@ def create(
         if log_collection is not None:
             spec.log = LeptonLog(enable_collection=log_collection)
 
+        # Ingress timeout
+        if ingress_timeout_seconds is not None:
+            spec.ingress_timeout_seconds = ingress_timeout_seconds
+
+        # Load balancer config via unified enum
+        if load_balance:
+            lb = load_balance.lower()
+            if lb == "least-request":
+                spec.load_balance_config = LoadBalanceConfig(
+                    least_request=LeastRequestLoadBalancer()
+                )
+            elif lb == "sticky-routing-default":
+                spec.load_balance_config = LoadBalanceConfig(
+                    maglev=MaglevLoadBalancer()
+                )
+            elif lb == "sticky-routing-by-host-name":
+                spec.load_balance_config = LoadBalanceConfig(
+                    maglev=MaglevLoadBalancer(useHostnameForHashing=True)
+                )
+            elif lb == "sticky-routing-by-resolved-ip":
+                spec.load_balance_config = LoadBalanceConfig(
+                    maglev=MaglevLoadBalancer(useHostnameForHashing=False)
+                )
+                
         if privileged:
             if getattr(spec, "user_security_context", None) is None:
                 spec.user_security_context = LeptonUserSecurityContext(privileged=True)
@@ -1652,6 +1709,29 @@ def log(name, replica):
     ),
     default=None,
 )
+@click.option(
+    "--ingress-timeout-seconds",
+    type=int,
+    default=None,
+    help="Ingress request timeout in seconds (300-6000).",
+)
+@click.option(
+    "--load-balance",
+    type=click.Choice(
+        [
+            "least-request",
+            "sticky-routing-default",
+            "sticky-routing-by-host-name",
+            "sticky-routing-by-resolved-ip",
+        ],
+        case_sensitive=False,
+    ),
+    default=None,
+    help=(
+        "Load balancing strategy: least-request | sticky-routing-default |"
+        " sticky-routing-by-host-name | sticky-routing-by-resolved-ip"
+    ),
+)
 def update(
     name,
     id,
@@ -1669,6 +1749,8 @@ def update(
     log_collection,
     shared_memory_size,
     replica_spread,
+    ingress_timeout_seconds,
+    load_balance,
 ):
     """
     Updates an endpoint. Note that for all the update options, changes are made
@@ -1817,6 +1899,34 @@ def update(
     if log_collection is not None:
         lepton_deployment_spec.log = LeptonLog(enable_collection=log_collection)
 
+    # Ingress timeout
+    if ingress_timeout_seconds is not None:
+        lepton_deployment_spec.ingress_timeout_seconds = ingress_timeout_seconds
+
+    # Load balancer config via unified enum
+    if load_balance:
+        lb = load_balance.lower()
+        if lb == "least-request":
+            lepton_deployment_spec.load_balance_config = {
+                "least_request": {"choice_count": None},
+                "maglev": None,
+            }
+        elif lb == "sticky-routing-default":
+            lepton_deployment_spec.load_balance_config = {
+                "least_request": None,
+                "maglev": {"useHostnameForHashing": None},
+            }
+        elif lb == "sticky-routing-by-host-name":
+            lepton_deployment_spec.load_balance_config = {
+                "least_request": None,
+                "maglev": {"useHostnameForHashing": True},
+            }
+        elif lb == "sticky-routing-by-resolved-ip":
+            lepton_deployment_spec.load_balance_config = {
+                "least_request": None,
+                "maglev": {"useHostnameForHashing": False},
+            }
+
     # Set IP access control in auth_config (independent of tokens)
     if public is not None or ip_whitelist is not None:
         if lepton_deployment_spec.auth_config is None:
@@ -1878,10 +1988,11 @@ def update(
 
             console.print("Proceeding with the update...")
 
-    client.deployment.update(
+    updated_lepton_deployment = client.deployment.update(
         name_or_deployment=name,
         spec=new_lepton_deployment,
     )
+    logger.trace(json.dumps(updated_lepton_deployment.model_dump(), indent=2))
     console.print(f"Endpoint [green]{name}[/] updated.")
 
 

@@ -1,6 +1,6 @@
 from enum import Enum
-from pydantic import BaseModel
-from typing import Optional, List
+from pydantic import BaseModel, Field
+from typing import Optional, List, Union, Dict, Any
 from loguru import logger
 
 from .common import Metadata
@@ -13,12 +13,20 @@ class LeastRequestLoadBalancer(BaseModel):
 
 class LoadBalanceConfig(BaseModel):
     least_request: Optional[LeastRequestLoadBalancer] = None
+    maglev: Optional["MaglevLoadBalancer"] = None
+
+
+class MaglevLoadBalancer(BaseModel):
+    # Use hostname instead of resolved IP for hashing
+    use_hostname_for_hashing: Optional[bool] = Field(
+        default=None, alias="useHostnameForHashing"
+    )
 
 
 class LeptonIngressEndpoint(BaseModel):
     deployment: Optional[str] = None
     weight: Optional[int] = None
-    load_balance_config: Optional[LoadBalanceConfig] = None
+    load_balance_config: Optional[Union[LoadBalanceConfig, Dict[str, Any]]] = None
 
 
 class WorkspaceTierRateLimiter(BaseModel):
