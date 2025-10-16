@@ -11,7 +11,6 @@ session, similar to a cloud VM but much more lightweight.
 import subprocess
 import sys
 import json
-from datetime import datetime
 import re
 
 import click
@@ -32,15 +31,20 @@ from .util import (
     _get_only_replica_public_ip,
     _validate_queue_priority,
     apply_nodegroup_and_queue_config,
+    make_name_id_cell,
+    colorize_state,
+    format_timestamp_ms,
 )
 from .util import make_container_ports_from_str_list
 from ..api.v2.client import APIClient
 from ..api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 from ..api.v1.types.deployment import (
+    LeptonDeploymentState,
     ResourceRequirement,
     LeptonLog,
     LeptonContainer,
 )
+from ..api.v1.types.common import LeptonUserSecurityContext
 
 
 console = Console(highlight=False)
@@ -65,6 +69,17 @@ def pod():
     "--name", "-n", type=str, help="Name of the pod to create.", required=True
 )
 @click.option(
+    "--template",
+    "-t",
+    help="Template ID to render the pod specification from.",
+    type=str,
+)
+@click.option(
+    "--run",
+    help='Command string ("run") to substitute into the template.',
+    type=str,
+)
+@click.option(
     "--file",
     "-f",
     type=click.Path(
@@ -83,6 +98,7 @@ def pod():
 )
 @click.option(
     "--resource-shape",
+    "-rs",
     type=str,
     help="Resource shape for the pod. Available types are: '"
     + "', '".join(VALID_SHAPES)
@@ -217,8 +233,16 @@ def pod():
         "reservations starts, your pod may be evicted."
     ),
 )
+@click.option(
+    "--privileged",
+    is_flag=True,
+    default=None,
+    help="Run the pod in privileged mode.",
+)
 def create(
     name,
+    template,
+    run,
     file,
     resource_shape,
     mount,
@@ -234,23 +258,37 @@ def create(
     queue_priority,
     can_be_preempted,
     can_preempt,
+    privileged,
     with_reservation,
     allow_burst_to_other_reservation,
 ):
     """
     Creates a pod with the given resource shape, mount, env and secret.
     """
-    if resource_shape is None and not file:
-        available_types = "\n      ".join(VALID_SHAPES)
-        console.print(
-            "[red]Error: Missing option '--resource-shape'.[/] "
-            f"Available types are:\n      {available_types} \n"
-        )
+
+    client = APIClient()
+
+    # Validate template/file mutual exclusivity
+    if run is not None and template is None:
+        console.print("[red]Error[/]: --run can only be used together with --template.")
         sys.exit(1)
 
-    # Load spec from file if provided
+    if template and file:
+        console.print("[red]Error[/]: --template and --file cannot be used together.")
+        sys.exit(1)
+
     spec_from_file = None
-    if file:
+    if template:
+        try:
+            payload = {"run": run} if run else {}
+            rendered = client.template.render(template, payload, is_pod=True)
+            print("rendered")
+            print(rendered)
+            spec_from_file = rendered.spec
+        except Exception as e:
+            console.print(f"[red]Failed to render pod template[/]: {e}")
+            sys.exit(1)
+    elif file:
         try:
             with open(file, "r") as f:
                 spec_from_file = (
@@ -263,8 +301,6 @@ def create(
             sys.exit(1)
 
     deployment_user_spec = spec_from_file or types.deployment.LeptonDeploymentUserSpec()
-
-    client = APIClient()
 
     if container_image or container_command:
         if container_image is None and not file:
@@ -299,7 +335,13 @@ def create(
             )
         else:
             deployment_user_spec.resource_requirement.resource_shape = resource_shape
-
+    elif not deployment_user_spec.resource_requirement.resource_shape:
+        available_types = "\n      ".join(VALID_SHAPES)
+        console.print(
+            "[red]Error: Missing option '--resource-shape'.[/] "
+            f"Available types are:\n      {available_types} \n"
+        )
+        sys.exit(1)
     # Apply shared node group / queue / reservation config
     try:
         apply_nodegroup_and_queue_config(
@@ -359,6 +401,13 @@ def create(
 
     if log_collection is not None:
         deployment_user_spec.log = LeptonLog(enable_collection=log_collection)
+    if privileged:
+        if getattr(deployment_user_spec, "user_security_context", None) is None:
+            deployment_user_spec.user_security_context = LeptonUserSecurityContext(
+                privileged=True
+            )
+        else:
+            deployment_user_spec.user_security_context.privileged = True
 
     try:
         deployment_spec = types.deployment.LeptonDeployment(
@@ -438,7 +487,14 @@ def get(name, path):
     help="Regular expression pattern to filter pod names.",
     default=None,
 )
-def list_command(pattern):
+@click.option(
+    "--detail",
+    "-d",
+    is_flag=True,
+    default=False,
+    help="Show SSH/TCP/JupyterLab columns in the table.",
+)
+def list_command(pattern, detail):
     """
     Lists all pods in the current workspace.
     """
@@ -482,53 +538,150 @@ def list_command(pattern):
             pod_ips[index] = public_ip
     logger.trace(f"Pod IPs:\n{pod_ips}")
 
-    table = Table(title="pods", show_lines=True)
-    table.add_column("name")
-    table.add_column("resource shape")
-    table.add_column("status")
-    table.add_column("ssh command")
-    table.add_column("TCP port mapping")
-    table.add_column(
-        "TCP port mapping \n (Jupyterlab)",
-        justify="center",
-    )
-    table.add_column("created at")
+    # Build table with Node Group column and Shape moved to the last
+    if not detail:
+        headers = [
+            "Name / ID",
+            "Node Group ID",
+            "State",
+            "User ID",
+            "Created At",
+            "Shape",
+        ]
+    else:
+        headers = [
+            "Name / ID",
+            "Node Group ID",
+            "State",
+            "User ID",
+            "SSH Command",
+            "TCP Port Mapping",
+            "TCP Port Mapping (JupyterLab)",
+            "Created At",
+            "Shape",
+        ]
+
+    dashboard_base_url = client.get_dashboard_base_url()
+    rows = []
+    shape_totals = {}
     for pod, ssh_port, tcp_port, tcp_port_jupyterlab, pod_ip in zip(
         pods, ssh_ports, tcp_ports, tcp_ports_jupyterlab, pod_ips
     ):
-        Jupyter_lab_mapping = (
-            f"{tcp_port_jupyterlab[0]} -> {tcp_port_jupyterlab[1]} \n(pod  -> client)"
-            if tcp_port_jupyterlab
-            else "Not Available"
+        # Pod URLs use name, per existing ssh fallback hints
+        pod_url = (
+            f"{dashboard_base_url}/compute/pods/detail/{pod.metadata.name}/connect"
+            if dashboard_base_url
+            else None
         )
-        table.add_row(
+        name_cell = make_name_id_cell(
             pod.metadata.name,
-            pod.spec.resource_requirement.resource_shape,
-            pod.status.state,
-            (
+            getattr(pod.metadata, "id_", ""),
+            link=pod_url,
+            link_target="name",
+        )
+
+        state_raw = getattr(pod.status, "state", None)
+        state_cell = colorize_state(state_raw)
+
+        if detail:
+            ssh_cmd = (
                 f"ssh -p {ssh_port[1]} root@{pod_ip}"
                 if (pod_ip and ssh_port)
                 else "Not Available"
-            ),
-            (
+            )
+            tcp_map = (
                 f"{tcp_port[0]} -> {tcp_port[1]} \n(pod  -> client)"
                 if tcp_port
                 else "Not Available"
-            ),
-            Jupyter_lab_mapping,
-            datetime.fromtimestamp(pod.metadata.created_at / 1000).strftime(
-                "%Y-%m-%d\n%H:%M:%S"
-            ),
-        )
+            )
+            jupyter_map = (
+                f"{tcp_port_jupyterlab[0]} -> {tcp_port_jupyterlab[1]} \n(pod  ->"
+                " client)"
+                if tcp_port_jupyterlab
+                else "Not Available"
+            )
+
+        created_at = format_timestamp_ms(getattr(pod.metadata, "created_at", None))
+
+        # Node Group(s)
+        ng_list = []
+        rr = pod.spec.resource_requirement if pod.spec else None
+        if (
+            rr
+            and getattr(rr, "affinity", None)
+            and rr.affinity.allowed_dedicated_node_groups
+        ):
+            ng_list = rr.affinity.allowed_dedicated_node_groups
+        ng_str = "\n".join(ng_list).lower() if ng_list else ""
+
+        # Shape
+        shape = rr.resource_shape if rr and rr.resource_shape else "-"
+
+        # Owner
+        owner = getattr(pod.metadata, "owner", "") or ""
+
+        if not detail:
+            row = [
+                name_cell,
+                ng_str,
+                state_cell,
+                owner,
+                created_at,
+                shape,
+            ]
+        else:
+            row = [
+                name_cell,
+                ng_str,
+                state_cell,
+                owner,
+                ssh_cmd,
+                tcp_map,
+                jupyter_map,
+                created_at,
+                shape,
+            ]
+        rows.append(row)
+
+    # Print table
+    table = Table(title="pods", show_lines=True, show_header=True)
+    for h in headers:
+        table.add_column(h)
+    for row in rows:
+        table.add_row(*row)
     console.print(table)
+
+    # Resource Utilization Summary for pods: count pods per shape in active states
+    active_states = {"Ready", "Running", "Starting", "Updating", "Scaling", "Deleting"}
+    for pod in pods:
+        rr = pod.spec.resource_requirement if pod.spec else None
+        shape = rr.resource_shape if rr and rr.resource_shape else "-"
+        state_val = getattr(
+            getattr(pod.status, "state", None),
+            "value",
+            getattr(pod.status, "state", None),
+        )
+        if state_val in active_states:
+            shape_totals[shape] = shape_totals.get(shape, 0) + 1
+
     console.print(
-        "* TCP port mapping(JupyterLab) defaults to the port that JupyterLab"
-        " listens on."
+        f"[bold]Resource Utilization Summary for above [cyan]{len(pods)}[/] pods (Ready"
+        " / Running / Starting / Updating / Scaling / Deleting only):[/]"
     )
-    console.print(
-        "* Your initial ssh password is the workspace token.\n* Use `lep workspace"
-        " token` to get the token if needed."
-    )
+    for shape, total in sorted(
+        shape_totals.items(), key=lambda kv: kv[1], reverse=True
+    ):
+        console.print(f"  [bright_black]{shape}[/] : [bold cyan]{total}[/]")
+    console.print("\n")
+    if detail:
+        console.print(
+            "* TCP port mapping(JupyterLab) defaults to the port that JupyterLab"
+            " listens on."
+        )
+    else:
+        console.print(
+            "* use `lep pod list --detail` to show SSH/TCP/JupyterLab columns."
+        )
     return 0
 
 
@@ -621,6 +774,29 @@ def ssh(name):
         )
         console.print(notice_msg)
         sys.exit(1)
+
+
+@pod.command()
+@click.option("--name", "-n", help="The endpoint name to stop.", required=True)
+def stop(name):
+    """
+    Stops a pod by its name.
+    """
+    client = APIClient()
+    endpoint = client.deployment.get(name)
+    if endpoint.status.state in [
+        LeptonDeploymentState.Stopped,
+        LeptonDeploymentState.Stopping,
+        LeptonDeploymentState.Deleting,
+        LeptonDeploymentState.NotReady,
+    ]:
+        console.print(
+            f"[yellow]⚠ Pod [green]{name}[/] is {endpoint.status.state}. No"
+            " action taken.[/]"
+        )
+        sys.exit(0)
+    client.deployment.stop(name)
+    console.print(f"Pod [green]{name}[/] stopped successfully.")
 
 
 def add_command(cli_group):

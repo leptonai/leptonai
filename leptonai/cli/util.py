@@ -4,7 +4,7 @@ Common utilities for the CLI.
 
 import sys
 import traceback
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 from urllib.parse import urlparse
 
 import click
@@ -42,6 +42,64 @@ def click_group(*args, **kwargs):
     can be shortened to `lep depl` as `depl` uniquely identifies the `deployment` command.
     """
 
+    class _ValidatedCommand(click.Command):
+        """Global guard: forbid empty or whitespace-only string values from CLI.
+
+        This validates only values provided from COMMANDLINE source, and supports
+        both single-value and multiple=True options. It does not change default
+        values or environment-derived values.
+        """
+
+        def invoke(self, ctx):
+            def _is_blank_str(v):
+                return isinstance(v, str) and v.strip() == ""
+
+            for param_name, param_value in ctx.params.items():
+                # Only enforce for values explicitly provided on the command line
+                try:
+                    src = ctx.get_parameter_source(param_name)
+                except Exception:
+                    src = None
+                if src != click.core.ParameterSource.COMMANDLINE:
+                    continue
+
+                # Single string value
+                if _is_blank_str(param_value):
+                    param_obj = next(
+                        (
+                            p
+                            for p in self.params
+                            if getattr(p, "name", None) == param_name
+                        ),
+                        None,
+                    )
+                    msg = (
+                        "must not be empty or only whitespace. Omit the flag instead of"
+                        " passing an empty string."
+                    )
+                    if param_obj is not None:
+                        raise click.BadParameter(msg, param=param_obj)
+                    ctx.fail(f"Option '--{param_name}' {msg}")
+
+                # Multiple values
+                if isinstance(param_value, (list, tuple)) and any(
+                    _is_blank_str(x) for x in param_value
+                ):
+                    param_obj = next(
+                        (
+                            p
+                            for p in self.params
+                            if getattr(p, "name", None) == param_name
+                        ),
+                        None,
+                    )
+                    msg = "contains empty value(s). Remove empty items."
+                    if param_obj is not None:
+                        raise click.BadParameter(msg, param=param_obj)
+                    ctx.fail(f"Option '--{param_name}' {msg}")
+
+            return super().invoke(ctx)
+
     class ClickAliasedGroup(click.Group):
         def get_command(self, ctx, cmd_name):
             rv = click.Group.get_command(self, ctx, cmd_name)
@@ -67,6 +125,18 @@ def click_group(*args, **kwargs):
             # always return the full command name
             _, cmd, args = super().resolve_command(ctx, args)
             return cmd.name, cmd, args
+
+        def command(self, *c_args, **c_kwargs):
+            # Ensure all commands under this group use the empty-string guard by default
+            if "cls" not in c_kwargs:
+                c_kwargs["cls"] = _ValidatedCommand
+            return super().command(*c_args, **c_kwargs)
+
+        def group(self, *g_args, **g_kwargs):
+            # Ensure nested groups also inherit this group's behavior
+            if "cls" not in g_kwargs:
+                g_kwargs["cls"] = ClickAliasedGroup
+            return super().group(*g_args, **g_kwargs)
 
         def invoke(self, ctx):
             try:
@@ -595,3 +665,60 @@ def apply_nodegroup_and_queue_config(
             spec.reservation_config.allow_burst_to_other_reservations = True
 
     return spec
+
+
+def format_timestamp_ms(ms: Optional[int]) -> str:
+    """Format millisecond epoch to 'YYYY-MM-DD\nHH:MM:SS'."""
+    if not ms:
+        return "N/A"
+    from datetime import datetime
+
+    try:
+        return datetime.fromtimestamp(ms / 1000).strftime("%Y-%m-%d\n%H:%M:%S")
+    except Exception:
+        return "N/A"
+
+
+def _stringify_state(state: Optional[Union[str, Any]]) -> str:
+    """Extract string from enum or plain string; fall back to '-'."""
+    if state is None:
+        return "-"
+    value = getattr(state, "value", state)
+    return str(value)
+
+
+def colorize_state(state: Optional[Union[str, Any]]) -> str:
+    """Return rich-markup colored state string (green for Ready/Running)."""
+    text = _stringify_state(state)
+    if text in {"Ready", "Running"}:
+        return f"[green]{text}[/]"
+    return f"[yellow]{text}[/]" if text and text != "-" else "-"
+
+
+def make_name_id_cell(
+    name: Optional[str],
+    id_: Optional[str],
+    *,
+    link: Optional[str] = None,
+    link_target: str = "id",
+) -> str:
+    """Construct a two-line 'Name / ID' cell with optional link on ID or name.
+
+    - Name is bold green (nvidia green #76b900)
+    - ID is dim; if link provided, wrap ID with link markup
+    - If no ID, show only name
+    - If link provided but no ID, we will link the name instead
+    """
+    safe_name = name or "-"
+    safe_id = id_ or ""
+    name_markup = f"[bold #76b900]{safe_name}[/]"
+    if link and safe_id and link_target == "id":
+        id_markup = f"[link={link}][bright_black]{safe_id}[/][/link]"
+    elif link and link_target == "name":
+        # link the name when ID is missing
+        name_markup = f"[link={link}]{name_markup}[/link]"
+        id_markup = ""
+    else:
+        id_markup = f"[bright_black]{safe_id}[/]" if safe_id else ""
+
+    return name_markup if not id_markup else f"{name_markup}\n{id_markup}"

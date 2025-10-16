@@ -16,6 +16,9 @@ from .util import (
     click_group,
     _validate_queue_priority,
     apply_nodegroup_and_queue_config,
+    make_name_id_cell,
+    colorize_state,
+    format_timestamp_ms,
 )
 
 from leptonai.config import (
@@ -28,12 +31,13 @@ from ..api.v2.client import APIClient
 from ..api.v1.deployment import make_token_vars_from_config
 from ..api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 from ..api.v2.workspace_record import WorkspaceRecord
-from ..api.v1.types.common import Metadata, LeptonVisibility
+from ..api.v1.types.common import Metadata, LeptonVisibility, LeptonUserSecurityContext
 from ..api.v1.types.deployment import (
     AutoScaler,
     HealthCheck,
     HealthCheckLiveness,
     LeptonDeployment,
+    LeptonDeploymentState,
     LeptonDeploymentUserSpec,
     LeptonContainer,
     ResourceRequirement,
@@ -299,7 +303,6 @@ def _print_deployments_table(
     table.add_column("Node Group ID")
     table.add_column("Replicas")
     table.add_column("Shape")
-
     shape_totals = {}
 
     def _is_active_state(state_str: str) -> bool:
@@ -312,15 +315,10 @@ def _print_deployments_table(
 
         name = d.metadata.name if d.metadata else "-"
         dep_id = d.metadata.id_ if d.metadata else "-"
-
-        created_ts = (
-            datetime.fromtimestamp((d.metadata.created_at or 0) / 1000).strftime(
-                "%Y-%m-%d\n%H:%M:%S"
-            )
-            if d.metadata and d.metadata.created_at
-            else "N/A"
-        )
-        state = d.status.state.value if d.status and d.status.state else "-"
+        created_ts = format_timestamp_ms(getattr(d.metadata, "created_at", None))
+        state_raw = d.status.state if d.status and d.status.state else "-"
+        state_str = getattr(state_raw, "value", state_raw)
+        state_cell = colorize_state(state_raw)
         owner = d.metadata.owner if d.metadata and d.metadata.owner else ""
 
         ng_list = []
@@ -340,19 +338,16 @@ def _print_deployments_table(
 
         shape = rr.resource_shape if rr and rr.resource_shape else "-"
 
-        dep_url = None
-        if dashboard_base_url:
-            dep_url = f"{dashboard_base_url}/compute/deployments/detail/{dep_id}/demo"
-        name_id_cell = f"[bold #76b900]{name}[/]\n" + (
-            f"[link={dep_url}][bright_black]{dep_id}[/][/link]"
-            if dep_url
-            else f"[bright_black]{dep_id}[/]"
+        dep_url = (
+            f"{dashboard_base_url}/compute/deployments/detail/{dep_id}/demo"
+            if dashboard_base_url and dep_id
+            else None
         )
-
+        name_id_cell = make_name_id_cell(name, dep_id, link=dep_url, link_target="id")
         table.add_row(
             name_id_cell,
             created_ts,
-            f"{state}",
+            state_cell,
             owner or "",
             ng_str,
             desired_disp,
@@ -361,7 +356,7 @@ def _print_deployments_table(
 
         # Utilization summary uses desired only
         workers = desired if desired is not None else 0
-        if _is_active_state(state):
+        if _is_active_state(state_str):
             shape_totals[shape] = shape_totals.get(shape, 0) + workers
 
         count += 1
@@ -507,6 +502,7 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
 )
 @click.option(
     "--resource-shape",
+    "-rs",
     type=str,
     help="Resource shape for the endpoint. Available types are: '"
     + "', '".join(VALID_SHAPES)
@@ -620,6 +616,7 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
 @click.option(
     "--include-workspace-token",
     is_flag=True,
+    hidden=True,
     help=(
         "If specified, the workspace token will be included as an environment"
         " variable. This is used when the photon code uses Lepton SDK capabilities such"
@@ -751,6 +748,12 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     ),
 )
 @click.option(
+    "--privileged",
+    is_flag=True,
+    default=None,
+    help="Run the endpoint in privileged mode.",
+)
+@click.option(
     "--node-id",
     "-ni",
     "node_ids",
@@ -878,6 +881,7 @@ def create(
     autoscale_gpu_util,
     autoscale_qpm,
     log_collection,
+    privileged,
     node_ids,
     queue_priority,
     can_be_preempted,
@@ -900,6 +904,15 @@ def create(
             "[red]Error[/]: Cannot specify both --public and --ip-whitelist. "
             "Use --public for public access or --ip-whitelist for restricted access. "
             "Note that --tokens can be used with either option."
+        )
+        sys.exit(1)
+    if public is None or public is False and not ip_whitelist and len(tokens) == 0:
+        console.print(
+            "\n[red]Access configuration required[/]: non-public endpoints must specify"
+            " access controls.\n\n[white]Options:[/white]\n  • [green]--public[/] –"
+            " public access\n  • [green]--tokens[/] – token-based auth (can be used"
+            " alone)\n  • [green]--ip-whitelist[/] – IP allowlist (can be used alone)\n"
+            "  • [green]--tokens[/] + [green]--ip-whitelist[/] – can be combined\n"
         )
         sys.exit(1)
 
@@ -1243,6 +1256,12 @@ def create(
                 spec.load_balance_config = LoadBalanceConfig(
                     maglev=MaglevLoadBalancer(useHostnameForHashing=False)
                 )
+                
+        if privileged:
+            if getattr(spec, "user_security_context", None) is None:
+                spec.user_security_context = LeptonUserSecurityContext(privileged=True)
+            else:
+                spec.user_security_context.privileged = True
 
     except ValueError as e:
         console.print(
@@ -1539,6 +1558,7 @@ def log(name, replica):
 )
 @click.option(
     "--resource-shape",
+    "-rs",
     help="Resource shape for the pod. Available types are: '"
     + "', '".join(VALID_SHAPES)
     + "'.",
@@ -1551,7 +1571,7 @@ def log(name, replica):
     help=(
         "If --public is specified, the endpoint will be made public. If --no-public"
         " is specified, the endpoint will be made non-public, with access tokens"
-        " being the workspace token and the tokens specified by --tokens. If neither is"
+        " specified by --tokens. If neither is"
         " specified, no change will be made to the access control of the endpoint."
     ),
 )
@@ -1572,8 +1592,7 @@ def log(name, replica):
     help=(
         "Access tokens that can be used to access the endpoint. See docs for"
         " details on access control. If no tokens is specified, we will not change the"
-        " tokens of the endpoint. If you want to remove all additional tokens, use"
-        "--remove-tokens."
+        " tokens of the endpoint. "
     ),
     multiple=True,
 )
@@ -1581,6 +1600,7 @@ def log(name, replica):
     "--remove-tokens",
     is_flag=True,
     default=False,
+    hidden=True,
     help=(
         "If specified, all additional tokens will be removed, and the endpoint will"
         " be either public (if --public) is specified, or only accessible with the"
@@ -1747,6 +1767,13 @@ def update(
             "[red]Error[/]: Cannot specify both --public and --ip-whitelist. "
             "Use --public for public access or --ip-whitelist for restricted access. "
             "Note that --tokens can be used with either option."
+        )
+        sys.exit(1)
+
+    if public is not None and public is False and len(tokens) == 0 or remove_tokens:
+        console.print(
+            "[red]Error[/]: Cannot update a deployment from public access to token"
+            " access without any tokens. "
         )
         sys.exit(1)
 
@@ -1998,17 +2025,6 @@ def events(name):
     console.print(table)
 
 
-def add_command(cli_group):
-    # Clone commands from hidden `deployment` group to visible `endpoint` group.
-    for _name, _cmd in deployment.commands.items():
-        if _name not in endpoint.commands:
-            endpoint.add_command(_cmd, name=_name)
-
-    # Register groups: keep `deployment` for backward-compatibility (hidden), add visible `endpoint`.
-    cli_group.add_command(deployment, name="deployment")
-    cli_group.add_command(endpoint, name="endpoint")
-
-
 @deployment.command()
 @click.option("--name", "-n", help="Endpoint name", required=True, type=str)
 @click.option(
@@ -2063,3 +2079,37 @@ def get(name, path):
         except Exception as e:
             console.print(f"[red]Failed to save spec: {e}[/]")
             sys.exit(1)
+
+
+@deployment.command()
+@click.option("--name", "-n", help="The endpoint name to stop.", required=True)
+def stop(name):
+    """
+    Stops a deployment by its name.
+    """
+    client = APIClient()
+    endpoint = client.deployment.get(name)
+    if endpoint.status.state in [
+        LeptonDeploymentState.Stopped,
+        LeptonDeploymentState.Stopping,
+        LeptonDeploymentState.Deleting,
+        LeptonDeploymentState.NotReady,
+    ]:
+        console.print(
+            f"[yellow]⚠ Deployment [green]{name}[/] is {endpoint.status.state}. No"
+            " action taken.[/]"
+        )
+        sys.exit(0)
+    client.deployment.stop(name)
+    console.print(f"Deployment [green]{name}[/] stopped successfully.")
+
+
+def add_command(cli_group):
+    # Clone commands from hidden `deployment` group to visible `endpoint` group.
+    for _name, _cmd in deployment.commands.items():
+        if _name not in endpoint.commands:
+            endpoint.add_command(_cmd, name=_name)
+
+    # Register groups: keep `deployment` for backward-compatibility (hidden), add visible `endpoint`.
+    cli_group.add_command(deployment, name="deployment")
+    cli_group.add_command(endpoint, name="endpoint")

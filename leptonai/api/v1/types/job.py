@@ -4,7 +4,7 @@ from typing import Optional, List, Any
 from loguru import logger
 
 from .affinity import LeptonResourceAffinity
-from .common import Metadata
+from .common import Metadata, LeptonUserSecurityContext
 from .deployment import (
     LeptonContainer,
     LeptonMetrics,
@@ -22,6 +22,12 @@ class LeptonJobTimeSchedule(BaseModel):
     """Schedule for job execution time."""
 
     start_at: Optional[int] = None  # StartAt is unix time in seconds
+
+
+class LeptonJobSegmentConfig(BaseModel):
+    """Segment configuration for segmented job execution."""
+
+    count_per_segment: int
 
 
 class LeptonJobUserSpec(BaseModel):
@@ -42,13 +48,14 @@ class LeptonJobUserSpec(BaseModel):
     image_pull_secrets: Optional[List[str]] = []
     ttl_seconds_after_finished: Optional[int] = DefaultTTLSecondsAfterFinished
     intra_job_communication: Optional[bool] = None
-    privileged: Optional[bool] = None
+    user_security_context: Optional[LeptonUserSecurityContext] = None
     metrics: Optional[LeptonMetrics] = None
     log: Optional[LeptonLog] = None
     queue_config: Optional[QueueConfig] = None
     stopped: Optional[bool] = None
     reservation_config: Optional[ReservationConfig] = None
     time_schedule: Optional[LeptonJobTimeSchedule] = None
+    segment_config: Optional[LeptonJobSegmentConfig] = None
 
     # --- ensure backend-required defaults when value is null/absent when using templates ---
     @field_validator("completions", "parallelism", mode="before")

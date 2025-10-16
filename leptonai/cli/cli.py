@@ -29,6 +29,7 @@ from . import workspace
 from . import ingress
 from . import log
 from . import raycluster
+from . import template
 
 from .util import click_group
 
@@ -81,6 +82,7 @@ node.add_command(lep)
 ingress.add_command(lep)
 log.add_command(lep)
 raycluster.add_command(lep)
+template.add_command(lep)
 
 
 @lep.command()

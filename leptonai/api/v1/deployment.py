@@ -2,7 +2,7 @@ import warnings
 from typing import Union, List, Iterator, Optional
 
 from .api_resource import APIResourse
-from .types.deployment import LeptonDeployment, TokenVar, TokenValue
+from .types.deployment import LeptonDeployment, TokenVar
 from .types.events import LeptonEvent
 from .types.readiness import ReadinessIssue
 from .types.termination import DeploymentTerminations
@@ -15,12 +15,21 @@ def make_token_vars_from_config(
     # Note that None is different from [] here. None means that the tokens are not
     # changed, while [] means that the tokens are cleared (aka, no tokens)
 
+    if is_public and tokens:
+        raise ValueError(
+            "For access control, you cannot specify both is_public and token at the"
+            " same time. Please specify either is_public=True with no tokens passed"
+            " in, or is_public=False and tokens as a list."
+        )
     # If no changes to tokens are requested, return None (no change)
-    if tokens is None:
+    if tokens is None and is_public is None:
         return None
 
-    # Build token list: always include workspace token, plus any additional tokens
-    final_tokens = [TokenVar(value_from=TokenValue(token_name_ref="WORKSPACE_TOKEN"))]
+    if is_public:
+        return []
+
+    # Workspace token is no longer accessible
+    final_tokens = []
     if tokens:
         final_tokens.extend([TokenVar(value=token) for token in tokens])
     return final_tokens
@@ -76,6 +85,29 @@ class DeploymentAPI(APIResourse):
         response = self._patch(
             f"/deployments/{self._to_name(name_or_deployment)+dryrun_param}",
             json=self.safe_json(spec),
+        )
+        return self.ensure_type(response, LeptonDeployment)
+
+    def stop(
+        self, name_or_deployment: Union[str, LeptonDeployment]
+    ) -> LeptonDeployment:
+        """Scale the deployment down to zero replicas via PATCH.
+
+        This issues a partial update equivalent to:
+        {
+          "spec": { "resource_requirement": { "min_replicas": 0 } }
+        }
+        """
+        payload = {
+            "spec": {
+                "resource_requirement": {
+                    "min_replicas": 0,
+                }
+            }
+        }
+        response = self._patch(
+            f"/deployments/{self._to_name(name_or_deployment)}",
+            json=payload,
         )
         return self.ensure_type(response, LeptonDeployment)
 

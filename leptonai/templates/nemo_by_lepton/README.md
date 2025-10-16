@@ -14,7 +14,7 @@ To customize the deployment, you can set the following environmental variables.
 ```python
 import requests
 
-url = 'https://{WORKSPACE_NAME}-{DEPLOYMENT_NAME}.tin.lepton.run/transcribe_audio'
+url = 'https://{WORKSPACE_NAME}-{DEPLOYMENT_NAME}.xenon.lepton.run/transcribe_audio'
 
 headers = {
     'Authorization': f'Bearer {API_KEY}'
