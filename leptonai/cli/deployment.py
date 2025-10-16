@@ -1292,7 +1292,7 @@ def create(
                 spec.load_balance_config = LoadBalanceConfig(
                     maglev=MaglevLoadBalancer(useHostnameForHashing=False)
                 )
-                
+
         if privileged:
             if getattr(spec, "user_security_context", None) is None:
                 spec.user_security_context = LeptonUserSecurityContext(privileged=True)
