@@ -44,6 +44,7 @@ from ..api.v1.types.deployment import (
     LeptonLog,
     LeptonContainer,
 )
+from ..api.v1.types.common import LeptonUserSecurityContext
 
 
 console = Console(highlight=False)
@@ -97,6 +98,7 @@ def pod():
 )
 @click.option(
     "--resource-shape",
+    "-rs",
     type=str,
     help="Resource shape for the pod. Available types are: '"
     + "', '".join(VALID_SHAPES)
@@ -231,6 +233,12 @@ def pod():
         "reservations starts, your pod may be evicted."
     ),
 )
+@click.option(
+    "--privileged",
+    is_flag=True,
+    default=None,
+    help="Run the pod in privileged mode.",
+)
 def create(
     name,
     template,
@@ -250,6 +258,7 @@ def create(
     queue_priority,
     can_be_preempted,
     can_preempt,
+    privileged,
     with_reservation,
     allow_burst_to_other_reservation,
 ):
@@ -392,6 +401,13 @@ def create(
 
     if log_collection is not None:
         deployment_user_spec.log = LeptonLog(enable_collection=log_collection)
+    if privileged:
+        if getattr(deployment_user_spec, "user_security_context", None) is None:
+            deployment_user_spec.user_security_context = LeptonUserSecurityContext(
+                privileged=True
+            )
+        else:
+            deployment_user_spec.user_security_context.privileged = True
 
     try:
         deployment_spec = types.deployment.LeptonDeployment(

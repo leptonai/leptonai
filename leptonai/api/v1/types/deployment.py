@@ -6,7 +6,7 @@ from loguru import logger
 from leptonai.config import compatible_field_validator, v2only_field_validator
 
 from .affinity import LeptonResourceAffinity
-from .common import Metadata
+from .common import Metadata, LeptonUserSecurityContext
 from .auth import AuthConfig
 
 DEFAULT_STORAGE_VOLUME_NAME = "default"
@@ -287,7 +287,7 @@ class LeptonDeploymentUserSpec(BaseModel):
     image_pull_secrets: Optional[List[str]] = None
     health: Optional[HealthCheck] = None
     is_pod: Optional[bool] = None
-    privileged: Optional[bool] = None
+    user_security_context: Optional[LeptonUserSecurityContext] = None
     log: Optional[LeptonLog] = None
     metrics: Optional[LeptonMetrics] = None
     routing_policy: Optional[LeptonRoutingPolicy] = None

@@ -31,7 +31,7 @@ from ..api.v2.client import APIClient
 from ..api.v1.deployment import make_token_vars_from_config
 from ..api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 from ..api.v2.workspace_record import WorkspaceRecord
-from ..api.v1.types.common import Metadata, LeptonVisibility
+from ..api.v1.types.common import Metadata, LeptonVisibility, LeptonUserSecurityContext
 from ..api.v1.types.deployment import (
     AutoScaler,
     HealthCheck,
@@ -497,6 +497,7 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
 )
 @click.option(
     "--resource-shape",
+    "-rs",
     type=str,
     help="Resource shape for the endpoint. Available types are: '"
     + "', '".join(VALID_SHAPES)
@@ -742,6 +743,12 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     ),
 )
 @click.option(
+    "--privileged",
+    is_flag=True,
+    default=None,
+    help="Run the endpoint in privileged mode.",
+)
+@click.option(
     "--node-id",
     "-ni",
     "node_ids",
@@ -843,6 +850,7 @@ def create(
     autoscale_gpu_util,
     autoscale_qpm,
     log_collection,
+    privileged,
     node_ids,
     queue_priority,
     can_be_preempted,
@@ -1192,6 +1200,12 @@ def create(
         if log_collection is not None:
             spec.log = LeptonLog(enable_collection=log_collection)
 
+        if privileged:
+            if getattr(spec, "user_security_context", None) is None:
+                spec.user_security_context = LeptonUserSecurityContext(privileged=True)
+            else:
+                spec.user_security_context.privileged = True
+
     except ValueError as e:
         console.print(
             f"Error encountered while processing endpoint configs:\n[red]{e}[/]."
@@ -1487,6 +1501,7 @@ def log(name, replica):
 )
 @click.option(
     "--resource-shape",
+    "-rs",
     help="Resource shape for the pod. Available types are: '"
     + "', '".join(VALID_SHAPES)
     + "'.",

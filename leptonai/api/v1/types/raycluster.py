@@ -6,17 +6,8 @@ from loguru import logger
 from leptonai.config import compatible_field_validator, v2only_field_validator
 
 from .affinity import LeptonResourceAffinity
-from .common import Metadata
+from .common import Metadata, LeptonUserSecurityContext
 from .deployment import EnvVar, Mount, QueueConfig, ReservationConfig
-
-
-class RayUserSecurityContext(BaseModel):
-    """
-    User security context controlling user privileges within the container.
-    """
-
-    no_specific_user: Optional[bool] = None
-    privileged: Optional[bool] = None
 
 
 class RayClusterCommonGroupSpec(BaseModel):
@@ -48,7 +39,7 @@ class RayClusterCommonGroupSpec(BaseModel):
     envs: Optional[List[EnvVar]] = None
     mounts: Optional[List[Mount]] = None
     queue_config: Optional[QueueConfig] = None
-    user_security_context: Optional[RayUserSecurityContext] = None
+    user_security_context: Optional[LeptonUserSecurityContext] = None
     reservation_config: Optional[ReservationConfig] = None
 
     @compatible_field_validator("min_replicas")

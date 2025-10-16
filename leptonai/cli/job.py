@@ -42,6 +42,7 @@ from leptonai.api.v1.types.deployment import (
     LeptonLog,
 )
 from leptonai.api.v2.client import APIClient
+from leptonai.api.v1.types.common import LeptonUserSecurityContext
 
 
 def _warn_state_patterns(ctx, param, value):
@@ -713,7 +714,12 @@ def create(
 
     # Configure advanced settings
     if privileged:
-        job_spec.privileged = privileged
+        if getattr(job_spec, "user_security_context", None) is None:
+            job_spec.user_security_context = LeptonUserSecurityContext(
+                privileged=privileged
+            )
+        else:
+            job_spec.user_security_context.privileged = privileged
     if ttl_seconds_after_finished:
         job_spec.ttl_seconds_after_finished = ttl_seconds_after_finished
     if log_collection is not None:
@@ -769,6 +775,8 @@ def create(
     logger.trace(json.dumps(job.model_dump(), indent=2))
     # Create job and display success message
     created_job = client.job.create(job)
+    logger.trace(f"Created job: {12 * '='}")
+    logger.trace(json.dumps(created_job.model_dump(), indent=2))
     new_job_id = created_job.metadata.id_
     console.print(
         f"🎉 [green]Job Created Successfully![/]\nName: [blue]{name}[/]\nID:"
