@@ -272,6 +272,23 @@ def _parse_ip_whitelist(ip_whitelist_values):
     return parsed_ips
 
 
+def _validate_ip_whitelist_flag_requires_value(ctx, param, value):
+    """Reject option-like tokens and validate IP/CIDR tokens for --ip-whitelist."""
+    if value is None:
+        return value
+
+    values = value if isinstance(value, tuple) else (value,)
+    for v in values:
+        if not isinstance(v, str) or v.strip() == "" or v.strip().startswith("-"):
+            opt_name = (
+                param.opts[-1] if getattr(param, "opts", None) else "--ip-whitelist"
+            )
+            raise click.UsageError(
+                f"Option '{opt_name}' requires an argument.", ctx=ctx
+            )
+    return value
+
+
 @click_group(hidden=True)
 def deployment():
     """
@@ -567,6 +584,7 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
         "Note: --tokens are completely independent of IP access control."
     ),
     multiple=True,
+    callback=_validate_ip_whitelist_flag_requires_value,
 )
 @click.option(
     "--tokens",
@@ -1586,6 +1604,7 @@ def log(name, replica):
         "deployment's authentication configuration."
     ),
     multiple=True,
+    callback=_validate_ip_whitelist_flag_requires_value,
 )
 @click.option(
     "--tokens",
