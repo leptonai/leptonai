@@ -839,7 +839,10 @@ def create(
     "-ia",
     is_flag=True,
     default=False,
-    help="Include archived jobs in the list. Please use full user id to filter archived jobs.",
+    help=(
+        "Include archived jobs in the list. Please use full user id to filter archived"
+        " jobs."
+    ),
 )
 def list_command(state, user, name_or_id, node_group, include_archived):
     """
@@ -878,7 +881,10 @@ def list_command(state, user, name_or_id, node_group, include_archived):
 
     jobs = client.job.list_all(**list_params)
     if len(jobs) == 0 and include_archived:
-        console.print("[yellow]No jobs matched your filters.[/] \n[dim]Note[/]: Please use full user id to filter archived jobs.")
+        console.print(
+            "[yellow]No jobs matched your filters.[/] \n[dim]Note[/]: Please use full"
+            " user id to filter archived jobs."
+        )
         sys.exit(0)
 
     _display_jobs_table(jobs, dashboard_base_url=client.get_dashboard_base_url())
@@ -1268,7 +1274,10 @@ def remove(id, name):
         if job:
             target_job_ids.append(job.metadata.id_)
         else:
-            console.print(f"No job found with name [red]{name}[/]. \n [dim]Note: This command only alive jobs could be removed.[/]")
+            console.print(
+                f"No job found with name [red]{name}[/]. \n [dim]Note: This command"
+                " only alive jobs could be removed.[/]"
+            )
             sys.exit(1)
 
     for job_id in target_job_ids:

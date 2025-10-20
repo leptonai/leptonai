@@ -517,7 +517,9 @@ def _get_valid_node_ids(node_group_ids: [str], node_ids: [str]):
     return valid_nodes_id
 
 
-def _get_newest_job_by_name(job_name: str, job_query_mode: str = "alive_and_archive") -> LeptonJob:
+def _get_newest_job_by_name(
+    job_name: str, job_query_mode: str = "alive_and_archive"
+) -> LeptonJob:
     client = get_client()
 
     job_list = client.job.list_all(q=job_name, job_query_mode=job_query_mode)
