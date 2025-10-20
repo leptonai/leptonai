@@ -24,3 +24,4 @@ Lepton AI web APIs usually return two types of responses:
 
 from . import v0
 from . import v1
+from . import v2
