@@ -1177,7 +1177,7 @@ def get(name, id, path):
         target_jobs.append(job)
 
     if name:
-        jobs = client.job.list_all()
+        jobs = client.job.list_all(job_query_mode="alive_and_archive", q=name)
         for job in jobs:
             if job.metadata.name == name:
                 target_jobs.append(job)
@@ -1410,6 +1410,7 @@ def stop(id):
     """
     client = APIClient()
     cur_job = client.job.get(id)
+    
     if cur_job.spec.stopped is True or cur_job.status.state in [
         LeptonJobState.Stopped,
         LeptonJobState.Stopping,
