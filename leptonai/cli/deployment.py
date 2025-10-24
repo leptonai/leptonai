@@ -594,10 +594,10 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--public",
     is_flag=True,
     help=(
-        "Make the endpoint public (no IP restriction). "
-        "Mutually exclusive with --ip-whitelist. "
-        "Can be combined with --tokens (public + tokens); '--public --tokens' is equivalent to '--tokens'. "
-        "If neither --ip-whitelist nor --tokens is provided, the endpoint defaults to public access."
+        "Make the endpoint public (no IP restriction). Mutually exclusive with"
+        " --ip-whitelist. Can be combined with --tokens (public + tokens); '--public"
+        " --tokens' is equivalent to '--tokens'. If neither --ip-whitelist nor --tokens"
+        " is provided, the endpoint defaults to public access."
     ),
 )
 @click.option(
@@ -956,7 +956,8 @@ def create(
         sys.exit(1)
     if public is None or public is False and not ip_whitelist and len(tokens) == 0:
         console.print(
-            "\n[yellow]Warning[/]: You are about to create a publicly accessible endpoint"
+            "\n[yellow]Warning[/]: You are about to create a publicly accessible"
+            " endpoint"
         )
         console.print(
             "\n[white]Access control options:[/white]\n"
@@ -965,11 +966,14 @@ def create(
             "  • [green]--tokens[/] — token-based access (works with either above;\n"
             "    ('[cyan]--public --tokens[/]' is equivalent to '[cyan]--tokens[/]')\n"
         )
-        
+
         try:
             if sys.stdin.isatty():
                 import click
-                if not click.confirm("Continue to create as public without tokens?", default=False):
+
+                if not click.confirm(
+                    "Continue to create as public without tokens?", default=False
+                ):
                     sys.exit(1)
             else:
                 pass
@@ -1931,7 +1935,6 @@ def update(
             "[red]Error[/]: --cserve-options requires --cserve to be specified."
         )
         sys.exit(1)
-
 
     autoscaler_flag = (
         replicas_static is not None
