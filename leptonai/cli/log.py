@@ -9,6 +9,7 @@ from ..api.v2.client import APIClient
 
 import json
 import click
+import time
 
 from datetime import datetime, timedelta, timezone
 from rich.progress import Progress
@@ -271,7 +272,8 @@ def log():
     "--limit",
     type=int,
     default=None,
-    help="[Not recommended]The maximum number of result lines to return. If not specified, all logs in the time range will be returned.",
+    help="[Deprecated] This option is deprecated and not recommended.",
+    hidden=True,
 )
 @click.option(
     "--path",
@@ -299,6 +301,18 @@ def log():
     default=False,
     help="Without timestamp",
 )
+@click.option(
+    "--workers",
+    "-w",
+    type=click.IntRange(1, 128),
+    default=None,
+    show_default=False,
+    help=(
+        "Set the number of concurrent worker threads for fetching logs. "
+        "Effective only when --limit is not used. Defaults to 32 when unspecified. "
+        "Note: --limit is deprecated and not recommended."
+    ),
+)
 def log_command(
     deployment,
     job,
@@ -311,12 +325,32 @@ def log_command(
     path,
     query,
     without_timestamp,
+    workers,
 ):
     """
     Retrieve and display logs from deployments, jobs, or replicas.
 
-    This command fetches logs from Lepton resources within a specified time range.
-    You can retrieve logs from deployments, jobs (by ID or name), or specific replicas.
+    IMPORTANT:
+    - 'lep log get' and 'lep log get --path' are intended for lightweight jobs and
+      short time ranges.
+    - They are NOT recommended for downloading logs of long-running jobs with many
+      replicas.
+    - Prefer using Workspace Dashboard -> Settings -> Logs Export for downloading
+      large-volume logs (jobs/endpoints long-running or with many replicas).
+    - Concurrency (workers) is applied only when --limit is NOT used.
+    - --limit is deprecated and not recommended. When set, logs will be fetched
+      sequentially without parallelism. It will be removed in a future release.
+    - Interactive mode (next/last/time+/time-) is deprecated and not recommended.
+      It will be removed in a future release.
+
+    JOB DEFAULT TIME RANGE:
+    - For jobs, --start/--end can be omitted. If omitted, the job's creation_time
+      and completion_time (when available) will be used automatically.
+
+    EXAMPLE:
+    # Get logs from a job by ID using default job time range
+    lep log get -j job-abc123
+    lep log get -j job-abc123 --path ./logs/
 
     TIME FORMATS:
     All times must be in UTC. Supported formats include:
@@ -337,14 +371,6 @@ def log_command(
 
     # Save logs to file
     lep log get -d my-deployment --start "today 09:00" --end now --path ./logs/
-
-    INTERACTIVE MODE:
-    After displaying logs, you can use interactive commands:
-    - 'next 10' - Get next 10 log lines
-    - 'last 20' - Get previous 20 log lines
-    - 'time+ 30.5s' - Get logs 30.5 seconds after current range
-    - 'time- 2.1s' - Get logs 2.1 seconds before current range
-    - 'quit' - Exit interactive mode
     """
 
     if (
@@ -415,17 +441,19 @@ def log_command(
             sys.exit(1)
         
         if limit is None:
+            
             time_range = unix_end - unix_start
             MIN_SLOT_NS = 1_000_000_000
-            time_slot = max(MIN_SLOT_NS, time_range // 160)
+            time_slot = max(MIN_SLOT_NS, time_range // 1600)
 
             time_windows = []
             for start_ns in range(unix_start, unix_end, time_slot):
                 end_ns = min(start_ns + time_slot, unix_end)
                 time_windows.append((start_ns, end_ns))
             log_list = [[]for _ in range(len(time_windows))]
+            start_perf = time.perf_counter()
             with Progress() as progress:
-                worker_count = min(len(time_windows), 32)
+                worker_count = min(len(time_windows), workers) if workers is not None else min(len(time_windows), 32)
                 with ThreadPoolExecutor(max_workers=worker_count) as executor:
                     task = progress.add_task("Fetching logs...", total=len(time_windows))
                     futures = []
@@ -490,13 +518,14 @@ def log_command(
                                 else:
                                     future_complete_list[index] = True
                                     progress.update(task, advance=1)
+                            elapsed_sec = time.perf_counter() - start_perf
                             f.write(
                                 f"Time range: UTC|{first_utc_time} → "
                                 f"UTC|{last_utc_time} | total {total_lines} lines \n"
                             )
                         console.print(
-                            f"\nTime range: UTC|{first_utc_time} → "
-                            f"UTC|{last_utc_time} | total {total_lines} lines \n"
+                            f"\n[bold]Time range[/]: [bold cyan]UTC|{first_utc_time}[/] → [blue]UTC|{last_utc_time}[/]\n"
+                            f"[bold]Total[/]: [green]{total_lines}[/] lines \n[bold cyan]Duration[/]: [magenta]{elapsed_sec:.2f}s[/]\n"
                         )
                         console.print(
                             f"\n[bold green]Successfully saved the log to:[/bold green] {path}\n"
