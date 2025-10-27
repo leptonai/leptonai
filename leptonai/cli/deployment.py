@@ -594,9 +594,10 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--public",
     is_flag=True,
     help=(
-        "If specified, the endpoint will be accessible from any IP address. "
-        "This is equivalent to --ip-whitelist with an empty list. "
-        "Mutually exclusive with --ip-whitelist."
+        "Make the endpoint public (no IP restriction). Mutually exclusive with"
+        " --ip-whitelist. Can be combined with --tokens (public + tokens); '--public"
+        " --tokens' is equivalent to '--tokens'. If neither --ip-whitelist nor --tokens"
+        " is provided, the endpoint defaults to public access."
     ),
 )
 @click.option(
@@ -955,13 +956,29 @@ def create(
         sys.exit(1)
     if public is None or public is False and not ip_whitelist and len(tokens) == 0:
         console.print(
-            "\n[red]Access configuration required[/]: non-public endpoints must specify"
-            " access controls.\n\n[white]Options:[/white]\n  • [green]--public[/] –"
-            " public access\n  • [green]--tokens[/] – token-based auth (can be used"
-            " alone)\n  • [green]--ip-whitelist[/] – IP allowlist (can be used alone)\n"
-            "  • [green]--tokens[/] + [green]--ip-whitelist[/] – can be combined\n"
+            "\n[yellow]Warning[/]: You are about to create a publicly accessible"
+            " endpoint"
         )
-        sys.exit(1)
+        console.print(
+            "\n[white]Access control options:[/white]\n"
+            "  • [green]--public[/] — public access (default)\n"
+            "  • [green]--ip-whitelist[/] — restrict by IP/CIDR\n"
+            "  • [green]--tokens[/] — token-based access (works with either above;\n"
+            "    ('[cyan]--public --tokens[/]' is equivalent to '[cyan]--tokens[/]')\n"
+        )
+
+        try:
+            if sys.stdin.isatty():
+                import click
+
+                if not click.confirm(
+                    "Continue to create as public without tokens?", default=False
+                ):
+                    sys.exit(1)
+            else:
+                pass
+        except Exception:
+            sys.exit(1)
 
     # Enforce cserve options must be used with --cserve
     if cserve_options is not None and not cserve:
@@ -1638,14 +1655,15 @@ def log(name, replica):
     default=None,
 )
 @click.option(
-    "--public/--no-public",
+    "--public",
     is_flag=True,
     default=None,
     help=(
-        "If --public is specified, the endpoint will be made public. If --no-public"
-        " is specified, the endpoint will be made non-public, with access tokens"
-        " specified by --tokens. If neither is"
-        " specified, no change will be made to the access control of the endpoint."
+        "Make the endpoint public (clears IP allowlist). "
+        "To restrict access, use --ip-whitelist. "
+        "Mutually exclusive with --ip-whitelist. "
+        "Note: public can be combined with --tokens; tokens are independent and "
+        "will not be removed unless explicitly updated (use --remove-tokens to clear)."
     ),
 )
 @click.option(
@@ -1860,10 +1878,10 @@ def update(
         )
         sys.exit(1)
 
-    if public is not None and public is False and len(tokens) == 0 or remove_tokens:
+    if tokens and remove_tokens:
         console.print(
-            "[red]Error[/]: Cannot update a deployment from public access to token"
-            " access without any tokens. "
+            "[red]Error[/]: Cannot specify both --tokens and --remove-tokens. "
+            "Use --tokens to specify tokens or --remove-tokens to remove all tokens. "
         )
         sys.exit(1)
 
@@ -1917,12 +1935,6 @@ def update(
             "[red]Error[/]: --cserve-options requires --cserve to be specified."
         )
         sys.exit(1)
-    if remove_tokens:
-        # [] means removing all tokens
-        tokens = []
-    elif len(tokens) == 0:
-        # None means no change
-        tokens = None
 
     autoscaler_flag = (
         replicas_static is not None
@@ -1981,6 +1993,16 @@ def update(
         x is not None
         for x in (min_replicas, max_replicas, resource_shape, shared_memory_size)
     )
+    # Decide api_tokens update explicitly:
+    # - If --remove-tokens: clear to []
+    # - If --tokens provided: rebuild via make_token_vars_from_config (ignore is_public)
+    # - Else: do not change (pass None)
+    api_tokens_payload = None
+    if remove_tokens:
+        api_tokens_payload = []
+    elif len(tokens) > 0:
+        api_tokens_payload = make_token_vars_from_config(is_public=None, tokens=tokens)
+
     lepton_deployment_spec = LeptonDeploymentUserSpec(
         photon_id=id,
         resource_requirement=(
@@ -1993,10 +2015,7 @@ def update(
             if update_resource_requirement_flag
             else None
         ),
-        api_tokens=make_token_vars_from_config(
-            is_public=public,
-            tokens=tokens,
-        ),
+        api_tokens=api_tokens_payload,
         auto_scaler=temp_auto_scaler,
     )
 
@@ -2064,14 +2083,14 @@ def update(
             }
 
     # Set IP access control in auth_config (independent of tokens)
-    if public is not None or ip_whitelist is not None:
+    if public is not None or len(ip_whitelist) > 0:
         if lepton_deployment_spec.auth_config is None:
             lepton_deployment_spec.auth_config = AuthConfig()
 
         if public:
             # Public means accessible from any IP (no IP restrictions)
             lepton_deployment_spec.auth_config.ip_allowlist = []
-        elif ip_whitelist is not None:
+        elif len(ip_whitelist) > 0:
             # IP whitelist means only accessible from specified IPs
             parsed_ips = _parse_ip_whitelist(ip_whitelist)
             lepton_deployment_spec.auth_config.ip_allowlist = parsed_ips
