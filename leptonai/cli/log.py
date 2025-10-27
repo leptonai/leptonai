@@ -179,34 +179,43 @@ def safe_load_json(string):
         return string
 
 
-def fetch_all_within_time_slot(deployment, job, replica, job_history_name, query, time_start, time_end, cur_log_result):
-        client = APIClient()
-        while time_end >= time_start:
-            log_dict = client.log.get_log(
-                name_or_deployment=deployment,
-                name_or_job=job,
-                replica=replica,
-                job_history_name=job_history_name,
-                start=time_start,
-                end=time_end,
-                limit=10000,
-                q=query
-            )
-            
-            lines = log_dict["data"]["result"]
-            cur_log_list = []
-            for line in lines:
-                values = line["values"]
-                for value in values:
-                    cur_log_list.append((int(value[0]), value[1]))
-            
-            if len(cur_log_list) == 0:
-                break
-            cur_log_list.sort(key=lambda x: x[0], reverse=True)
-            time_end = cur_log_list[-1][0]
-            if len(cur_log_list) > 0:
-                cur_log_result.extend(cur_log_list)
-        
+def fetch_all_within_time_slot(
+    deployment,
+    job,
+    replica,
+    job_history_name,
+    query,
+    time_start,
+    time_end,
+    cur_log_result,
+):
+    client = APIClient()
+    while time_end >= time_start:
+        log_dict = client.log.get_log(
+            name_or_deployment=deployment,
+            name_or_job=job,
+            replica=replica,
+            job_history_name=job_history_name,
+            start=time_start,
+            end=time_end,
+            limit=10000,
+            q=query,
+        )
+
+        lines = log_dict["data"]["result"]
+        cur_log_list = []
+        for line in lines:
+            values = line["values"]
+            for value in values:
+                cur_log_list.append((int(value[0]), value[1]))
+
+        if len(cur_log_list) == 0:
+            break
+        cur_log_list.sort(key=lambda x: x[0], reverse=True)
+        time_end = cur_log_list[-1][0]
+        if len(cur_log_list) > 0:
+            cur_log_result.extend(cur_log_list)
+
 
 @click_group()
 def log():
@@ -419,7 +428,6 @@ def log_command(
         if job_obj.status is not None and job_obj.status.completion_time is not None:
             start = start or job_obj.status.creation_time
             end = end or job_obj.status.completion_time
-            
 
     if not end:
         console.print("[red]Warning[/red] No end time provided. will be set to Now")
@@ -430,7 +438,7 @@ def log_command(
             " 00:00:00)"
         )
         start = "today"
-    
+
     def fetch_log(start, end, limit, path=None):
         unix_start = _preprocess_time(start, epoch=True)
         unix_end = _preprocess_time(end, epoch=True)
@@ -439,9 +447,9 @@ def log_command(
                 "[red]Warning[/red] End time must be greater than start time."
             )
             sys.exit(1)
-        
+
         if limit is None:
-            
+
             time_range = unix_end - unix_start
             MIN_SLOT_NS = 1_000_000_000
             time_slot = max(MIN_SLOT_NS, time_range // 1600)
@@ -450,16 +458,22 @@ def log_command(
             for start_ns in range(unix_start, unix_end, time_slot):
                 end_ns = min(start_ns + time_slot, unix_end)
                 time_windows.append((start_ns, end_ns))
-            log_list = [[]for _ in range(len(time_windows))]
+            log_list = [[] for _ in range(len(time_windows))]
             start_perf = time.perf_counter()
             with Progress() as progress:
-                worker_count = min(len(time_windows), workers) if workers is not None else min(len(time_windows), 32)
+                worker_count = (
+                    min(len(time_windows), workers)
+                    if workers is not None
+                    else min(len(time_windows), 32)
+                )
                 with ThreadPoolExecutor(max_workers=worker_count) as executor:
-                    task = progress.add_task("Fetching logs...", total=len(time_windows))
+                    task = progress.add_task(
+                        "Fetching logs...", total=len(time_windows)
+                    )
                     futures = []
                     future_to_index = {}
                     for index, (time_start, time_end) in enumerate(time_windows):
-                        
+
                         future = executor.submit(
                             fetch_all_within_time_slot,
                             deployment,
@@ -473,7 +487,7 @@ def log_command(
                         )
                         futures.append(future)
                         future_to_index[future] = index
-                    
+
                     future_complete_list = [False for _ in range(len(time_windows))]
                     if path:
                         directory = os.path.dirname(path)
@@ -481,30 +495,44 @@ def log_command(
                             try:
                                 os.makedirs(directory)
                             except Exception as e:
-                                console.print(f"[red][ERROR]{directory} not exist and failed to create directory:[/] {directory} ({e})")
+                                console.print(
+                                    f"[red][ERROR]{directory} not exist and failed to"
+                                    f" create directory:[/] {directory} ({e})"
+                                )
                                 sys.exit(1)
                         if os.path.isdir(path):
-                            default_filename = f"log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+                            default_filename = (
+                                f"log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+                            )
                             path = os.path.join(path, default_filename)
-                        
+
                         next_writing_index = 0
                         total_lines = 0
-                        first_utc_time= ""
+                        first_utc_time = ""
                         last_utc_time = ""
                         with open(path, "w", encoding="utf-8") as f:
                             for future in as_completed(futures):
                                 future.result()
                                 index = future_to_index[future]
-                                while next_writing_index<len(time_windows) and (future_complete_list[next_writing_index] is True or index == next_writing_index):
-                                    if len(log_list[next_writing_index]) >0:
+                                while next_writing_index < len(time_windows) and (
+                                    future_complete_list[next_writing_index] is True
+                                    or index == next_writing_index
+                                ):
+                                    if len(log_list[next_writing_index]) > 0:
                                         if total_lines == 0:
-                                            first_utc_time = _epoch_to_time_str(log_list[next_writing_index][-1][0])
+                                            first_utc_time = _epoch_to_time_str(
+                                                log_list[next_writing_index][-1][0]
+                                            )
 
                                         total_lines += len(log_list[next_writing_index])
 
                                         if next_writing_index == len(time_windows) - 1:
-                                            last_utc_time = _epoch_to_time_str(log_list[next_writing_index][0][0])
-                                        for log in reversed(log_list[next_writing_index]):
+                                            last_utc_time = _epoch_to_time_str(
+                                                log_list[next_writing_index][0][0]
+                                            )
+                                        for log in reversed(
+                                            log_list[next_writing_index]
+                                        ):
                                             utc_time = _epoch_to_time_str(log[0])
                                             cur_line = safe_load_json(log[1])
                                             if without_timestamp:
@@ -513,7 +541,7 @@ def log_command(
                                                 f.write(f"{utc_time}｜{cur_line}\n")
                                     log_list[next_writing_index] = None
                                     next_writing_index += 1
-                                    if(index == next_writing_index):
+                                    if index == next_writing_index:
                                         progress.update(task, advance=1)
                                 else:
                                     future_complete_list[index] = True
@@ -524,13 +552,16 @@ def log_command(
                                 f"UTC|{last_utc_time} | total {total_lines} lines \n"
                             )
                         console.print(
-                            f"\n[bold]Time range[/]: [bold cyan]UTC|{first_utc_time}[/] → [blue]UTC|{last_utc_time}[/]\n"
-                            f"[bold]Total[/]: [green]{total_lines}[/] lines \n[bold cyan]Duration[/]: [magenta]{elapsed_sec:.2f}s[/]\n"
+                            f"\n[bold]Time range[/]: [bold cyan]UTC|{first_utc_time}[/]"
+                            f" → [blue]UTC|{last_utc_time}[/]\n[bold]Total[/]:"
+                            f" [green]{total_lines}[/] lines \n[bold cyan]Duration[/]:"
+                            f" [magenta]{elapsed_sec:.2f}s[/]\n"
                         )
                         console.print(
-                            f"\n[bold green]Successfully saved the log to:[/bold green] {path}\n"
+                            "\n[bold green]Successfully saved the log to:[/bold green]"
+                            f" {path}\n"
                         )
-                        
+
                         sys.exit(0)
                     else:
                         result_log_list = []
@@ -538,12 +569,12 @@ def log_command(
                             future.result()
                             index = future_to_index[future]
                             progress.update(task, advance=1)
-                        
+
                         for log in log_list:
                             result_log_list.extend(log)
-                    
+
                     return reversed(result_log_list)
-            
+
         # ======================================================================
         # LEGACY MODE
         # The following code is legacy and will be removed in the future.
@@ -587,7 +618,7 @@ def log_command(
                 cur_limit -= len(cur_log_list)
                 prev_unix_end = cur_unix_end
                 cur_unix_end = cur_log_list[-1][0]
-                progress.update(task, advance= prev_unix_end - cur_unix_end)
+                progress.update(task, advance=prev_unix_end - cur_unix_end)
 
                 log_list.extend(cur_log_list)
 
@@ -599,7 +630,6 @@ def log_command(
         if not limit:
             return
 
-        
         # ======================================================================
         # LEGACY MODE
         # The following code is legacy and will be removed in the future.
@@ -616,7 +646,10 @@ def log_command(
                 try:
                     os.makedirs(directory)
                 except Exception as e:
-                    console.print(f"[red][ERROR]{directory} not exist and failed to create directory:[/] {directory} ({e})")
+                    console.print(
+                        f"[red][ERROR]{directory} not exist and failed to create"
+                        f" directory:[/] {directory} ({e})"
+                    )
                     sys.exit(1)
             if os.path.isdir(path):
                 default_filename = f"log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"

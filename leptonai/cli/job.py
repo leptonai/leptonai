@@ -1410,7 +1410,7 @@ def stop(id):
     """
     client = APIClient()
     cur_job = client.job.get(id)
-    
+
     if cur_job.spec.stopped is True or cur_job.status.state in [
         LeptonJobState.Stopped,
         LeptonJobState.Stopping,
