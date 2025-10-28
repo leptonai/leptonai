@@ -342,8 +342,7 @@ def log_command(
     IMPORTANT:
     - 'lep log get' and 'lep log get --path' are intended for lightweight jobs and
       short time ranges.
-    - They are NOT recommended for downloading logs of long-running jobs with many
-      replicas.
+    - They are NOT recommended for downloading logs
     - Prefer using Workspace Dashboard -> Settings -> Logs Export for downloading
       large-volume logs (jobs/endpoints long-running or with many replicas).
     - Concurrency (workers) is applied only when --limit is NOT used.
@@ -510,6 +509,7 @@ def log_command(
                         total_lines = 0
                         first_utc_time = ""
                         last_utc_time = ""
+                        last_epoch_ns = unix_start
                         with open(path, "w", encoding="utf-8") as f:
                             for future in as_completed(futures):
                                 future.result()
@@ -526,9 +526,14 @@ def log_command(
 
                                         total_lines += len(log_list[next_writing_index])
 
-                                        if next_writing_index == len(time_windows) - 1:
-                                            last_utc_time = _epoch_to_time_str(
-                                                log_list[next_writing_index][0][0]
+                                        cur_max_candidate = log_list[
+                                            next_writing_index
+                                        ][0][0]
+                                        if cur_max_candidate is not None:
+                                            last_epoch_ns = (
+                                                cur_max_candidate
+                                                if cur_max_candidate > last_epoch_ns
+                                                else last_epoch_ns
                                             )
                                         for log in reversed(
                                             log_list[next_writing_index]
@@ -547,6 +552,7 @@ def log_command(
                                     future_complete_list[index] = True
                                     progress.update(task, advance=1)
                             elapsed_sec = time.perf_counter() - start_perf
+                            last_utc_time = _epoch_to_time_str(last_epoch_ns)
                             f.write(
                                 f"Time range: UTC|{first_utc_time} → "
                                 f"UTC|{last_utc_time} | total {total_lines} lines \n"
