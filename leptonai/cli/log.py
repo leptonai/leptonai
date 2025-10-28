@@ -1,7 +1,7 @@
 import re
 import sys
 import os
-
+from loguru import logger
 from .util import _get_newest_job_by_name
 from .util import click_group, console
 
@@ -468,7 +468,8 @@ def log_command(
 
     if (not start or not end) and job:
         job_obj = client.job.get(job)
-        if job_obj.status is not None and job_obj.status.completion_time is not None:
+        logger.trace(json.dumps(job_obj.model_dump(), indent=4))
+        if job_obj.status is not None:
             start = start or job_obj.status.creation_time
             end = end or job_obj.status.completion_time
 
