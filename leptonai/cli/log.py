@@ -48,6 +48,11 @@ _supported_formats_log = """
           yesterday 13:10 (1:10 PM of the previous day)
           yesterday 13:10:05 (1:10:05 PM of the previous day)
           yesterday 13:10:01.123456 (1:10:01 PM with microseconds precision on the previous day)
+        
+        - Note for jobs:
+          - When using --job/-j or --job-name/-jn, you can omit --start/--end.
+          - We'll use the job's creation_time and completion_time (if available).
+          - If the job hasn't completed, end defaults to 'now'.
         """
 
 
@@ -217,17 +222,50 @@ def fetch_all_within_time_slot(
             cur_log_result.extend(cur_log_list)
 
 
+log_help_text = """
+    Manage and retrieve the logs history of specific jobs, deployments and replicas.\n
+    IMPORTANT: \n
+    - 'lep log get' and 'lep log get --path' are intended for quick, time-scoped viewing. \n
+    - They are NOT recommended for downloading logs \n
+    - Prefer using Workspace Dashboard -> Settings -> Logs Export for downloading
+      large-volume logs (jobs/endpoints long-running or with many replicas). \n
+    - Concurrency (workers) is applied only when --limit is NOT used. \n
+    - --limit is deprecated and not recommended. When set, logs will be fetched
+      sequentially without parallelism. It will be removed in a future release. \n 
+    - Interactive mode (next/last/time+/time-) is deprecated and not recommended.
+      It will be removed in a future release. \n
+
+    JOB DEFAULT TIME RANGE: \n
+    - For jobs, --start/--end can be omitted. If omitted, the job's creation_time
+      and completion_time (when available) will be used automatically; if the job
+      has not completed, end defaults to 'now'.
+"""
+
+
 @click_group()
 def log():
     """
-    Manage and retrieve the logs history of specific jobs, deployments and replicas.
+    Manage and retrieve the logs history of specific jobs, deployments and replicas.\n
+    IMPORTANT: \n
+    - 'lep log get' and 'lep log get --path' are intended for quick, time-scoped viewing.\n
+    - They are NOT recommended for downloading logs \n
+    - Prefer using Workspace Dashboard -> Settings -> Logs Export for downloading
+      large-volume logs (jobs/endpoints long-running or with many replicas). \n
+    - Concurrency (workers) is applied only when --limit is NOT used. \n
+    - --limit is deprecated and not recommended. When set, logs will be fetched
+      sequentially without parallelism. It will be removed in a future release. \n
+    - Interactive mode (next/last/time+/time-) is deprecated and not recommended.
+      It will be removed in a future release. \n
+
+    JOB DEFAULT TIME RANGE: \n
+    - For jobs, --start/--end can be omitted. If omitted, the job's creation_time
+      and completion_time (when available) will be used automatically; if the job
+      has not completed, end defaults to 'now'.
     """
     pass
 
 
-@log.command(
-    name="get", help="Retrieve and display logs from deployments, jobs, or replicas"
-)
+@log.command(name="get", help=log_help_text)
 @click.option(
     "--deployment",
     "-d",
@@ -240,7 +278,12 @@ def log():
     "-j",
     type=str,
     default=None,
-    help="Specifies the job ID. To find the job ID, use the 'lep job list' command.",
+    help=(
+        "Specifies the job ID. To find the job ID, use 'lep job list'. "
+        "When using --job, you may omit --start/--end: we'll use the job's "
+        "creation_time and completion_time when available; if the job "
+        "hasn't completed, end defaults to 'now'."
+    ),
 )
 @click.option(
     "--job-name",
@@ -248,8 +291,10 @@ def log():
     type=str,
     default=None,
     help=(
-        "Specifies the job name. If multiple jobs share this name, "
-        "the logs for the newest job found will be retrieved by default."
+        "Specifies the job name. If multiple jobs share this name, the newest job "
+        "is used by default. When using --job-name, you may omit --start/--end: "
+        "we'll use the job's creation_time and completion_time when available; "
+        "if the job hasn't completed, end defaults to 'now'."
     ),
 )
 @click.option(
@@ -340,9 +385,8 @@ def log_command(
     Retrieve and display logs from deployments, jobs, or replicas.
 
     IMPORTANT:
-    - 'lep log get' and 'lep log get --path' are intended for lightweight jobs and
-      short time ranges.
-    - They are NOT recommended for downloading logs
+    - 'lep log get' and 'lep log get --path' are intended is for quick, time-scoped viewing.
+    - They are NOT recommended for downloading logs.
     - Prefer using Workspace Dashboard -> Settings -> Logs Export for downloading
       large-volume logs (jobs/endpoints long-running or with many replicas).
     - Concurrency (workers) is applied only when --limit is NOT used.
