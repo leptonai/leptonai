@@ -534,21 +534,33 @@ def log_command(
 
                     future_complete_list = [False for _ in range(len(time_windows))]
                     if path:
-                        directory = os.path.dirname(path)
-                        if directory and not os.path.exists(directory):
+                        path_is_dir = (
+                            os.path.isdir(path)
+                            or path.endswith(os.sep)
+                            or (
+                                not os.path.exists(path)
+                                and not os.path.splitext(path)[1]
+                            )
+                        )
+                        target_dir = (
+                            path.rstrip(os.sep)
+                            if path_is_dir
+                            else os.path.dirname(path)
+                        )
+                        if target_dir and not os.path.exists(target_dir):
                             try:
-                                os.makedirs(directory)
+                                os.makedirs(target_dir)
                             except Exception as e:
                                 console.print(
-                                    f"[red][ERROR]{directory} not exist and failed to"
-                                    f" create directory:[/] {directory} ({e})"
+                                    "[red][ERROR]failed to create directory:[/]"
+                                    f" {target_dir} ({e})"
                                 )
                                 sys.exit(1)
-                        if os.path.isdir(path):
+                        if path_is_dir:
                             default_filename = (
-                                f"log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+                                f"log-{job or deployment or replica or job_history_name or ''}{datetime.now().strftime('%Y%m%d-%H%M%S')}.txt"
                             )
-                            path = os.path.join(path, default_filename)
+                            path = os.path.join(target_dir, default_filename)
 
                         next_writing_index = 0
                         total_lines = 0
@@ -621,10 +633,10 @@ def log_command(
                             index = future_to_index[future]
                             progress.update(task, advance=1)
 
-                        for log in log_list:
+                        for log in reversed(log_list):
                             result_log_list.extend(log)
 
-                    return reversed(result_log_list)
+                    return result_log_list
 
         # ======================================================================
         # LEGACY MODE
@@ -678,9 +690,7 @@ def log_command(
     def fetch_and_print_logs(start, end, limit, path=None):
 
         log_list = fetch_log(start, end, limit, path)
-        if not limit:
-            return
-
+        
         # ======================================================================
         # LEGACY MODE
         # The following code is legacy and will be removed in the future.
@@ -692,19 +702,25 @@ def log_command(
         )
         last_utc_time = _epoch_to_time_str(log_list[0][0]) if len(log_list) > 0 else end
         if path and limit is not None:
-            directory = os.path.dirname(path)
-            if directory and not os.path.exists(directory):
+            path_is_dir = (
+                os.path.isdir(path)
+                or path.endswith(os.sep)
+                or (not os.path.exists(path) and not os.path.splitext(path)[1])
+            )
+            target_dir = path.rstrip(os.sep) if path_is_dir else os.path.dirname(path)
+            if target_dir and not os.path.exists(target_dir):
                 try:
-                    os.makedirs(directory)
+                    os.makedirs(target_dir)
                 except Exception as e:
                     console.print(
-                        f"[red][ERROR]{directory} not exist and failed to create"
-                        f" directory:[/] {directory} ({e})"
+                        f"[red][ERROR]failed to create directory:[/] {target_dir} ({e})"
                     )
                     sys.exit(1)
-            if os.path.isdir(path):
-                default_filename = f"log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
-                path = os.path.join(path, default_filename)
+            if path_is_dir:
+                default_filename = (
+                    f"log-{job or deployment or replica or job_history_name or ''}{datetime.now().strftime('%Y%m%d-%H%M%S')}.txt"
+                )
+                path = os.path.join(target_dir, default_filename)
 
             with open(path, "w", encoding="utf-8") as f:
                 f.write(
@@ -741,93 +757,96 @@ def log_command(
             )
         return first_utc_time, last_utc_time
 
-    first_utc_time, last_utc_time = fetch_and_print_logs(start, end, limit, path)
 
-    while True and sys.stdin.isatty():
-        console.print(
-            "Enter a command [yellow](e.g., `next 10`, `last 20`, `time+ 30.5s`, `time-"
-            " 2.1s`, `quit`)[/]:"
-        )
-        user_input = input().strip()
-        if user_input.lower() in ["q", "quit", "exit"]:
-            console.print("[lightblue]Exiting log viewer.[/]")
-            break
-
-        cmd_parts = user_input.split()
-        if (
-            cmd_parts is None
-            or len(cmd_parts) != 2
-            or cmd_parts[0] not in ["next", "last", "time+", "time-"]
-        ):
+    if not limit:
+        fetch_and_print_logs(start, end, limit, path)
+    else:
+        first_utc_time, last_utc_time = fetch_and_print_logs(start, end, limit, path)
+        while True and sys.stdin.isatty():
             console.print(
-                "[red]Invalid command[/] we only accept next, last, time+ and time-"
+                "Enter a command [yellow](e.g., `next 10`, `last 20`, `time+ 30.5s`, `time-"
+                " 2.1s`, `quit`)[/]:"
             )
-            continue
-        cmd, param = cmd_parts
+            user_input = input().strip()
+            if user_input.lower() in ["q", "quit", "exit"]:
+                console.print("[lightblue]Exiting log viewer.[/]")
+                break
 
-        if cmd == "next":
-            try:
-                line_count = int(param)
-            except (IndexError, ValueError):
-                console.print("[red]Please specify a valid number of lines.[/red]")
-                continue
-            first_utc_time, last_utc_time = fetch_and_print_logs(
-                last_utc_time, "now", line_count
-            )
-
-        elif cmd == "last":
-            try:
-                line_count = int(param)
-            except (IndexError, ValueError):
-                console.print("[red]Please specify a valid number of lines.[/red]")
-                continue
-            first_utc_time, last_utc_time = fetch_and_print_logs(
-                "search_before," + first_utc_time, first_utc_time, line_count
-            )
-        elif cmd == "time+" or cmd == "time-":
-            pattern = r"^\d+(\.\d+)?s$"
-            if not re.match(pattern, param):
+            cmd_parts = user_input.split()
+            if (
+                cmd_parts is None
+                or len(cmd_parts) != 2
+                or cmd_parts[0] not in ["next", "last", "time+", "time-"]
+            ):
                 console.print(
-                    "[red]Invalid offset format. Expected something like '2.567s'.[/]"
+                    "[red]Invalid command[/] we only accept next, last, time+ and time-"
                 )
                 continue
+            cmd, param = cmd_parts
 
-            seconds_str = param[:-1]  # remove the trailing 's'
-            try:
-                float_seconds = float(seconds_str)
-            except ValueError:
-                console.print(
-                    f"[red]Failed to parse the numeric value {seconds_str} in the"
-                    " offset.[/red]"
-                )
-                continue
-
-            int_seconds = int(float_seconds)
-            microseconds = int((float_seconds - int_seconds) * 1_000_000)
-
-            if cmd == "time+":
-                last_utc_time_obj = _preprocess_time(last_utc_time)
-                adjusted_last_utc_time = last_utc_time_obj + timedelta(
-                    seconds=int_seconds, microseconds=microseconds
-                )
-                adjusted_last_utc_time = adjusted_last_utc_time.strftime(
-                    str_time_format
-                )
+            if cmd == "next":
+                try:
+                    line_count = int(param)
+                except (IndexError, ValueError):
+                    console.print("[red]Please specify a valid number of lines.[/red]")
+                    continue
                 first_utc_time, last_utc_time = fetch_and_print_logs(
-                    last_utc_time, adjusted_last_utc_time, 5000
+                    last_utc_time, "now", line_count
                 )
 
-            if cmd == "time-":
-                first_utc_time_obj = _preprocess_time(first_utc_time)
-                adjusted_first_utc_time = first_utc_time_obj - timedelta(
-                    seconds=int_seconds, microseconds=microseconds
-                )
-                adjusted_first_utc_time = adjusted_first_utc_time.strftime(
-                    str_time_format
-                )
+            elif cmd == "last":
+                try:
+                    line_count = int(param)
+                except (IndexError, ValueError):
+                    console.print("[red]Please specify a valid number of lines.[/red]")
+                    continue
                 first_utc_time, last_utc_time = fetch_and_print_logs(
-                    adjusted_first_utc_time, first_utc_time, 5000
+                    "search_before," + first_utc_time, first_utc_time, line_count
                 )
+            elif cmd == "time+" or cmd == "time-":
+                pattern = r"^\d+(\.\d+)?s$"
+                if not re.match(pattern, param):
+                    console.print(
+                        "[red]Invalid offset format. Expected something like '2.567s'.[/]"
+                    )
+                    continue
+
+                seconds_str = param[:-1]  # remove the trailing 's'
+                try:
+                    float_seconds = float(seconds_str)
+                except ValueError:
+                    console.print(
+                        f"[red]Failed to parse the numeric value {seconds_str} in the"
+                        " offset.[/red]"
+                    )
+                    continue
+
+                int_seconds = int(float_seconds)
+                microseconds = int((float_seconds - int_seconds) * 1_000_000)
+
+                if cmd == "time+":
+                    last_utc_time_obj = _preprocess_time(last_utc_time)
+                    adjusted_last_utc_time = last_utc_time_obj + timedelta(
+                        seconds=int_seconds, microseconds=microseconds
+                    )
+                    adjusted_last_utc_time = adjusted_last_utc_time.strftime(
+                        str_time_format
+                    )
+                    first_utc_time, last_utc_time = fetch_and_print_logs(
+                        last_utc_time, adjusted_last_utc_time, 5000
+                    )
+
+                if cmd == "time-":
+                    first_utc_time_obj = _preprocess_time(first_utc_time)
+                    adjusted_first_utc_time = first_utc_time_obj - timedelta(
+                        seconds=int_seconds, microseconds=microseconds
+                    )
+                    adjusted_first_utc_time = adjusted_first_utc_time.strftime(
+                        str_time_format
+                    )
+                    first_utc_time, last_utc_time = fetch_and_print_logs(
+                        adjusted_first_utc_time, first_utc_time, 5000
+                    )
 
 
 def add_command(cli_group):
