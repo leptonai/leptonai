@@ -946,40 +946,6 @@ def create(
     """
     client = APIClient()
 
-    # Validate that public and ip-whitelist are mutually exclusive
-    if public and ip_whitelist:
-        console.print(
-            "[red]Error[/]: Cannot specify both --public and --ip-whitelist. "
-            "Use --public for public access or --ip-whitelist for restricted access. "
-            "Note that --tokens can be used with either option."
-        )
-        sys.exit(1)
-    if public is None or public is False and not ip_whitelist and len(tokens) == 0:
-        console.print(
-            "\n[yellow]Warning[/]: You are about to create a publicly accessible"
-            " endpoint"
-        )
-        console.print(
-            "\n[white]Access control options:[/white]\n"
-            "  • [green]--public[/] — public access (default)\n"
-            "  • [green]--ip-whitelist[/] — restrict by IP/CIDR\n"
-            "  • [green]--tokens[/] — token-based access (works with either above;\n"
-            "    ('[cyan]--public --tokens[/]' is equivalent to '[cyan]--tokens[/]')\n"
-        )
-
-        try:
-            if sys.stdin.isatty():
-                import click
-
-                if not click.confirm(
-                    "Continue to create as public without tokens?", default=False
-                ):
-                    sys.exit(1)
-            else:
-                pass
-        except Exception:
-            sys.exit(1)
-
     # Enforce cserve options must be used with --cserve
     if cserve_options is not None and not cserve:
         console.print(
@@ -1264,6 +1230,45 @@ def create(
                 # IP whitelist means only accessible from specified IPs
                 parsed_ips = _parse_ip_whitelist(ip_whitelist)
                 spec.auth_config.ip_allowlist = parsed_ips
+
+        # Post-spec validation: public vs ip-whitelist mutual exclusion
+        if public and ip_whitelist:
+            console.print(
+                "[red]Error[/]: Cannot specify both --public and --ip-whitelist. Use"
+                " --public for public access or --ip-whitelist for restricted access."
+                " Note that --tokens can be used with either option."
+            )
+            sys.exit(1)
+
+        # Post-spec warning: creating public endpoint without tokens and whitelist
+        ip_allowlist = getattr(getattr(spec, "auth_config", None), "ip_allowlist", None)
+        has_ip_restriction = bool(ip_allowlist)
+        has_tokens = bool(getattr(spec, "api_tokens", None))
+        console.print(f"has_ip_restriction: {has_ip_restriction}")
+        console.print(f"has_tokens: {has_tokens}")
+        should_warn = not has_ip_restriction and not has_tokens
+
+        if should_warn:
+            console.print(
+                "\n[yellow]Warning[/]: You are creating a publicly accessible endpoint"
+            )
+            if not public:
+                console.print(
+                    "\n[white]Access control options:[/white]\n  • [green]--public[/] —"
+                    " public access (default)\n  • [green]--ip-whitelist[/] — restrict"
+                    " by IP/CIDR\n  • [green]--tokens[/] — token-based access (works"
+                    " with either above;\n    ('[cyan]--public --tokens[/]' is"
+                    " equivalent to '[cyan]--tokens[/]')\n"
+                )
+                if sys.stdin.isatty():
+                    try:
+                        if not click.confirm(
+                            "Continue to create as public without tokens?",
+                            default=False,
+                        ):
+                            sys.exit(1)
+                    except Exception:
+                        sys.exit(1)
 
         if image_pull_secrets or not file:
             spec.image_pull_secrets = list(image_pull_secrets)
