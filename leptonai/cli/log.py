@@ -690,7 +690,7 @@ def log_command(
     def fetch_and_print_logs(start, end, limit, path=None):
 
         log_list = fetch_log(start, end, limit, path)
-        
+
         # ======================================================================
         # LEGACY MODE
         # The following code is legacy and will be removed in the future.
@@ -757,15 +757,14 @@ def log_command(
             )
         return first_utc_time, last_utc_time
 
-
     if not limit:
         fetch_and_print_logs(start, end, limit, path)
     else:
         first_utc_time, last_utc_time = fetch_and_print_logs(start, end, limit, path)
         while True and sys.stdin.isatty():
             console.print(
-                "Enter a command [yellow](e.g., `next 10`, `last 20`, `time+ 30.5s`, `time-"
-                " 2.1s`, `quit`)[/]:"
+                "Enter a command [yellow](e.g., `next 10`, `last 20`, `time+ 30.5s`,"
+                " `time- 2.1s`, `quit`)[/]:"
             )
             user_input = input().strip()
             if user_input.lower() in ["q", "quit", "exit"]:
@@ -807,7 +806,8 @@ def log_command(
                 pattern = r"^\d+(\.\d+)?s$"
                 if not re.match(pattern, param):
                     console.print(
-                        "[red]Invalid offset format. Expected something like '2.567s'.[/]"
+                        "[red]Invalid offset format. Expected something like"
+                        " '2.567s'.[/]"
                     )
                     continue
 
