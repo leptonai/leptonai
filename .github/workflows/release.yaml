@@ -97,6 +97,34 @@ jobs:
           LEPTON_RELEASE_CREDENTIALS: ${{ secrets.LEPTON_STAGING_WORKSPACE_CREDENTIALS }}
         run: bash release_scripts/e2e_sdk_cli_test.sh
 
+  generate-docs:
+    if: inputs.publish_pypi
+    needs: test-package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python Environment
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      - name: Set up pip
+        run: |
+          pip install -U pip setuptools
+      - uses: actions/download-artifact@v4
+        with:
+          name: whl-package
+      - name: Install Package
+        run: |
+          pip install leptonai*.whl
+      - name: Generate Documentation
+        run: |
+          lep dump --root . --extension mdx
+      - name: Upload Documentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli-documentation
+          path: references/
+
   publish-pypi:
     if: inputs.publish_pypi
     needs: test-package
