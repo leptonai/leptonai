@@ -30,6 +30,7 @@ from . import ingress
 from . import log
 from . import raycluster
 from . import template
+from . import document_gen
 
 from .util import click_group
 
@@ -83,6 +84,7 @@ ingress.add_command(lep)
 log.add_command(lep)
 raycluster.add_command(lep)
 template.add_command(lep)
+document_gen.add_command(lep)
 
 
 @lep.command()
