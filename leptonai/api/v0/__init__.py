@@ -21,7 +21,7 @@ from . import workspace
 
 warnings.warn(
     "The v0 API is deprecated and will be removed in the next major version. Consider"
-    " using the v1 API for new code.",
+    " using the v2 API for new code.",
     DeprecationWarning,
     stacklevel=2,
 )
