@@ -30,6 +30,7 @@ from ..v1.ingress import IngressAPI
 from ..v1.storage import StorageAPI
 from .resource_shape import ResourceShapeAPI
 from .template import TemplateAPI
+from .finetune import FineTuneAPI
 from ..v1.raycluster import RayClusterAPI
 
 
@@ -226,6 +227,7 @@ class APIClient(object):
         self.object_storage = ObjectStorageAPI(self)
         self.log = LogAPI(self)
         self.template = TemplateAPI(self)
+        self.finetune = FineTuneAPI(self)
         self.shapes = ResourceShapeAPI(self)
         self.raycluster = RayClusterAPI(self)
 

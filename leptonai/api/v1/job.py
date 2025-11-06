@@ -23,7 +23,7 @@ class JobAPI(APIResourse):
         node_groups: Optional[List[str]] = None,
         page: Optional[int] = None,
         page_size: Optional[int] = None,
-        created_by: Optional[List[str]] = None,
+        created_by: Optional[str] = None,
     ) -> List[LeptonJob]:
         """List jobs with optional server-side filtering.
 
@@ -33,7 +33,7 @@ class JobAPI(APIResourse):
         - query       : label selector
         - status      : list of job states
         - page / page_size: pagination controls
-        - created_by  : list of creator emails
+        - created_by  : creator email (single)
         """
         params_base = {"job_query_mode": job_query_mode}
         if q:

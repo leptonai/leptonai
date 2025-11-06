@@ -1,0 +1,321 @@
+import json
+from typing import Any, Dict, List, Optional
+
+import click
+
+from rich.table import Table
+
+from .util import click_group, console, format_timestamp_ms, colorize_state, make_name_id_cell
+from ..api.v2.client import APIClient
+
+
+def _fetch_template_schema(template_id: str) -> Dict[str, Any]:
+    """Fetch json_schema of a template by id. Prefer public, fallback to private."""
+    client = APIClient()
+    try:
+        tpl = client.template.get_public(template_id)
+    except Exception:
+        tpl = None
+    if tpl is None:
+        try:
+            tpl = client.template.get_private(template_id)
+        except Exception:
+            tpl = None
+    if tpl and getattr(tpl, "spec", None):
+        schema = getattr(tpl.spec, "json_schema", None) or {}
+        if isinstance(schema, dict):
+            return schema
+        # Some backends may serialize json_schema as string
+        if isinstance(schema, str):
+            try:
+                return json.loads(schema)
+            except Exception:
+                return {}
+    return {}
+
+
+class DynamicSchemaCommand(click.Command):
+    """A Click command that injects options at runtime from a template's json_schema."""
+
+    _generated_for_template: Optional[str] = None
+
+    def make_context(self, info_name, args, parent=None, **extra):
+        template_id = self._parse_template_arg(args) or "nemo-automodel"
+        if template_id and template_id != self._generated_for_template:
+            schema = _fetch_template_schema(template_id)
+            self.params += self._build_options_from_schema(schema)
+            self._generated_for_template = template_id
+        return super().make_context(info_name, args, parent=parent, **extra)
+
+    @staticmethod
+    def _parse_template_arg(args: List[str]) -> Optional[str]:
+        for i, a in enumerate(args):
+            if a in ("-t", "--template", "--template-id") and i + 1 < len(args):
+                return args[i + 1]
+            if a.startswith("--template="):
+                return a.split("=", 1)[1]
+            if a.startswith("--template-id="):
+                return a.split("=", 1)[1]
+        return None
+
+    @staticmethod
+    def _build_options_from_schema(schema: Dict[str, Any]) -> List[click.Option]:
+        props: Dict[str, Any] = (schema or {}).get("properties", {}) or {}
+        required: List[str] = (schema or {}).get("required", []) or []
+        options: List[click.Option] = []
+
+        def flag(name: str) -> str:
+            return f"--{name.replace('_', '-')}"
+
+        for name, prop in props.items():
+            desc = prop.get("description", "")
+            default = prop.get("default", None)
+            ptype = prop.get("type", "string")
+            param_decls: Any
+            if ptype == "boolean":
+                param_decls = (f"{flag(name)}/--no-{name.replace('_','-')}",)
+                options.append(
+                    click.Option(
+                        param_decls,
+                        help=desc,
+                        default=bool(default) if default is not None else False,
+                        show_default=True,
+                    )
+                )
+            elif ptype == "integer":
+                options.append(
+                    click.Option(
+                        (flag(name),),
+                        type=int,
+                        default=default,
+                        required=name in required and default is None,
+                        help=desc,
+                        show_default=True,
+                    )
+                )
+            elif ptype == "number":
+                options.append(
+                    click.Option(
+                        (flag(name),),
+                        type=float,
+                        default=default,
+                        required=name in required and default is None,
+                        help=desc,
+                        show_default=True,
+                    )
+                )
+            else:
+                options.append(
+                    click.Option(
+                        (flag(name),),
+                        type=str,
+                        default=default,
+                        required=name in required and default is None,
+                        help=desc + (" (JSON)" if ptype in ("object", "array") else ""),
+                        show_default=True,
+                    )
+                )
+        return options
+
+
+@click_group()
+def finetune():
+    """Manage finetuning workflows."""
+    pass
+
+
+def _print_finetune_jobs_table(jobs, dashboard_base_url: Optional[str] = None):
+    table = Table(show_header=True, show_lines=True)
+    table.add_column("Name / ID")
+    table.add_column("Created At")
+    table.add_column("State")
+    table.add_column("User ID")
+    table.add_column("Shape / Node Group")
+    table.add_column("Workers")
+    table.add_column("Base Model")
+    table.add_column("Dataset")
+
+    for job in jobs:
+        md = getattr(job, "metadata", None) or {}
+        status = getattr(job, "status", None) or {}
+        spec = getattr(job, "spec", None) or {}
+        # Dashboard link: utilities/fine-tune/jobs/detail/<jid>
+        job_url = (
+            f"{dashboard_base_url}/utilities/fine-tune/jobs/detail/{getattr(md, 'id_', '')}"
+            if dashboard_base_url and getattr(md, "id_", None)
+            else None
+        )
+        name_id_cell = make_name_id_cell(getattr(md, "name", None), getattr(md, "id_", None), link=job_url, link_target="id")
+        created_ts = format_timestamp_ms(getattr(md, "created_at", None))
+        state_cell = colorize_state(getattr(status, "state", None))
+        owner = getattr(md, "owner", "-")
+        # Node groups
+        try:
+            ngs = getattr(getattr(spec, "affinity", None), "allowed_dedicated_node_groups", None)
+            ng_str = "\n".join(ngs).lower() if ngs else ""
+        except Exception:
+            ng_str = ""
+        # Workers and shape from spec
+        workers = getattr(spec, "completions", None) or getattr(spec, "parallelism", None) or 1
+        shape = getattr(spec, "resource_shape", None) or "-"
+        # Colorize: shape in bold cyan, node group(s) in dim gray
+        shape_line = f"[bold cyan]{shape}[/]"
+        ng_line = f"[bright_black]{ng_str}[/]" if ng_str else ""
+        shape_ng_cell = f"{shape_line}\n{ng_line}" if ng_line else f"{shape_line}\n"
+        # Try read training config (Any)
+        model_str = "-"
+        dataset_str = "-"
+        try:
+            trainer = getattr(spec, "trainer", None)
+            tc = getattr(trainer, "train_config", None) if trainer else None
+            if isinstance(tc, str):
+                try:
+                    tc = json.loads(tc)
+                except Exception:
+                    tc = None
+            if isinstance(tc, dict):
+                # Base model / model uri
+                model_str = (
+                    tc.get("model_uri")
+                    or tc.get("base_model")
+                    or tc.get("model")
+                    or "-"
+                )
+                # Prefer training dataset; fallback to validation dataset; then generic dataset_uri
+                ds_uri = (
+                    tc.get("train_dataset_uri")
+                    or tc.get("validation_dataset_uri")
+                    or tc.get("dataset_uri")
+                )
+                ds_split = (
+                    tc.get("train_dataset_split")
+                    or tc.get("validation_dataset_split")
+                    or tc.get("dataset_split")
+                )
+                if ds_uri:
+                    dataset_str = f"{ds_uri}{f' ({ds_split})' if ds_split else ''}"
+        except Exception:
+            pass
+
+        table.add_row(
+            name_id_cell,
+            created_ts,
+            state_cell,
+            owner or "-",
+            shape_ng_cell,
+            str(workers),
+            model_str,
+            dataset_str,
+        )
+    console.print(table)
+
+
+@finetune.command(name="list")
+@click.option("-q", "--q", type=str, required=False, help="Substring match for job name.")
+@click.option("--query", type=str, required=False, help="Label selector query.")
+@click.option("--status", type=str, multiple=True, help="Filter by job state (repeatable).")
+@click.option("--node-group", "node_groups", type=str, multiple=True, help="Filter by node group (repeatable).")
+@click.option("--created-by", type=str, required=False, help="Filter by creator email (single).")
+@click.option("--page", type=int, required=False, help="Page number (1-based).")
+@click.option("--page-size", type=int, required=False, help="Items per page.")
+@click.option("--include-archive", is_flag=True, default=False, help="Include archived jobs (alive_and_archive).")
+def list_command(
+    q: Optional[str],
+    query: Optional[str],
+    status: Optional[List[str]],
+    node_groups: Optional[List[str]],
+    created_by: Optional[str],
+    page: Optional[int],
+    page_size: Optional[int],
+    include_archive: bool,
+):
+    """List finetune jobs."""
+    client = APIClient()
+    job_query_mode = "alive_and_archive" if include_archive else "alive_only"
+    jobs = client.finetune.list_all(
+        job_query_mode=job_query_mode,
+        q=q,
+        query=query,
+        status=list(status) if status else None,
+        node_groups=list(node_groups) if node_groups else None,
+        page=page,
+        page_size=page_size,
+        created_by=created_by or None,
+    )
+    _print_finetune_jobs_table(jobs, dashboard_base_url=client.get_dashboard_base_url())
+
+
+@finetune.command(name="get")
+@click.argument("jid", type=str, required=True)
+def get_command(jid: str):
+    """Get a finetune job by ID."""
+    client = APIClient()
+    job = client.finetune.get(jid)
+    console.print(json.dumps(client.finetune.safe_json(job), indent=2))
+
+
+@finetune.command(name="delete")
+@click.argument("jid", type=str, required=True)
+def delete_command(jid: str):
+    """Delete a finetune job by ID."""
+    client = APIClient()
+    client.finetune.delete(jid)
+    console.print(f"Finetune job [green]{jid}[/] deleted successfully.")
+
+
+@finetune.command(name="list-trainers")
+def list_trainers_command():
+    """List available finetune trainers."""
+    client = APIClient()
+    trainers = client.finetune.list_trainers()
+    table = Table(title="Trainers", show_header=True, show_lines=True)
+    table.add_column("Trainer ID")
+    table.add_column("Is Default")
+    for t in trainers:
+        table.add_row(getattr(t, "trainer_id", "-"), "Yes" if getattr(t, "is_default", False) else "")
+    console.print(table)
+
+
+@finetune.command(name="list-supported-models")
+def list_supported_models_command():
+    """List supported models and techniques."""
+    client = APIClient()
+    models = client.finetune.list_supported_models()
+    table = Table(title="Supported Models", show_header=True, show_lines=True)
+    table.add_column("Model ID")
+    table.add_column("SFT")
+    table.add_column("LoRA")
+
+    def _fmt(b: Optional[bool]) -> str:
+        if b is None:
+            return "-"
+        return "[green]Yes[/]" if b else "[red]No[/]"
+
+    for m in models:
+        sft = getattr(getattr(m, "sft", None), "is_supported", None)
+        lora = getattr(getattr(m, "lora", None), "is_supported", None)
+        table.add_row(getattr(m, "model_id", "-"), _fmt(sft), _fmt(lora))
+    console.print(table)
+
+
+@finetune.command(name="create", cls=DynamicSchemaCommand)
+@click.option(
+    "-t",
+    "--template",
+    "--template-id",
+    type=str,
+    required=False,
+    help=(
+        "Template ID to derive parameters from (default: nemo-automodel). "
+        "Use -h after setting this to see dynamic flags."
+    ),
+)
+def create_command(**kwargs):
+    """Create a finetune job (WIP). Dynamic flags are injected from the template schema."""
+    console.print("[yellow]Finetune creation is WIP. Dynamic flags loaded from template schema.[/]")
+
+
+def add_command(cli_group):
+    cli_group.add_command(finetune)
+
+
