@@ -43,7 +43,6 @@ from ..v1.types.deployment import (
 
 from ..v1.types.job import LeptonJob, LeptonJobUserSpec, LeptonJobState, LeptonJobStatus
 
-
 warnings.warn(
     "the leptonai.api.types module is deprecated. Use leptonai.api.v1.types for a"
     " more fine grained API service. This backward compatible code might be removed"

@@ -561,26 +561,28 @@ class OpenSora(Worker):
             else:
                 image = {"bucket": self._bucket, "key": key}
 
-        return self.task_post({
-            "fps": fps,
-            "multi_resolution": multi_resolution,
-            "prompts": prompts,
-            "batch_size": batch_size,
-            "mask_strategy": mask_strategy,
-            "reference_path": reference_path,
-            "num_sample": num_sample,
-            "save_fps": save_fps,
-            "llm_refine": llm_refine,
-            "aes": aes,
-            "flow": flow,
-            "camera_motion": camera_motion,
-            "prompt_as_path": prompt_as_path,
-            "loop": loop,
-            "condition_frame_length": condition_frame_length,
-            "condition_frame_edit": condition_frame_edit,
-            "align": align,
-            "resolution": resolution,
-            "length": length,
-            "aspect_ratio": aspect_ratio,
-            "image": image,
-        })
+        return self.task_post(
+            {
+                "fps": fps,
+                "multi_resolution": multi_resolution,
+                "prompts": prompts,
+                "batch_size": batch_size,
+                "mask_strategy": mask_strategy,
+                "reference_path": reference_path,
+                "num_sample": num_sample,
+                "save_fps": save_fps,
+                "llm_refine": llm_refine,
+                "aes": aes,
+                "flow": flow,
+                "camera_motion": camera_motion,
+                "prompt_as_path": prompt_as_path,
+                "loop": loop,
+                "condition_frame_length": condition_frame_length,
+                "condition_frame_edit": condition_frame_edit,
+                "align": align,
+                "resolution": resolution,
+                "length": length,
+                "aspect_ratio": aspect_ratio,
+                "image": image,
+            }
+        )

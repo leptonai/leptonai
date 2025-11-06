@@ -39,7 +39,6 @@ from leptonai.api.v1.photon import make_env_vars_from_strings
 
 from .deployment import create as deployment_create
 
-
 console = Console(highlight=False)
 
 
@@ -742,13 +741,15 @@ def prepare(ctx, path):
                 lib_version = metadata[f"{lib}_version"]
                 console.print(f"Force installing {lib}=={lib_version}")
                 try:
-                    subprocess.check_call([
-                        sys.executable,
-                        "-m",
-                        "pip",
-                        "install",
-                        f"{lib}=={lib_version}",
-                    ])
+                    subprocess.check_call(
+                        [
+                            sys.executable,
+                            "-m",
+                            "pip",
+                            "install",
+                            f"{lib}=={lib_version}",
+                        ]
+                    )
                 except subprocess.CalledProcessError as e:
                     console.print(f"Failed to pip install {lib}: {e}")
                     sys.exit(1)

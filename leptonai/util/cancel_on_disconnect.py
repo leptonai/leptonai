@@ -94,11 +94,13 @@ async def run_with_cancel_on_disconnect(
         logger.trace("HTTP exception. Reraise.")
         raise e.exceptions[0]
 
-    with catch({
-        TaskFinished: handle_task_finished,
-        ClientDisconnected: handle_client_disconnected,
-        HTTPException: handle_http_exception,
-    }):  # type: ignore
+    with catch(
+        {
+            TaskFinished: handle_task_finished,
+            ClientDisconnected: handle_client_disconnected,
+            HTTPException: handle_http_exception,
+        }
+    ):  # type: ignore
         async with anyio.create_task_group() as tg:
             tg.start_soon(_disconnect_poller, request, cancel_on_connect_interval)
             tg.start_soon(_callback_task_wrapper)

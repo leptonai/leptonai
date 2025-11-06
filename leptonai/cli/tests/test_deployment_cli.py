@@ -13,7 +13,6 @@ from loguru import logger
 from leptonai import config
 from leptonai.cli import lep as cli
 
-
 logger.info(f"Using cache dir: {config.CACHE_DIR}")
 
 

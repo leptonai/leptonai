@@ -1053,14 +1053,16 @@ def create(
         # So we will simply create an empty one.
     elif spec.photon_id is None and spec.container is None:
         # No photon_id, photon_name, container_image, or container_command
-        console.print("""
+        console.print(
+            """
             You have not provided a photon_name, photon_id, or container image.
             Please use one of the following options:
             -p <photon_name>
             -i <photon_id>
             --container-image <container_image> and --container-command <container_command>
             to specify a photon or container image.
-            """)
+            """
+        )
         sys.exit(1)
 
     if spec.container is not None:
@@ -1186,7 +1188,7 @@ def create(
         mount_list = list(mount) or []
         for k, v in template_envs.items():
             if v == ENV_VAR_REQUIRED:
-                if not any(s.startswith(k + "=") for s in (env or [])):
+                if not any(s.startswith(k + "=") for s in env or []):
                     console.print(
                         f"This deployment requires env var {k}, but it's missing."
                         f" Please specify it with --env {k}=YOUR_VALUE. Otherwise,"
@@ -1273,11 +1275,13 @@ def create(
         if image_pull_secrets or not file:
             spec.image_pull_secrets = list(image_pull_secrets)
         # Only overwrite auto_scaler if user provided any autoscale-related flag/arg
-        if any([
-            no_traffic_timeout is not None,
-            target_gpu_utilization is not None,
-            threshold is not None,
-        ]):
+        if any(
+            [
+                no_traffic_timeout is not None,
+                target_gpu_utilization is not None,
+                threshold is not None,
+            ]
+        ):
             spec.auto_scaler = AutoScaler(
                 scale_down=(
                     ScaleDown(no_traffic_timeout=no_traffic_timeout)
@@ -2118,10 +2122,12 @@ def update(
             dryrun=True,
         )
 
-        will_restart = not _same_major_version([
-            dryrun_deployment.metadata.semantic_version,
-            lepton_deployment.metadata.semantic_version,
-        ])
+        will_restart = not _same_major_version(
+            [
+                dryrun_deployment.metadata.semantic_version,
+                lepton_deployment.metadata.semantic_version,
+            ]
+        )
         if will_restart:
 
             confirmed = (not sys.stdin.isatty()) or Confirm.ask(

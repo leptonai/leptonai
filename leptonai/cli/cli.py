@@ -30,6 +30,7 @@ from . import ingress
 from . import log
 from . import raycluster
 from . import template
+from . import document_gen
 
 from .util import click_group
 
@@ -83,6 +84,7 @@ ingress.add_command(lep)
 log.add_command(lep)
 raycluster.add_command(lep)
 template.add_command(lep)
+document_gen.add_command(lep)
 
 
 @lep.command()
@@ -262,7 +264,8 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
     except WorkspaceUnauthorizedError as e:
         console.print("\n", e)
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        console.print(f"""
+        console.print(
+            f"""
         [bold]Invalid Workspace Access Detected[/]
         [white]Workspace ID:[/white] {e.workspace_id}
 
@@ -289,14 +292,16 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
             4. [#76B900]If the workspace was just created, please wait for 5 - 10 minutes.[/#76B900]
             [red]Contact us if the workspace remains unavailable after 10 minutes.[/red]
             (Current Time: [bold]{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}[/bold])
-        """)
+        """
+        )
         sys.exit(1)
 
     except WorkspaceNotFoundError as e:
         console.print("\n", e)
 
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        console.print(f"""
+        console.print(
+            f"""
         [red bold]Workspace Not Found[/]
         [red]Workspace ID:[/red] {e.workspace_id}
 
@@ -307,20 +312,23 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
         2. [green]Please check the login info you just used above[/green]
         3. [yellow]Login to the workspace with valid credentials:[/yellow]
            [green]lep workspace login -i <valid_workspace_id> -t <valid_workspace_token>[/green]
-        """)
+        """
+        )
         sys.exit(1)
 
     except WorkspaceForbiddenError as e:
         console.print("\n", e)
 
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        console.print(f"""
+        console.print(
+            f"""
         [red bold]Workspace Forbidden access[/]
         [red]Workspace ID:[/red] {e.workspace_id}
         
         [red]You may using an invalid token or the token is expired.[/red]
         [red]Please re-issue a new token and run `lep workspace login` again.[/red]
-        """)
+        """
+        )
         sys.exit(1)
 
 

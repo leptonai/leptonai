@@ -116,15 +116,17 @@ def _display_jobs_table(
         created_ts = format_timestamp_ms(job.metadata.created_at)
         state_cell = colorize_state(getattr(status, "state", None))
 
-        rows.append([
-            name_id_cell,
-            created_ts,
-            state_cell,
-            job.metadata.owner,
-            ng_str,
-            str(workers),
-            shape,
-        ])
+        rows.append(
+            [
+                name_id_cell,
+                created_ts,
+                state_cell,
+                job.metadata.owner,
+                ng_str,
+                str(workers),
+                shape,
+            ]
+        )
 
         # Count workers towards utilization only if job is actively consuming resources
         if status.state in {
@@ -181,14 +183,16 @@ def _filter_jobs(
         Filtered list of jobs
     """
     # If no filters are specified, return the original list
-    if not any([
-        state,
-        user_patterns,
-        name_patterns,
-        node_group_patterns,
-        exact_users,
-        exact_names,
-    ]):
+    if not any(
+        [
+            state,
+            user_patterns,
+            name_patterns,
+            node_group_patterns,
+            exact_users,
+            exact_names,
+        ]
+    ):
         return jobs
 
     filtered_jobs = []

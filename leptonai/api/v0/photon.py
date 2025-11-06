@@ -235,7 +235,7 @@ def run_remote(
     template_envs = deployment_template.get("env", {})
     for k, v in template_envs.items():
         if v == ENV_VAR_REQUIRED:
-            if not any(s.startswith(k + "=") for s in (env_list or [])):
+            if not any(s.startswith(k + "=") for s in env_list or []):
                 warnings.warn(
                     f"This deployment requires env var {k}, but it's missing."
                     f" Please specify it with --env {k}=YOUR_VALUE. Otherwise, the"
@@ -249,8 +249,8 @@ def run_remote(
                 env_list.append(f"{k}={v}")
     template_secrets = deployment_template.get("secret", [])
     for k in template_secrets:
-        if not any(s.startswith(k) for s in (secret_list or [])) and not any(
-            s.startswith(k) for s in (env_list or [])
+        if not any(s.startswith(k) for s in secret_list or []) and not any(
+            s.startswith(k) for s in env_list or []
         ):
             warnings.warn(
                 f"This deployment requires secret {k}, but it's missing. Please set"

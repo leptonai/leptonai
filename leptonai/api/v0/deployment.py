@@ -7,7 +7,6 @@ from . import types
 from .connection import Connection
 from .util import json_or_error, APIError
 
-
 warnings.warn(
     "the leptonai.api.deployment module is deprecated. Use leptonai.api.v1.types for a"
     " more fine grained API service. This backward compatible code might be removed"

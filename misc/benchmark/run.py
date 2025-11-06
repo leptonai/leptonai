@@ -133,9 +133,12 @@ async def endpoint_evaluation_request(client, ep_config):
 
 
 async def endpoint_evaluation_round(client, concur_requests, ep_config):
-    results = await asyncio.gather(*(
-        endpoint_evaluation_request(client, ep_config) for _ in range(concur_requests)
-    ))
+    results = await asyncio.gather(
+        *(
+            endpoint_evaluation_request(client, ep_config)
+            for _ in range(concur_requests)
+        )
+    )
     return results
 
 
