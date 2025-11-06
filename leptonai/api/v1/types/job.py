@@ -1,5 +1,5 @@
 from enum import Enum
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, ConfigDict
 from typing import Optional, List, Any
 from loguru import logger
 
@@ -35,6 +35,8 @@ class LeptonJobUserSpec(BaseModel):
     The desired state of a Lepton Job.
     """
 
+    model_config = ConfigDict(validate_assignment=True)
+
     resource_shape: Optional[str] = None
     affinity: Optional[LeptonResourceAffinity] = None
     container: LeptonContainer = LeptonContainer()
@@ -67,6 +69,17 @@ class LeptonJobUserSpec(BaseModel):
     @classmethod
     def _none_to_empty(cls, v: Any):  # noqa: ANN401
         return [] if v is None else v
+
+    @field_validator(
+        "ttl_seconds_after_finished", "max_failure_retry", "max_job_failure_retry"
+    )
+    @classmethod
+    def _validate_optional_non_negative(cls, v: Optional[int]) -> Optional[int]:
+        if v is None:
+            return v
+        if v < 0:
+            raise ValueError("value must be >= 0")
+        return v
 
 
 class LeptonJobState(str, Enum):
