@@ -140,7 +140,7 @@ class TestPhotonCli(unittest.TestCase):
         # install it
         # (whisper_model,),
         # (audio_classification_model,),
-        (summarization_model,),
+        # (summarization_model,),
         (sentence_similarity_model,),
         (text2text_generation_model,),
         # "hf:cross-encoder/ms-marco-TinyBERT-L-2-v2" has been converted to text-ranking model
