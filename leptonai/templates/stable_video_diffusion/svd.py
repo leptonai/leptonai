@@ -96,18 +96,20 @@ class StableVideoDiffusion(Worker):
             export_to_video(frames, f_mpeg4.name, fps=fps)
             f_mpeg4.flush()
             # convert to h264
-            subprocess.run([
-                "ffmpeg",
-                "-hide_banner",
-                "-loglevel",
-                "error",
-                "-y",
-                "-i",
-                f_mpeg4.name,
-                "-vcodec",
-                "h264",
-                f_h264.name,
-            ])
+            subprocess.run(
+                [
+                    "ffmpeg",
+                    "-hide_banner",
+                    "-loglevel",
+                    "error",
+                    "-y",
+                    "-i",
+                    f_mpeg4.name,
+                    "-vcodec",
+                    "h264",
+                    f_h264.name,
+                ]
+            )
             f_h264.flush()
             f_h264.seek(0)
             logger.info(f"Uploading output to {self._bucket}/{key}")
@@ -158,14 +160,16 @@ class StableVideoDiffusion(Worker):
             else:
                 image = {"bucket": self._bucket, "key": key}
 
-        return self.task_post({
-            "image": image,
-            "seed": seed,
-            "decode_chunk_size": decode_chunk_size,
-            "fps": fps,
-            "motion_bucket_id": motion_bucket_id,
-            "noise_aug_strength": noise_aug_strength,
-        })
+        return self.task_post(
+            {
+                "image": image,
+                "seed": seed,
+                "decode_chunk_size": decode_chunk_size,
+                "fps": fps,
+                "motion_bucket_id": motion_bucket_id,
+                "noise_aug_strength": noise_aug_strength,
+            }
+        )
 
 
 if __name__ == "__main__":

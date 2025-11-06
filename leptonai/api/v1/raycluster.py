@@ -23,8 +23,7 @@ class RayClusterAPI(APIResourse):
         if unexpected_top_level:
             raise ValueError(
                 "Only updating via top-level 'spec' is supported. Unexpected fields in"
-                " payload: "
-                + ", ".join(sorted(unexpected_top_level))
+                " payload: " + ", ".join(sorted(unexpected_top_level))
             )
         if "spec" not in update_payload or not isinstance(update_payload["spec"], dict):
             raise ValueError("Update payload must include top-level 'spec' object.")
@@ -37,8 +36,7 @@ class RayClusterAPI(APIResourse):
         if unexpected_spec_level:
             raise ValueError(
                 "Only updating worker_group_specs.min_replicas is supported. Unexpected"
-                " fields in spec: "
-                + ", ".join(sorted(unexpected_spec_level))
+                " fields in spec: " + ", ".join(sorted(unexpected_spec_level))
             )
 
         if "worker_group_specs" not in spec_obj:

@@ -17,9 +17,7 @@ def _json_to_type_string(schema: Dict) -> str:
             min_items = schema.get("minItems", "?")
             max_items = schema.get("maxItems", "?")
             if min_items == max_items and min_items != "?":
-                typestr = (
-                    f"{schema['type']}[{', '.join(_json_to_type_string(x) for x in schema['prefixItems'])}]"
-                )
+                typestr = f"{schema['type']}[{', '.join(_json_to_type_string(x) for x in schema['prefixItems'])}]"
             else:
                 typestr = (
                     f"{schema['type']}[{', '.join(_json_to_type_string(x) for x in schema['prefixItems'])},"
@@ -106,10 +104,12 @@ def _get_method_docstring(openapi: Dict, path_name: str) -> str:
                     key=lambda x: x[0] in schema["required"],
                     reverse=True,
                 )
-                docstring += "\n\nInput Schema (*=required):\n  " + "\n  ".join([
-                    f"{k}{'*' if k in schema['required'] else ''}: {v}"
-                    for k, v in schema_strings
-                ])
+                docstring += "\n\nInput Schema (*=required):\n  " + "\n  ".join(
+                    [
+                        f"{k}{'*' if k in schema['required'] else ''}: {v}"
+                        for k, v in schema_strings
+                    ]
+                )
             else:
                 docstring += "\n\nInput Schema:\n  " + "\n  ".join(
                     [f"{k}: {v}" for k, v in schema_strings]
@@ -143,11 +143,13 @@ def _get_method_docstring(openapi: Dict, path_name: str) -> str:
             docstring += "\n\nInput Schema: None"
         else:
             parameters = api_info["parameters"]
-            docstring += "\n\nInput Schema: (*=required)\n  " + "\n  ".join([
-                f"{p['name']}{'*' if p['required'] else ''}:"
-                f" {_json_to_type_string(p['schema'])}"
-                for p in parameters
-            ])
+            docstring += "\n\nInput Schema: (*=required)\n  " + "\n  ".join(
+                [
+                    f"{p['name']}{'*' if p['required'] else ''}:"
+                    f" {_json_to_type_string(p['schema'])}"
+                    for p in parameters
+                ]
+            )
 
     # Add output schema to the docstring.
     try:

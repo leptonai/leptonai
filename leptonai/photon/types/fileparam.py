@@ -6,7 +6,6 @@ from pydantic import BaseModel, validator
 
 from leptonai.config import PYDANTIC_MAJOR_VERSION
 
-
 _BASE64FILE_ENCODED_PREFIX = "encoded:"
 
 

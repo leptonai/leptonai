@@ -292,11 +292,13 @@ class WhisperX(Photon):
             logger.debug("Using pre-defined text to run alignment and diarization")
             result = {
                 "language": language,
-                "segments": [{
-                    "text": text,
-                    "start": 0.0,
-                    "end": audio.size / 16000,
-                }],
+                "segments": [
+                    {
+                        "text": text,
+                        "start": 0.0,
+                        "end": audio.size / 16000,
+                    }
+                ],
             }
 
         if len(result["segments"]) == 0:

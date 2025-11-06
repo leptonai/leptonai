@@ -241,9 +241,11 @@ class HuggingfacePhoton(Photon):
     def metadata(self):
         res = super().metadata
         res.pop("py_obj")
-        res.update({
-            "task": self.hf_task,
-        })
+        res.update(
+            {
+                "task": self.hf_task,
+            }
+        )
         return res
 
     @cached_property
@@ -599,7 +601,9 @@ class HuggingfaceSummarizationPhoton(HuggingfacePhoton):
     @Photon.handler(
         "run",
         example={
-            "inputs": """The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building, and the tallest structure in Paris. Its base is square, measuring 125 metres (410 ft) on each side. During its construction, the Eiffel Tower surpassed the Washington Monument to become the tallest man-made structure in the world, a title it held for 41 years until the Chrysler Building in New York City was finished in 1930. It was the first structure to reach a height of 300 metres. Due to the addition of a broadcasting aerial at the top of the tower in 1957, it is now taller than the Chrysler Building by 5.2 metres (17 ft). Excluding transmitters, the Eiffel Tower is the second tallest free-standing structure in France after the Millau Viaduct."""
+            "inputs": (
+                """The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building, and the tallest structure in Paris. Its base is square, measuring 125 metres (410 ft) on each side. During its construction, the Eiffel Tower surpassed the Washington Monument to become the tallest man-made structure in the world, a title it held for 41 years until the Chrysler Building in New York City was finished in 1930. It was the first structure to reach a height of 300 metres. Due to the addition of a broadcasting aerial at the top of the tower in 1957, it is now taller than the Chrysler Building by 5.2 metres (17 ft). Excluding transmitters, the Eiffel Tower is the second tallest free-standing structure in France after the Millau Viaduct."""
+            )
         },
     )
     def run(
@@ -627,10 +631,12 @@ class HuggingfaceSummarizationPhoton(HuggingfacePhoton):
 
         blocks = gr.Blocks()
         with blocks:
-            gr.Markdown("""
+            gr.Markdown(
+                """
             # Summarize
             Start typing below to see the output.
-            """)
+            """
+            )
             input_box = gr.Textbox(placeholder="text to summarize")
             output_box = gr.Textbox()
             btn = gr.Button("Summarize")

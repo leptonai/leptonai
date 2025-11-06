@@ -450,11 +450,13 @@ class Photon(BasePhoton):
 
         res.update({"deployment_template": self._deployment_template})
 
-        res.update({
-            "image": self.image,
-            "args": self.args,
-            "exposed_port": self.exposed_port,
-        })
+        res.update(
+            {
+                "image": self.image,
+                "args": self.args,
+                "exposed_port": self.exposed_port,
+            }
+        )
 
         if self.health_check_liveness_tcp_port is not None:
             res["health_check_liveness_tcp_port"] = self.health_check_liveness_tcp_port
@@ -778,40 +780,44 @@ class Photon(BasePhoton):
         # Send the welcome message, especially to make sure that users will know
         # whicl URL to visit in order to not get a "not found" error.
         logger.info(
-            "\n".join([
-                "\nIf you are using standard photon, a few urls that may be helpful:",
-                "\t- "
-                + click.style(f"http://{host}:{port}/docs", fg="green", bold=True)
-                + " OpenAPI documentation",
-                "\t- "
-                + click.style(f"http://{host}:{port}/ledoc", fg="green", bold=True)
-                + " Lepton documentation",
-                "\t- "
-                + click.style(f"http://{host}:{port}/redoc", fg="green", bold=True)
-                + " Redoc documentation",
-                "\t- "
-                + click.style(
-                    f"http://{host}:{port}/openapi.json", fg="green", bold=True
-                )
-                + " Raw OpenAPI schema",
-                "\t- "
-                + click.style(f"http://{host}:{port}/metrics", fg="green", bold=True)
-                + " Prometheus metrics",
-                "\nIf you are using python clients, here is an example code snippet:",
-                "\tfrom leptonai.client import Client, local",
-                f"\tclient = Client(local(port={port}))",
-                "\tclient.healthz()  # checks the health of the photon",
-                "\tclient.paths()  # lists all the paths of the photon",
-                (
-                    "\tclient.method_name?  # If client has a method_name method,"
-                    " get the docstring"
-                ),
-                "\tclient.method_name(...)  # calls the method_name method",
-                (
-                    "If you are using ipython, you can use tab completion by typing"
-                    " `client.` and then press tab.\n"
-                ),
-            ])
+            "\n".join(
+                [
+                    "\nIf you are using standard photon, a few urls that may be helpful:",
+                    "\t- "
+                    + click.style(f"http://{host}:{port}/docs", fg="green", bold=True)
+                    + " OpenAPI documentation",
+                    "\t- "
+                    + click.style(f"http://{host}:{port}/ledoc", fg="green", bold=True)
+                    + " Lepton documentation",
+                    "\t- "
+                    + click.style(f"http://{host}:{port}/redoc", fg="green", bold=True)
+                    + " Redoc documentation",
+                    "\t- "
+                    + click.style(
+                        f"http://{host}:{port}/openapi.json", fg="green", bold=True
+                    )
+                    + " Raw OpenAPI schema",
+                    "\t- "
+                    + click.style(
+                        f"http://{host}:{port}/metrics", fg="green", bold=True
+                    )
+                    + " Prometheus metrics",
+                    "\nIf you are using python clients, here is an example code snippet:",
+                    "\tfrom leptonai.client import Client, local",
+                    f"\tclient = Client(local(port={port}))",
+                    "\tclient.healthz()  # checks the health of the photon",
+                    "\tclient.paths()  # lists all the paths of the photon",
+                    (
+                        "\tclient.method_name?  # If client has a method_name method,"
+                        " get the docstring"
+                    ),
+                    "\tclient.method_name(...)  # calls the method_name method",
+                    (
+                        "If you are using ipython, you can use tab completion by typing"
+                        " `client.` and then press tab.\n"
+                    ),
+                ]
+            )
         )
 
     def _uvicorn_run(self, host, port, log_level, log_config):

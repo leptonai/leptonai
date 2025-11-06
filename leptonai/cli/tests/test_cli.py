@@ -14,7 +14,6 @@ from leptonai import config, __version__
 from leptonai.cli import lep as cli
 from leptonai.cli.photon import _sequentialize_pip_commands
 
-
 logger.info(f"Using cache dir: {config.CACHE_DIR}")
 
 

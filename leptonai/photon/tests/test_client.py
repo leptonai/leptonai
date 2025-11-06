@@ -125,8 +125,7 @@ class TestClient(unittest.TestCase):
         except AttributeError as e:
             self.assertTrue(
                 "It is likely that the client was not initialized, or the client"
-                " encountered errors during initialization time."
-                in str(e)
+                " encountered errors during initialization time." in str(e)
             )
         else:
             self.fail(

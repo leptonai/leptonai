@@ -169,9 +169,7 @@ class APIResourse(object):
 
             sys.stderr.write(
                 f"[lepton-error] Skipped {len(errors)} invalid item(s) when parsing"
-                " list response:"
-                + "".join(errors)
-                + "\n"
+                " list response:" + "".join(errors) + "\n"
             )
 
         return valid_items

@@ -46,7 +46,6 @@ from ..api.v1.types.deployment import (
 )
 from ..api.v1.types.common import LeptonUserSecurityContext
 
-
 console = Console(highlight=False)
 
 
@@ -372,7 +371,7 @@ def create(
 
         # Summarize configured strategies for user confirmation
         strategies_set = {
-            s.value for cp in parsed_ports for s in (cp.expose_strategies or [])
+            s.value for cp in parsed_ports for s in cp.expose_strategies or []
         }
         ports_msg = ", ".join(
             f"{cp.container_port}/{cp.protocol}" for cp in parsed_ports

@@ -13,6 +13,7 @@ class CliReferenceFormatter(HelpFormatter):
     """
     A custom formatter for the Lepton AI CLI reference into Markdown formats.
     """
+
     def __init__(self, *args, **kwargs):
         HelpFormatter.__init__(self, *args, **kwargs)
 
@@ -122,26 +123,30 @@ def _get_page_path(base_dir: Path, subdir: str, extension: str) -> Path:
 )
 def dump(root: str, extension: str):
     from .cli import lep
-    
+
     # Setup output directory
     output_dir = Path(root) / "references"
-    console.print(f"Dumping help pages into markdown files under [blue]{output_dir}[/].")
+    console.print(
+        f"Dumping help pages into markdown files under [blue]{output_dir}[/]."
+    )
     _ensure_directory(output_dir)
-    
+
     # Generate the main lep page
     main_page = _recursive_help(lep, stop=True)
     main_page_path = _get_page_path(output_dir, "", extension)
     frontmatter = "description: Lepton Commandline Interface (CLI) reference\n"
     _write_documentation_file(main_page_path, main_page, frontmatter)
-    
+
     # Generate subcommand pages
     sub_commands = getattr(lep, "commands", {})
     root_ctx = click.core.Context(lep, info_name=lep.name, parent=None)
     logger.info(f"Found {len(sub_commands)} subcommands: {sub_commands.keys()}.")
-    
+
     for name, sub in sub_commands.items():
         if not sub.hidden:
-            page_content = _recursive_help(sub, parent=root_ctx, parent_commands=[lep.name])
+            page_content = _recursive_help(
+                sub, parent=root_ctx, parent_commands=[lep.name]
+            )
             subdir_name = f"lep_{name}"
             subdir_path = output_dir / subdir_name
             _ensure_directory(subdir_path)
@@ -151,4 +156,3 @@ def dump(root: str, extension: str):
 
 def add_command(cli_group):
     cli_group.add_command(dump)
-

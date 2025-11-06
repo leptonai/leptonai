@@ -13,7 +13,6 @@ from loguru import logger
 from leptonai.api.v1.client import APIClient
 from leptonai.api.v1.kv import ListKeysResponse
 
-
 # If not ready, wait for this amount of seconds before checking again.
 _lepton_readiness_wait_time_ = 10
 # Timeout limit.

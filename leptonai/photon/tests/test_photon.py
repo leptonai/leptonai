@@ -328,7 +328,9 @@ class TestPhoton(unittest.TestCase):
 
     def test_ph_cli(self):
         with tempfile.NamedTemporaryFile(suffix=".py") as f:
-            f.write(dedent("""
+            f.write(
+                dedent(
+                    """
 from leptonai.photon import Photon
 
 
@@ -345,7 +347,9 @@ class Counter(Photon):
     def sub(self, x: int) -> int:
         self.counter -= x
         return self.counter
-""").encode("utf-8"))
+"""
+                ).encode("utf-8")
+            )
             f.flush()
             for model in [f"py:{f.name}:Counter", f"{f.name}:Counter"]:
                 proc, port = photon_run_local_server(name="counter", model=model)
@@ -590,12 +594,16 @@ class Counter(Photon):
             custom_py = os.path.join("d1", "d2", "custom.py")
             os.makedirs(os.path.dirname(custom_py))
             with open(custom_py, "w") as f:
-                f.write(dedent(f"""
+                f.write(
+                    dedent(
+                        f"""
 import torch
 from leptonai.photon import Photon
 
 {inspect.getsource(CustomPhoton)}
-"""))
+"""
+                    )
+                )
             subprocess.check_call(["git", "add", custom_py])
             subprocess.check_call(["git", "commit", "-m", "add custom ph"])
 
@@ -985,14 +993,16 @@ from leptonai.photon import Photon
     def test_infer_photon_cls_name(self):
         unique_answer = random_name()
         custom_py = tempfile.NamedTemporaryFile(suffix=".py")
-        custom_py.write(f"""
+        custom_py.write(
+            f"""
 from leptonai.photon import Photon
 
 class CustomPhoton(Photon):
     @Photon.handler()
     def hello(self) -> str:
         return '{unique_answer}'
-""".encode())
+""".encode()
+        )
         custom_py.flush()
 
         proc, port = photon_run_local_server(name=random_name(), model=custom_py.name)
@@ -1000,7 +1010,8 @@ class CustomPhoton(Photon):
         self.assertEqual(client.hello(), unique_answer)
 
         custom_py.seek(0)
-        custom_py.write(f"""
+        custom_py.write(
+            f"""
 from leptonai.photon import Photon
 
 class CustomPhoton1(Photon):
@@ -1012,7 +1023,8 @@ class CustomPhoton2(Photon):
     @Photon.handler()
     def hello(self) -> str:
         return '{unique_answer}'
-""".encode())
+""".encode()
+        )
         custom_py.flush()
 
         self.assertRaisesRegex(

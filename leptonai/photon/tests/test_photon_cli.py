@@ -19,7 +19,6 @@ from leptonai.photon.base import find_local_photon
 from leptonai.cli import lep as cli
 from utils import random_name, photon_run_local_server, sub_test, skip_if_macos
 
-
 logger.info(f"Using cache dir: {config.CACHE_DIR}")
 
 
@@ -133,24 +132,26 @@ class TestPhotonCli(unittest.TestCase):
         self.assertNotIn("abcdef", result.output.lower())
 
     @skip_if_macos
-    @sub_test([
-        (diffusers_model,),
-        (transformers_model,),
-        # FIXME: these models need ffmpeg, but Github CI currently fails to
-        # install it
-        # (whisper_model,),
-        # (audio_classification_model,),
-        (summarization_model,),
-        (sentence_similarity_model,),
-        (text2text_generation_model,),
-        # "hf:cross-encoder/ms-marco-TinyBERT-L-2-v2" has been converted to text-ranking model
-        # (sentiment_analysis_model,),
-        # FIXME: Skipping for now due to model incompatibility with transformers 4.4.61.
-        # (depth_estimation_model,),
-        (microsoft_phi_model,),
-        (image_to_text_model,),
-        (feature_extraction_model,),
-    ])
+    @sub_test(
+        [
+            (diffusers_model,),
+            (transformers_model,),
+            # FIXME: these models need ffmpeg, but Github CI currently fails to
+            # install it
+            # (whisper_model,),
+            # (audio_classification_model,),
+            (summarization_model,),
+            (sentence_similarity_model,),
+            (text2text_generation_model,),
+            # "hf:cross-encoder/ms-marco-TinyBERT-L-2-v2" has been converted to text-ranking model
+            # (sentiment_analysis_model,),
+            # FIXME: Skipping for now due to model incompatibility with transformers 4.4.61.
+            # (depth_estimation_model,),
+            (microsoft_phi_model,),
+            (image_to_text_model,),
+            (feature_extraction_model,),
+        ]
+    )
     def test_photon_run(self, model):
         if os.getenv("GITHUB_ACTIONS") and model in [
             microsoft_phi_model,
@@ -308,14 +309,16 @@ class TestPhotonCli(unittest.TestCase):
 
         tmp = tempfile.NamedTemporaryFile(suffix=".py")
         with open(tmp.name, "w") as f:
-            f.write("""
+            f.write(
+                """
 from leptonai.photon import Photon
 
 class CustomPhoton(Photon):
     @Photon.handler
     def run(self, input: str) -> str:
         return "custom" + input
-""")
+"""
+            )
 
         # (model str, valid)
         test_cases = [
