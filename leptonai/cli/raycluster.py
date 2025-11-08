@@ -444,8 +444,8 @@ def create(
 
     if head_shared_memory_size is not None:
         spec.head_group_spec.shared_memory_size = head_shared_memory_size
-    if head_shared_memory_size is not None and head_shared_memory_size <= 0:
-        console.print("[red]Head shared memory size must be a positive integer.[/]")
+    if head_shared_memory_size is not None and head_shared_memory_size < 0:
+        console.print("[red]Head shared memory size must be non-negative.[/]")
         sys.exit(1)
 
     spec.head_group_spec.min_replicas = 1
@@ -517,8 +517,8 @@ def create(
 
     if worker_shared_memory_size is not None:
         worker_spec.shared_memory_size = worker_shared_memory_size
-    if worker_shared_memory_size is not None and worker_shared_memory_size <= 0:
-        console.print("[red]Worker shared memory size must be a positive integer.[/]")
+    if worker_shared_memory_size is not None and worker_shared_memory_size < 0:
+        console.print("[red]Worker shared memory size must be non-negative.[/]")
         sys.exit(1)
 
     worker_spec.min_replicas = 1
