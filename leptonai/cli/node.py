@@ -420,12 +420,12 @@ def storage_command(node_group=None):
             )
             volume_name = getattr(vol, "name", "-")
             from_source = getattr(vol, "from_", "-")
-            
-            # Convert enum to string and format properly
+
             if from_source != "-":
-                # Get the string value from enum (e.g., "local", "remote", "nfs")
-                source_str = str(from_source.value if hasattr(from_source, 'value') else from_source).lower()
-                
+                source_str = str(
+                    from_source.value if hasattr(from_source, "value") else from_source
+                ).lower()
+
                 # Colorize based on type
                 if source_str == "local":
                     type_text = f"[green]node-{source_str}[/green]"
@@ -435,7 +435,7 @@ def storage_command(node_group=None):
                     type_text = f"node-{source_str}"
             else:
                 type_text = "-"
-            
+
             table.add_row(
                 nodegroup_text,
                 volume_name,
@@ -444,6 +444,7 @@ def storage_command(node_group=None):
             first = False
 
     console.print(table)
+
 
 def add_command(cli_group):
     cli_group.add_command(node)
