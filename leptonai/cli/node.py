@@ -367,5 +367,83 @@ def resource_shape_command(node_group=None):
     console.print(table)
 
 
+@node.command(name="storage")
+@click.option(
+    "--node-group",
+    "-ng",
+    help=(
+        "Show storage for specific node groups by their IDs or names. Can use"
+        " partial name/ID (e.g., 'h100' will match any name/ID containing 'h100'). Can"
+        " specify multiple values."
+    ),
+    type=str,
+    required=False,
+    multiple=True,
+)
+def storage_command(node_group=None):
+    """
+    List storage volumes configured for node groups.
+
+    Shows the volumes attached to each node group including their size,
+    source, mount path, and creation mode.
+    """
+    client = APIClient()
+    node_groups = client.nodegroup.list_all()
+
+    if node_group:
+        filters = node_group
+        node_groups = [
+            ng
+            for ng in node_groups
+            if any((f in ng.metadata.id_) or (f in ng.metadata.name) for f in filters)
+        ]
+
+    table = Table(title="Storage Volumes by Node Group", show_lines=True)
+    table.add_column("Node Group")
+    table.add_column("Storage Name")
+    table.add_column("Type")
+
+    for ng in node_groups:
+        ng_name = ng.metadata.name
+        ng_id = ng.metadata.id_
+        volumes = getattr(ng.spec, "volumes", None) or []
+
+        if not volumes:
+            nodegroup_text = f"[bold]{ng_name}[/bold]\n[dim]{ng_id}[/dim]"
+            table.add_row(nodegroup_text, "None", "")
+            continue
+
+        first = True
+        for vol in volumes:
+            nodegroup_text = (
+                f"[bold]{ng_name}[/bold]\n[dim]{ng_id}[/dim]" if first else ""
+            )
+            volume_name = getattr(vol, "name", "-")
+            from_source = getattr(vol, "from_", "-")
+            
+            # Convert enum to string and format properly
+            if from_source != "-":
+                # Get the string value from enum (e.g., "local", "remote", "nfs")
+                source_str = str(from_source.value if hasattr(from_source, 'value') else from_source).lower()
+                
+                # Colorize based on type
+                if source_str == "local":
+                    type_text = f"[green]node-{source_str}[/green]"
+                elif source_str == "nfs":
+                    type_text = f"[cyan]node-{source_str}[/cyan]"
+                else:
+                    type_text = f"node-{source_str}"
+            else:
+                type_text = "-"
+            
+            table.add_row(
+                nodegroup_text,
+                volume_name,
+                type_text,
+            )
+            first = False
+
+    console.print(table)
+
 def add_command(cli_group):
     cli_group.add_command(node)
