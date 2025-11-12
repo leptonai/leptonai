@@ -35,7 +35,7 @@ class MountOptions(BaseModel):
 
 class Mount(BaseModel):
     path: Optional[str] = None
-    from_: Optional[str] = Field(default=None, alias="from")
+    from_: str
     mount_path: str
     mount_options: Optional[MountOptions] = None
 

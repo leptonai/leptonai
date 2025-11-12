@@ -218,7 +218,7 @@ def list_command(name):
     "--head-mount",
     help=(
         "Persistent storage to be mounted to the head group, in the format "
-        "`STORAGE_PATH:MOUNT_PATH` or `STORAGE_PATH:MOUNT_PATH:MOUNT_FROM`."
+        "`STORAGE_PATH:MOUNT_PATH:MOUNT_FROM`."
     ),
     multiple=True,
 )
@@ -284,7 +284,7 @@ def list_command(name):
     "--worker-mount",
     help=(
         "Persistent storage to be mounted to the worker group, in the format "
-        "`STORAGE_PATH:MOUNT_PATH` or `STORAGE_PATH:MOUNT_PATH:MOUNT_FROM`."
+        "`STORAGE_PATH:MOUNT_PATH:MOUNT_FROM`."
     ),
     multiple=True,
 )
