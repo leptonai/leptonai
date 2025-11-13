@@ -6,7 +6,11 @@ from rich.table import Table
 from .util import console, click_group
 from leptonai.api.v2.client import APIClient
 from ..api.v1.types.common import Metadata
-from ..api.v1.types.ingress import LeptonIngress, LeptonIngressUserSpec
+from ..api.v1.types.ingress import (
+    LeptonIngress,
+    LeptonIngressUserSpec,
+    LeptonIngressEndpoint,
+)
 
 
 @click_group()
@@ -82,6 +86,288 @@ def delete(name):
     client = APIClient()
     client.ingress.delete(name)
     console.print(f"Ingress [green]{name}[/] deleted successfully.")
+
+
+@ingress.command(name="add-endpoint")
+@click.option("--name", "-n", help="name of the ingress", type=str, required=True)
+@click.option(
+    "--deployment",
+    "-d",
+    help="deployment name to add to the ingress",
+    type=str,
+    required=True,
+)
+@click.option(
+    "--weight",
+    "-w",
+    help="traffic weight for this deployment (default: 100)",
+    type=int,
+    default=100,
+)
+def add_endpoint(name, deployment, weight):
+    """
+    Add an endpoint (deployment) to an ingress with a specified traffic weight.
+
+    This is useful for canary deployments where you want to route a portion of
+    traffic to a new deployment. Weights are relative - if you have two endpoints
+    with weights 80 and 20, they'll receive 80% and 20% of traffic respectively.
+
+    Example:
+        # Add a new deployment with 20% traffic weight
+        lep ingress add-endpoint -n my-ingress -d new-deployment -w 20
+    """
+    client = APIClient()
+
+    # Get current ingress
+    current_ingress = client.ingress.get(name)
+
+    # Check if deployment already exists in endpoints
+    if current_ingress.spec.endpoints:
+        for endpoint in current_ingress.spec.endpoints:
+            if endpoint.deployment == deployment:
+                console.print(
+                    f"[yellow]Warning[/]: Deployment [cyan]{deployment}[/] already exists in ingress [cyan]{name}[/].\n"
+                    f"Use 'lep ingress update-endpoint' to change its weight."
+                )
+                return
+
+    # Create new endpoint
+    new_endpoint = LeptonIngressEndpoint(deployment=deployment, weight=weight)
+
+    # Add to existing endpoints or create new list
+    if current_ingress.spec.endpoints:
+        current_ingress.spec.endpoints.append(new_endpoint)
+    else:
+        current_ingress.spec.endpoints = [new_endpoint]
+
+    # Update ingress
+    client.ingress.update(name, current_ingress)
+
+    console.print(
+        f"✓ Successfully added deployment [green]{deployment}[/] to ingress [green]{name}[/] with weight [green]{weight}[/]"
+    )
+
+    # Show current traffic distribution
+    _show_traffic_distribution(current_ingress.spec.endpoints)
+
+
+@ingress.command(name="remove-endpoint")
+@click.option("--name", "-n", help="name of the ingress", type=str, required=True)
+@click.option(
+    "--deployment",
+    "-d",
+    help="deployment name to remove from the ingress",
+    type=str,
+    required=True,
+)
+def remove_endpoint(name, deployment):
+    """
+    Remove an endpoint (deployment) from an ingress.
+
+    Example:
+        lep ingress remove-endpoint -n my-ingress -d old-deployment
+    """
+    client = APIClient()
+
+    # Get current ingress to check if endpoint exists
+    current_ingress = client.ingress.get(name)
+
+    if not current_ingress.spec.endpoints:
+        console.print(f"[red]Error[/]: Ingress [cyan]{name}[/] has no endpoints.")
+        return
+
+    # Check if deployment exists
+    endpoint_exists = any(
+        ep.deployment == deployment for ep in current_ingress.spec.endpoints
+    )
+
+    if not endpoint_exists:
+        console.print(
+            f"[red]Error[/]: Deployment [cyan]{deployment}[/] not found in ingress [cyan]{name}[/]."
+        )
+        return
+
+    # Use the dedicated delete_endpoint API method
+    updated_ingress = client.ingress.delete_endpoint(name, deployment)
+
+    console.print(
+        f"✓ Successfully removed deployment [green]{deployment}[/] from ingress [green]{name}[/]"
+    )
+
+    # Show current traffic distribution
+    if updated_ingress.spec.endpoints:
+        _show_traffic_distribution(updated_ingress.spec.endpoints)
+    else:
+        console.print("[yellow]Note[/]: Ingress now has no endpoints.")
+
+
+@ingress.command(name="update-endpoint")
+@click.option("--name", "-n", help="name of the ingress", type=str, required=True)
+@click.option(
+    "--deployment",
+    "-d",
+    help="deployment name to update",
+    type=str,
+    required=True,
+)
+@click.option(
+    "--weight",
+    "-w",
+    help="new traffic weight for this deployment",
+    type=int,
+    required=True,
+)
+def update_endpoint(name, deployment, weight):
+    """
+    Update the traffic weight of an existing endpoint in an ingress.
+
+    Example:
+        # Change deployment weight to 50%
+        lep ingress update-endpoint -n my-ingress -d my-deployment -w 50
+    """
+    client = APIClient()
+
+    # Get current ingress
+    current_ingress = client.ingress.get(name)
+
+    if not current_ingress.spec.endpoints:
+        console.print(
+            f"[red]Error[/]: Ingress [cyan]{name}[/] has no endpoints. "
+            f"Use 'lep ingress add-endpoint' first."
+        )
+        return
+
+    # Find and update the endpoint
+    found = False
+    for endpoint in current_ingress.spec.endpoints:
+        if endpoint.deployment == deployment:
+            endpoint.weight = weight
+            found = True
+            break
+
+    if not found:
+        console.print(
+            f"[red]Error[/]: Deployment [cyan]{deployment}[/] not found in ingress [cyan]{name}[/].\n"
+            f"Use 'lep ingress add-endpoint' to add it first."
+        )
+        return
+
+    # Update ingress
+    client.ingress.update(name, current_ingress)
+
+    console.print(
+        f"✓ Successfully updated weight for deployment [green]{deployment}[/] in ingress [green]{name}[/] to [green]{weight}[/]"
+    )
+
+    # Show current traffic distribution
+    _show_traffic_distribution(current_ingress.spec.endpoints)
+
+
+@ingress.command(name="set-endpoints")
+@click.option("--name", "-n", help="name of the ingress", type=str, required=True)
+@click.option(
+    "--endpoints",
+    "-e",
+    help=(
+        "endpoint configurations in format 'deployment:weight' (can be specified multiple times). "
+        "This replaces all existing endpoints."
+    ),
+    type=str,
+    multiple=True,
+    required=True,
+)
+def set_endpoints(name, endpoints):
+    """
+    Set all endpoints for an ingress at once, replacing any existing endpoints.
+
+    This is useful for setting up or reconfiguring traffic distribution in one command.
+
+    Examples:
+        # Set up 80/20 canary split
+        lep ingress set-endpoints -n my-ingress -e stable-deployment:80 -e canary-deployment:20
+
+        # Switch to 50/50 split
+        lep ingress set-endpoints -n my-ingress -e stable-deployment:50 -e canary-deployment:50
+
+        # Route all traffic to one deployment
+        lep ingress set-endpoints -n my-ingress -e new-deployment:100
+    """
+    client = APIClient()
+
+    # Parse endpoint specifications
+    new_endpoints = []
+    for endpoint_spec in endpoints:
+        try:
+            deployment, weight_str = endpoint_spec.split(":")
+            weight = int(weight_str)
+            if weight < 0:
+                console.print(
+                    f"[red]Error[/]: Weight must be non-negative, got {weight} for deployment {deployment}"
+                )
+                return
+            new_endpoints.append(
+                LeptonIngressEndpoint(deployment=deployment.strip(), weight=weight)
+            )
+        except ValueError:
+            console.print(
+                f"[red]Error[/]: Invalid endpoint specification '{endpoint_spec}'. "
+                f"Expected format: 'deployment:weight'"
+            )
+            return
+
+    if not new_endpoints:
+        console.print("[red]Error[/]: At least one endpoint must be specified.")
+        return
+
+    # Validate that sum of weights is greater than zero
+    total_weight = sum(ep.weight for ep in new_endpoints)
+    if total_weight == 0:
+        console.print(
+            "[red]Error[/]: Sum of endpoint weights must be greater than zero. "
+            "At least one endpoint must have a positive weight."
+        )
+        return
+
+    # Get current ingress
+    current_ingress = client.ingress.get(name)
+
+    # Replace endpoints
+    current_ingress.spec.endpoints = new_endpoints
+
+    # Update ingress
+    client.ingress.update(name, current_ingress)
+
+    console.print(f"✓ Successfully updated endpoints for ingress [green]{name}[/]")
+
+    # Show current traffic distribution
+    _show_traffic_distribution(new_endpoints)
+
+
+def _show_traffic_distribution(endpoints):
+    """
+    Display a table showing the traffic distribution across endpoints.
+    """
+    if not endpoints:
+        return
+
+    total_weight = sum(ep.weight or 0 for ep in endpoints)
+
+    table = Table(show_header=True, header_style="bold magenta")
+    table.add_column("Deployment")
+    table.add_column("Weight")
+    table.add_column("Traffic %")
+
+    for endpoint in endpoints:
+        weight = endpoint.weight or 0
+        percentage = (weight / total_weight * 100) if total_weight > 0 else 0
+        table.add_row(
+            endpoint.deployment,
+            str(weight),
+            f"{percentage:.1f}%",
+        )
+
+    table.title = "Traffic Distribution"
+    console.print(table)
 
 
 def add_command(cli_group):

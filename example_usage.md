@@ -1,3 +1,44 @@
+# Lepton CLI Usage Examples
+
+## Table of Contents
+- [Ingress Canary Deployments](#ingress-canary-deployments)
+- [IP Whitelist](#ip-whitelist-usage-examples)
+
+---
+
+## Ingress Canary Deployments
+
+The Lepton CLI supports canary-style deployments through ingress endpoint management. This allows you to gradually roll out new versions by controlling traffic distribution between deployments.
+
+### Quick Start: Canary Deployment
+
+```bash
+# 1. Deploy new version (canary)
+lep deployment create -n canary-deployment --photon-id my-photon-v2
+
+# 2. Add canary to existing ingress with 10% traffic
+lep ingress add-endpoint -n api.example.com -d canary-deployment -w 10
+
+# 3. Gradually increase traffic to canary
+lep ingress update-endpoint -n api.example.com -d canary-deployment -w 50
+
+# 4. Complete rollout - route all traffic to canary
+lep ingress set-endpoints -n api.example.com -e canary-deployment:100
+```
+
+### Available Ingress Commands
+
+- `lep ingress add-endpoint` - Add a deployment to an ingress with traffic weight
+- `lep ingress update-endpoint` - Update traffic weight for a deployment
+- `lep ingress set-endpoints` - Set all endpoints and weights at once
+- `lep ingress remove-endpoint` - Remove a deployment from an ingress
+- `lep ingress list` - List all ingresses
+- `lep ingress get` - View details of a specific ingress
+
+For a complete guide with examples, see [docs/ingress_canary_deployment_guide.md](docs/ingress_canary_deployment_guide.md).
+
+---
+
 # IP Whitelist Usage Examples
 
 ## Clean Separation of Concerns
