@@ -126,8 +126,9 @@ def add_endpoint(name, deployment, weight):
         for endpoint in current_ingress.spec.endpoints:
             if endpoint.deployment == deployment:
                 console.print(
-                    f"[yellow]Warning[/]: Deployment [cyan]{deployment}[/] already exists in ingress [cyan]{name}[/].\n"
-                    f"Use 'lep ingress update-endpoint' to change its weight."
+                    f"[yellow]Warning[/]: Deployment [cyan]{deployment}[/] already"
+                    f" exists in ingress [cyan]{name}[/].\nUse 'lep ingress"
+                    " update-endpoint' to change its weight."
                 )
                 return
 
@@ -144,7 +145,8 @@ def add_endpoint(name, deployment, weight):
     client.ingress.update(name, current_ingress)
 
     console.print(
-        f"✓ Successfully added deployment [green]{deployment}[/] to ingress [green]{name}[/] with weight [green]{weight}[/]"
+        f"✓ Successfully added deployment [green]{deployment}[/] to ingress"
+        f" [green]{name}[/] with weight [green]{weight}[/]"
     )
 
     # Show current traffic distribution
@@ -183,7 +185,8 @@ def remove_endpoint(name, deployment):
 
     if not endpoint_exists:
         console.print(
-            f"[red]Error[/]: Deployment [cyan]{deployment}[/] not found in ingress [cyan]{name}[/]."
+            f"[red]Error[/]: Deployment [cyan]{deployment}[/] not found in ingress"
+            f" [cyan]{name}[/]."
         )
         return
 
@@ -191,7 +194,8 @@ def remove_endpoint(name, deployment):
     updated_ingress = client.ingress.delete_endpoint(name, deployment)
 
     console.print(
-        f"✓ Successfully removed deployment [green]{deployment}[/] from ingress [green]{name}[/]"
+        f"✓ Successfully removed deployment [green]{deployment}[/] from ingress"
+        f" [green]{name}[/]"
     )
 
     # Show current traffic distribution
@@ -233,7 +237,7 @@ def update_endpoint(name, deployment, weight):
     if not current_ingress.spec.endpoints:
         console.print(
             f"[red]Error[/]: Ingress [cyan]{name}[/] has no endpoints. "
-            f"Use 'lep ingress add-endpoint' first."
+            "Use 'lep ingress add-endpoint' first."
         )
         return
 
@@ -247,8 +251,8 @@ def update_endpoint(name, deployment, weight):
 
     if not found:
         console.print(
-            f"[red]Error[/]: Deployment [cyan]{deployment}[/] not found in ingress [cyan]{name}[/].\n"
-            f"Use 'lep ingress add-endpoint' to add it first."
+            f"[red]Error[/]: Deployment [cyan]{deployment}[/] not found in ingress"
+            f" [cyan]{name}[/].\nUse 'lep ingress add-endpoint' to add it first."
         )
         return
 
@@ -256,7 +260,8 @@ def update_endpoint(name, deployment, weight):
     client.ingress.update(name, current_ingress)
 
     console.print(
-        f"✓ Successfully updated weight for deployment [green]{deployment}[/] in ingress [green]{name}[/] to [green]{weight}[/]"
+        f"✓ Successfully updated weight for deployment [green]{deployment}[/] in"
+        f" ingress [green]{name}[/] to [green]{weight}[/]"
     )
 
     # Show current traffic distribution
@@ -269,8 +274,8 @@ def update_endpoint(name, deployment, weight):
     "--endpoints",
     "-e",
     help=(
-        "endpoint configurations in format 'deployment:weight' (can be specified multiple times). "
-        "This replaces all existing endpoints."
+        "endpoint configurations in format 'deployment:weight' (can be specified"
+        " multiple times). This replaces all existing endpoints."
     ),
     type=str,
     multiple=True,
@@ -302,7 +307,8 @@ def set_endpoints(name, endpoints):
             weight = int(weight_str)
             if weight < 0:
                 console.print(
-                    f"[red]Error[/]: Weight must be non-negative, got {weight} for deployment {deployment}"
+                    f"[red]Error[/]: Weight must be non-negative, got {weight} for"
+                    f" deployment {deployment}"
                 )
                 return
             new_endpoints.append(
@@ -311,7 +317,7 @@ def set_endpoints(name, endpoints):
         except ValueError:
             console.print(
                 f"[red]Error[/]: Invalid endpoint specification '{endpoint_spec}'. "
-                f"Expected format: 'deployment:weight'"
+                "Expected format: 'deployment:weight'"
             )
             return
 
