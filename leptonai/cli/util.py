@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 import click
 from loguru import logger
 from leptonai.api.v1.api_resource import ClientError, ServerError
+from leptonai.api.v2.utils import WorkspaceError, WorkspaceConfigurationError
 
 from rich.console import Console
 from leptonai.api.v1.types.job import LeptonJob
@@ -141,6 +142,12 @@ def click_group(*args, **kwargs):
         def invoke(self, ctx):
             try:
                 return super().invoke(ctx)
+            except WorkspaceConfigurationError as e:
+                console.print(f"[red]Workspace configuration error[/]: {e}")
+                sys.exit(1)
+            except WorkspaceError as e:
+                console.print(f"[red]{e.__class__.__name__}[/]: {e}")
+                sys.exit(1)
             except ClientError as e:
                 resp = getattr(e, "response", None)
                 status = getattr(resp, "status_code", None)

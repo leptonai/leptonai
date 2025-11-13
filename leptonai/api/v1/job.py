@@ -85,16 +85,26 @@ class JobAPI(APIResourse):
         response = self._post("/jobs", json=self.safe_json(spec))
         return self.ensure_type(response, LeptonJob)
 
-    def get(self, id_or_job: Union[str, LeptonJob]) -> LeptonJob:
-        response = self._get(f"/jobs/{self._to_id(id_or_job)}")
+    def get(
+        self, id_or_job: Union[str, LeptonJob], *, job_query_mode: str = "alive_only"
+    ) -> LeptonJob:
+        response = self._get(
+            f"/jobs/{self._to_id(id_or_job)}",
+            params={"job_query_mode": job_query_mode} if job_query_mode else None,
+        )
         return self.ensure_type(response, LeptonJob)
 
     def update(self, name_or_job: Union[str, LeptonJob], spec: LeptonJob) -> bool:
         response = self._patch(f"/jobs/{self._to_id(name_or_job)}", json=spec)
         return self.ensure_ok(response)
 
-    def delete(self, name_or_job: Union[str, LeptonJob]) -> bool:
-        response = self._delete(f"/jobs/{self._to_id(name_or_job)}")
+    def delete(
+        self, name_or_job: Union[str, LeptonJob], *, job_query_mode: str = "alive_only"
+    ) -> bool:
+        response = self._delete(
+            f"/jobs/{self._to_id(name_or_job)}",
+            params={"job_query_mode": job_query_mode} if job_query_mode else None,
+        )
         return self.ensure_ok(response)
 
     def get_events(self, name_or_job: Union[str, LeptonJob]) -> List[LeptonEvent]:

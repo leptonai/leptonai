@@ -40,6 +40,7 @@ from .utils import (
     WorkspaceUnauthorizedError,
     WorkspaceNotFoundError,
     _get_workspace_origin_url,
+    WorkspaceConfigurationError,
 )
 from .workspace_record import WorkspaceRecord
 from loguru import logger
@@ -97,7 +98,7 @@ class APIClient(object):
             or (WorkspaceRecord.current().id_ if WorkspaceRecord.current() else None)
         )
         if workspace_id is None:
-            raise RuntimeError(
+            raise WorkspaceConfigurationError(
                 "You must specify workspace_id or set LEPTON_WORKSPACE_ID in the"
                 " environment, or use commandline `lep login` to log in to a "
                 " workspace. If you do not know your workspace credentials, go to"

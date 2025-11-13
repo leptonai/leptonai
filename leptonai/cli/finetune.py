@@ -2,11 +2,12 @@ import json
 from typing import Any, Dict, List, Optional
 
 import click
-
+from loguru import logger
 from rich.table import Table
 
 from .util import click_group, console, format_timestamp_ms, colorize_state, make_name_id_cell
 from ..api.v2.client import APIClient
+from leptonai.api.v1.types.job import LeptonJobQueryMode
 
 
 def _fetch_template_schema(template_id: str) -> Dict[str, Any]:
@@ -14,6 +15,7 @@ def _fetch_template_schema(template_id: str) -> Dict[str, Any]:
     client = APIClient()
     try:
         tpl = client.template.get_public(template_id)
+        logger.trace(json.dumps(tpl.model_dump(), indent=2))
     except Exception:
         tpl = None
     if tpl is None:
@@ -67,10 +69,28 @@ class DynamicSchemaCommand(click.Command):
         def flag(name: str) -> str:
             return f"--{name.replace('_', '-')}"
 
+        def _parse_kv_list(ctx, param, values):
+            result: Dict[str, str] = {}
+            for raw in values or []:
+                key, sep, val = (raw or "").partition(":")
+                if not sep or key.strip() == "":
+                    raise click.BadParameter(
+                        "expected KEY:VALUE (use multiple flags for multiple items)",
+                        param=param,
+                    )
+                result[key.strip()] = val.strip()
+            return result
+
         for name, prop in props.items():
             desc = prop.get("description", "")
             default = prop.get("default", None)
             ptype = prop.get("type", "string")
+            addl = prop.get("additionalProperties")
+            is_string_mapping = (
+                ptype == "object"
+                and isinstance(addl, dict)
+                and addl.get("type") == "string"
+            )
             param_decls: Any
             if ptype == "boolean":
                 param_decls = (f"{flag(name)}/--no-{name.replace('_','-')}",)
@@ -88,7 +108,7 @@ class DynamicSchemaCommand(click.Command):
                         (flag(name),),
                         type=int,
                         default=default,
-                        required=name in required and default is None,
+                        required=name in required,
                         help=desc,
                         show_default=True,
                     )
@@ -99,22 +119,38 @@ class DynamicSchemaCommand(click.Command):
                         (flag(name),),
                         type=float,
                         default=default,
-                        required=name in required and default is None,
+                        required=name in required,
                         help=desc,
                         show_default=True,
                     )
                 )
             else:
-                options.append(
-                    click.Option(
-                        (flag(name),),
-                        type=str,
-                        default=default,
-                        required=name in required and default is None,
-                        help=desc + (" (JSON)" if ptype in ("object", "array") else ""),
-                        show_default=True,
+                if is_string_mapping:
+                    options.append(
+                        click.Option(
+                            (flag(name),),
+                            type=str,
+                            multiple=True,
+                            required=name in required,
+                            callback=_parse_kv_list,
+                            help=(
+                                (desc + " — ") if desc else ""
+                            )
+                            + "repeatable KEY:VALUE (e.g., question:prompt)",
+                            show_default=False,
+                        )
                     )
-                )
+                else:
+                    options.append(
+                        click.Option(
+                            (flag(name),),
+                            type=str,
+                            default=default,
+                            required=name in required,
+                            help=desc + (" (JSON)" if ptype in ("object", "array") else ""),
+                            show_default=True,
+                        )
+                    )
         return options
 
 
@@ -181,19 +217,23 @@ def _print_finetune_jobs_table(jobs, dashboard_base_url: Optional[str] = None):
                     or tc.get("model")
                     or "-"
                 )
-                # Prefer training dataset; fallback to validation dataset; then generic dataset_uri
-                ds_uri = (
-                    tc.get("train_dataset_uri")
-                    or tc.get("validation_dataset_uri")
-                    or tc.get("dataset_uri")
+                # Training dataset (top line)
+                train_uri = tc.get("train_dataset_uri") or tc.get("dataset_uri")
+                train_split = tc.get("train_dataset_split") or tc.get("dataset_split")
+                train_line = (
+                    f"{train_uri}{f' ({train_split})' if train_split else ''}"
+                    if train_uri
+                    else "-"
                 )
-                ds_split = (
-                    tc.get("train_dataset_split")
-                    or tc.get("validation_dataset_split")
-                    or tc.get("dataset_split")
+                # Validation dataset (bottom line)
+                val_uri = tc.get("validation_dataset_uri")
+                val_split = tc.get("validation_dataset_split")
+                val_line = (
+                    f"{val_uri}{f' ({val_split})' if val_split else ''}"
+                    if val_uri
+                    else "-"
                 )
-                if ds_uri:
-                    dataset_str = f"{ds_uri}{f' ({ds_split})' if ds_split else ''}"
+                dataset_str = f"{train_line}\n{val_line}"
         except Exception:
             pass
 
@@ -218,7 +258,7 @@ def _print_finetune_jobs_table(jobs, dashboard_base_url: Optional[str] = None):
 @click.option("--created-by", type=str, required=False, help="Filter by creator email (single).")
 @click.option("--page", type=int, required=False, help="Page number (1-based).")
 @click.option("--page-size", type=int, required=False, help="Items per page.")
-@click.option("--include-archive", is_flag=True, default=False, help="Include archived jobs (alive_and_archive).")
+@click.option("--include-archived", "-ia",is_flag=True, default=False, help="Include archived jobs (alive_and_archive).")
 def list_command(
     q: Optional[str],
     query: Optional[str],
@@ -227,11 +267,15 @@ def list_command(
     created_by: Optional[str],
     page: Optional[int],
     page_size: Optional[int],
-    include_archive: bool,
+    include_archived: bool,
 ):
     """List finetune jobs."""
     client = APIClient()
-    job_query_mode = "alive_and_archive" if include_archive else "alive_only"
+    job_query_mode = (
+        LeptonJobQueryMode.AliveAndArchive.value
+        if include_archived
+        else LeptonJobQueryMode.AliveOnly.value
+    )
     jobs = client.finetune.list_all(
         job_query_mode=job_query_mode,
         q=q,
@@ -246,21 +290,34 @@ def list_command(
 
 
 @finetune.command(name="get")
-@click.argument("jid", type=str, required=True)
-def get_command(jid: str):
+@click.option("--id", "-i", type=str, required=True, help="Fine-tune job ID")
+@click.option("--include-archived", "-ia", is_flag=True, default=False, help="Include archived jobs when resolving the ID")
+def get_command(id: str, include_archived: bool):
     """Get a finetune job by ID."""
     client = APIClient()
-    job = client.finetune.get(jid)
+    job_query_mode = (
+        LeptonJobQueryMode.AliveAndArchive.value
+        if include_archived
+        else LeptonJobQueryMode.AliveOnly.value
+    )
+    job = client.finetune.get(id, job_query_mode=job_query_mode)
     console.print(json.dumps(client.finetune.safe_json(job), indent=2))
 
 
 @finetune.command(name="delete")
-@click.argument("jid", type=str, required=True)
-def delete_command(jid: str):
+@click.option("--id", "-i", type=str, required=True, help="Fine-tune job ID")
+@click.option("--include-archived", "-ia", is_flag=True, default=False, help="Include archived jobs when resolving the ID")
+def delete_command(id: str, include_archived: bool):
     """Delete a finetune job by ID."""
     client = APIClient()
-    client.finetune.delete(jid)
-    console.print(f"Finetune job [green]{jid}[/] deleted successfully.")
+    job_query_mode = (
+        LeptonJobQueryMode.AliveAndArchive.value
+        if include_archived
+        else LeptonJobQueryMode.AliveOnly.value
+    )
+    client.finetune.get(id, job_query_mode=job_query_mode)
+    client.finetune.delete(id, job_query_mode=job_query_mode)
+    console.print(f"Finetune job [green]{id}[/] deleted successfully.")
 
 
 @finetune.command(name="list-trainers")
@@ -268,6 +325,7 @@ def list_trainers_command():
     """List available finetune trainers."""
     client = APIClient()
     trainers = client.finetune.list_trainers()
+    logger.trace(json.dumps(trainers[0].model_dump(), indent=2))
     table = Table(title="Trainers", show_header=True, show_lines=True)
     table.add_column("Trainer ID")
     table.add_column("Is Default")
@@ -312,7 +370,13 @@ def list_supported_models_command():
 )
 def create_command(**kwargs):
     """Create a finetune job (WIP). Dynamic flags are injected from the template schema."""
-    console.print("[yellow]Finetune creation is WIP. Dynamic flags loaded from template schema.[/]")
+    _ = kwargs.pop("template", None)
+    _ = kwargs.pop("template_id", None)
+
+    train_config: Dict[str, Any] = {k: v for k, v in kwargs.items() if v is not None}
+    payload = {"trainer": {"train_config": train_config}}
+    logger.trace(json.dumps(payload, indent=2))
+    console.print("[yellow]Finetune creation is WIP. Collected trainer.train_config shown in trace log.[/]")
 
 
 def add_command(cli_group):

@@ -38,6 +38,7 @@ from leptonai.api.v1.types.job import (
     LeptonJobUserSpec,
     LeptonJobState,
     LeptonJobSegmentConfig,
+    LeptonJobQueryMode,
 )
 from leptonai.api.v1.types.deployment import (
     LeptonLog,
@@ -834,7 +835,14 @@ def create(
     required=False,
     multiple=True,
 )
-def list_command(state, user, name_or_id, node_group):
+@click.option(
+    "--include-archived",
+    "-ia",
+    is_flag=True,
+    default=False,
+    help="Include archived jobs (alive_and_archive)",
+)
+def list_command(state, user, name_or_id, node_group, include_archived):
     """
     Lists all jobs in the current workspace.
 
@@ -862,7 +870,12 @@ def list_command(state, user, name_or_id, node_group):
     if node_group:
         list_params["node_groups"] = list(node_group)
 
-    jobs = client.job.list_all(**list_params)
+    job_query_mode = (
+        LeptonJobQueryMode.AliveAndArchive.value
+        if include_archived
+        else LeptonJobQueryMode.AliveOnly.value
+    )
+    jobs = client.job.list_all(job_query_mode=job_query_mode, **list_params)
 
     _display_jobs_table(jobs, dashboard_base_url=client.get_dashboard_base_url())
 
@@ -1109,6 +1122,13 @@ def stop_all(state, user, name, node_group):
 @click.option("--name", "-n", help="Job name", type=str, required=False)
 @click.option("--id", "-i", help="Job id", type=str, required=False)
 @click.option(
+    "--include-archived",
+    "-ia",
+    is_flag=True,
+    default=False,
+    help="Include archived jobs when resolving name/id",
+)
+@click.option(
     "--path",
     "-p",
     type=click.Path(
@@ -1126,7 +1146,7 @@ def stop_all(state, user, name, node_group):
     ),
     required=False,
 )
-def get(name, id, path):
+def get(name, id, path, include_archived):
     """
     Gets detailed information about jobs.
 
@@ -1147,14 +1167,19 @@ def get(name, id, path):
         )
 
     client = APIClient()
+    job_query_mode = (
+        LeptonJobQueryMode.AliveAndArchive.value
+        if include_archived
+        else LeptonJobQueryMode.AliveOnly.value
+    )
     target_jobs = []
 
     if id:
-        job = client.job.get(id)
+        job = client.job.get(id, job_query_mode=job_query_mode)
         target_jobs.append(job)
 
     if name:
-        jobs = client.job.list_all()
+        jobs = client.job.list_all(job_query_mode=job_query_mode)
         for job in jobs:
             if job.metadata.name == name:
                 target_jobs.append(job)
@@ -1219,7 +1244,14 @@ def get(name, id, path):
     ),
     required=False,
 )
-def remove(id, name):
+@click.option(
+    "--include-archived",
+    "-ia",
+    is_flag=True,
+    default=False,
+    help="Include archived jobs when resolving name/id",
+)
+def remove(id, name, include_archived):
     """
     Removes a single job.
 
@@ -1241,13 +1273,17 @@ def remove(id, name):
         )
 
     client = APIClient()
+    job_query_mode = "alive_and_archive" if include_archived else "alive_only"
 
     target_job_ids = []
     if id:
         target_job_ids.append(id)
 
     if name:
-        job = _get_newest_job_by_name(name)
+        # Resolve newest by name with requested query mode
+        jobs = client.job.list_all(job_query_mode=job_query_mode, q=name)
+        exact_matches = [j for j in jobs if j.metadata.name == name]
+        job = max(exact_matches, key=lambda j: j.metadata.created_at) if exact_matches else None
         if job:
             target_job_ids.append(job.metadata.id_)
         else:
@@ -1255,7 +1291,7 @@ def remove(id, name):
             sys.exit(1)
 
     for job_id in target_job_ids:
-        client.job.delete(job_id)
+        client.job.delete(job_id, job_query_mode=job_query_mode)
         console.print(f"Job [green]{job_id}[/] deleted successfully.")
 
 

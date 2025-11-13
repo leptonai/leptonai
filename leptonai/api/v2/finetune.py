@@ -74,8 +74,16 @@ class FineTuneAPI(APIResourse):
         response = self._post("/finetune/jobs", json=self.safe_json(spec))
         return self.ensure_type(response, LeptonFineTuneJob)
 
-    def get(self, id_or_job: Union[str, LeptonFineTuneJob]) -> LeptonFineTuneJob:
-        response = self._get(f"/finetune/jobs/{self._to_id(id_or_job)}")
+    def get(
+        self,
+        id_or_job: Union[str, LeptonFineTuneJob],
+        *,
+        job_query_mode: str = "alive_only",
+    ) -> LeptonFineTuneJob:
+        response = self._get(
+            f"/finetune/jobs/{self._to_id(id_or_job)}",
+            params={"job_query_mode": job_query_mode} if job_query_mode else None,
+        )
         return self.ensure_type(response, LeptonFineTuneJob)
 
     def update(
@@ -86,8 +94,16 @@ class FineTuneAPI(APIResourse):
         )
         return self.ensure_ok(response)
 
-    def delete(self, name_or_job: Union[str, LeptonFineTuneJob]) -> bool:
-        response = self._delete(f"/finetune/jobs/{self._to_id(name_or_job)}")
+    def delete(
+        self,
+        name_or_job: Union[str, LeptonFineTuneJob],
+        *,
+        job_query_mode: str = "alive_only",
+    ) -> bool:
+        response = self._delete(
+            f"/finetune/jobs/{self._to_id(name_or_job)}",
+            params={"job_query_mode": job_query_mode} if job_query_mode else None,
+        )
         return self.ensure_ok(response)
 
     def list_supported_models(self) -> List[FineTuneModelInfo]:
@@ -95,7 +111,7 @@ class FineTuneAPI(APIResourse):
         return self.ensure_list(response, FineTuneModelInfo)
 
     def list_trainers(self) -> List[TrainerInfo]:
-        response = self._get("/finetune/trainers")
+        response = self._get("/finetune/trainers", params={"default_only": "true"})
         return self.ensure_list(response, TrainerInfo)
 
 
