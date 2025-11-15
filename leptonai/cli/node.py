@@ -413,20 +413,16 @@ def storage_command(node_group=None):
             table.add_row(nodegroup_text, "None", "")
             continue
 
-        first = True
+        volume_name_lines = []
+        volume_type_lines = []
         for vol in volumes:
-            nodegroup_text = (
-                f"[bold]{ng_name}[/bold]\n[dim]{ng_id}[/dim]" if first else ""
-            )
             volume_name = getattr(vol, "name", "-")
-            from_source = getattr(vol, "from_", "-")
+            from_source = getattr(vol, "from_", None)
 
-            if from_source != "-":
+            if from_source is not None and from_source != "-":
                 source_str = str(
                     from_source.value if hasattr(from_source, "value") else from_source
                 ).lower()
-
-                # Colorize based on type
                 if source_str == "local":
                     type_text = f"[green]node-{source_str}[/green]"
                 elif source_str == "nfs":
@@ -436,14 +432,23 @@ def storage_command(node_group=None):
             else:
                 type_text = "-"
 
-            table.add_row(
-                nodegroup_text,
-                volume_name,
-                type_text,
-            )
-            first = False
+            volume_name_lines.append(volume_name)
+            volume_type_lines.append(type_text)
+
+        nodegroup_text = f"[bold]{ng_name}[/bold]\n[dim]{ng_id}[/dim]"
+        table.add_row(
+            nodegroup_text,
+            "\n".join(volume_name_lines),
+            "\n".join(volume_type_lines),
+        )
 
     console.print(table)
+
+    console.print(
+        "[dim]Note:[/dim] Mount syntax: "
+        "`--mount STORAGE_PATH:MOUNT_PATH:MOUNT_FROM`\n"
+        "[dim]Where `MOUNT_FROM` = `<type>:<storage_name>`.[/dim]"
+    )
 
 
 def add_command(cli_group):
