@@ -38,7 +38,10 @@ def make_mounts_from_strings(
                 ),
             )
         else:
-            raise ValueError(f"Invalid mount definition: {mount_str}")
+            raise ValueError(
+                f"Invalid mount definition: {mount_str} (expected format:"
+                " STORAGE_PATH:MOUNT_PATH:MOUNT_FROM)"
+            )
     return mount_list
 
 
