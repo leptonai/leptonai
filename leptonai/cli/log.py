@@ -17,8 +17,8 @@ str_time_format = "%Y-%m-%d %H:%M:%S.%f"
 str_date_format = "%Y-%m-%d"
 
 _supported_formats_log = """
-        Please note that all times must be in UTC. 
-        Keywords such as “now,” “today,” and “yesterday” will be interpreted as UTC timestamps. 
+        Please note that all times must be in UTC.
+        Keywords such as “now,” “today,” and “yesterday” will be interpreted as UTC timestamps.
         For example, “now” corresponds to datetime.now(timezone.utc).
 
         - now
@@ -171,14 +171,15 @@ def log():
 
 
 @log.command(
-    name="get", help="Retrieve and display logs from deployments, jobs, or replicas"
+    name="get", help="Retrieve and display logs from endpoints, jobs, or replicas"
 )
 @click.option(
-    "--deployment",
-    "-d",
+    "--endpoint",
+    "-e",
+    "deployment",  # internal parameter name
     type=str,
     default=None,
-    help="The name of the deployment or a LeptonDeployment object.",
+    help="The name of the endpoint.",
 )
 @click.option(
     "--job",
