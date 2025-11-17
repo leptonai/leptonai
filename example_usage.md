@@ -14,28 +14,73 @@ The Lepton CLI supports canary-style deployments through ingress endpoint manage
 
 ```bash
 # 1. Deploy new version (canary)
-lep deployment create -n canary-deployment --photon-id my-photon-v2
+lep endpoint create -n canary-endpoint --photon-id my-photon-v2
 
 # 2. Add canary to existing ingress with 10% traffic
-lep ingress add-endpoint -n api.example.com -d canary-deployment -w 10
+#    Assuming stable-endpoint already exists with weight 100
+#    Traffic will be: stable=90.9%, canary=9.1%
+lep ingress add-endpoint -n api.example.com --endpoint canary-endpoint -w 10
 
-# 3. Gradually increase traffic to canary
-lep ingress update-endpoint -n api.example.com -d canary-deployment -w 50
+# 3. Gradually increase canary traffic to 20% (using set-endpoints)
+#    WARNING: set-endpoints REPLACES all endpoints - must specify both!
+lep ingress set-endpoints -n api.example.com \
+  -e stable-endpoint:80 \
+  -e canary-endpoint:20
 
-# 4. Complete rollout - route all traffic to canary
-lep ingress set-endpoints -n api.example.com -e canary-deployment:100
+# 4. Increase to 50/50 split
+lep ingress set-endpoints -n api.example.com \
+  -e stable-endpoint:50 \
+  -e canary-endpoint:50
+
+# 5. Increase canary to 80%
+lep ingress set-endpoints -n api.example.com \
+  -e stable-endpoint:20 \
+  -e canary-endpoint:80
+
+# 6. Complete rollout - 100% to canary (removes stable-endpoint entirely)
+lep ingress set-endpoints -n api.example.com -e canary-endpoint:100
 ```
 
 ### Available Ingress Commands
 
-- `lep ingress add-endpoint` - Add a deployment to an ingress with traffic weight
-- `lep ingress update-endpoint` - Update traffic weight for a deployment
-- `lep ingress set-endpoints` - Set all endpoints and weights at once
-- `lep ingress remove-endpoint` - Remove a deployment from an ingress
+- `lep ingress add-endpoint` - Add an endpoint to an ingress with traffic weight
+- `lep ingress update-endpoint` - Update traffic weight for a single endpoint
+- `lep ingress set-endpoints` - **⚠️ REPLACES all endpoints** - sets complete traffic distribution
+- `lep ingress remove-endpoint` - Remove a specific endpoint from an ingress
 - `lep ingress list` - List all ingresses
 - `lep ingress get` - View details of a specific ingress
 
-For a complete guide with examples, see [docs/ingress_canary_deployment_guide.md](docs/ingress_canary_deployment_guide.md).
+### Command Usage Patterns
+
+**Incremental Changes (Preserves Existing Endpoints):**
+```bash
+# Add a new endpoint without affecting others
+lep ingress add-endpoint -n my-ingress --endpoint new-endpoint -w 20
+
+# Update weight of one endpoint (others unchanged)
+lep ingress update-endpoint -n my-ingress --endpoint new-endpoint -w 50
+
+# Remove one endpoint (others unchanged)
+lep ingress remove-endpoint -n my-ingress --endpoint old-endpoint
+```
+
+**Complete Replacement (⚠️ Destructive):**
+```bash
+# set-endpoints REPLACES ALL endpoints - any endpoint not listed is removed!
+lep ingress set-endpoints -n my-ingress \
+  -e endpoint-a:60 \
+  -e endpoint-b:40
+# After this: only endpoint-a and endpoint-b exist, all others are GONE
+```
+
+### Traffic Weight Calculation
+
+Weights are **relative**, not absolute percentages:
+- `stable:80, canary:20` → stable gets 80/(80+20) = 80%, canary gets 20%
+- `stable:8, canary:2` → same result (80% and 20%)
+- `stable:1, canary:1` → 50/50 split
+
+The sum of weights must be greater than zero (backend validation).
 
 ---
 
@@ -233,4 +278,4 @@ The `--ip-whitelist` option supports two usage patterns:
 4. **Default Behavior**: If neither `--public` nor `--ip-whitelist` is specified, the endpoint is private (no IP restrictions)
 5. **IP Whitelist**: Stored in `auth_config.ip_allowlist` field
 6. **Workspace Token**: Always included for non-public endpoints to maintain internal access
-7. **Flexible Input**: IP whitelist accepts both individual values and comma-separated lists 
+7. **Flexible Input**: IP whitelist accepts both individual values and comma-separated lists
