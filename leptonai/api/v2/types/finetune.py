@@ -52,5 +52,3 @@ class LeptonFineTuneJob(BaseModel):
 
 class LeptonFineTuneJobList(BaseModel):
     finetune_jobs: List[LeptonFineTuneJob]
-
-

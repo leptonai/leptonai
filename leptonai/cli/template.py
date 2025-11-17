@@ -53,11 +53,14 @@ def list_command():
     console.print(table)
 
 
-
 @template.command(name="get", hidden=True)
 @click.option("--id", "-i", type=str, required=True, help="Template ID to retrieve.")
-@click.option("--public", is_flag=True, default=False, help="Get from public templates.")
-@click.option("--private", is_flag=True, default=False, help="Get from private templates.")
+@click.option(
+    "--public", is_flag=True, default=False, help="Get from public templates."
+)
+@click.option(
+    "--private", is_flag=True, default=False, help="Get from private templates."
+)
 @click.option(
     "--path",
     type=click.Path(
@@ -70,7 +73,7 @@ def list_command():
     ),
     default=None,
     show_default=False,
-    help="Optional local path to save the template JSON."
+    help="Optional local path to save the template JSON.",
 )
 def get_command(id: str, public: bool, private: bool, path: str | None):
     """Get a template by ID. If --path is set, save JSON to file.
@@ -115,7 +118,8 @@ def get_command(id: str, public: bool, private: bool, path: str | None):
                 os.makedirs(directory)
             except Exception as e:
                 console.print(
-                    f"[red][ERROR]{directory} not exist and failed to create directory:[/] {directory} ({e})"
+                    f"[red][ERROR]{directory} not exist and failed to create"
+                    f" directory:[/] {directory} ({e})"
                 )
                 sys.exit(1)
         if os.path.isdir(path):

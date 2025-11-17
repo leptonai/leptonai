@@ -1283,7 +1283,11 @@ def remove(id, name, include_archived):
         # Resolve newest by name with requested query mode
         jobs = client.job.list_all(job_query_mode=job_query_mode, q=name)
         exact_matches = [j for j in jobs if j.metadata.name == name]
-        job = max(exact_matches, key=lambda j: j.metadata.created_at) if exact_matches else None
+        job = (
+            max(exact_matches, key=lambda j: j.metadata.created_at)
+            if exact_matches
+            else None
+        )
         if job:
             target_job_ids.append(job.metadata.id_)
         else:

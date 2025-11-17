@@ -113,5 +113,3 @@ class FineTuneAPI(APIResourse):
     def list_trainers(self) -> List[TrainerInfo]:
         response = self._get("/finetune/trainers", params={"default_only": "true"})
         return self.ensure_list(response, TrainerInfo)
-
-

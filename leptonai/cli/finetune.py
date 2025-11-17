@@ -5,9 +5,24 @@ import click
 from loguru import logger
 from rich.table import Table
 
-from .util import click_group, console, format_timestamp_ms, colorize_state, make_name_id_cell
+from .util import (
+    click_group,
+    console,
+    format_timestamp_ms,
+    colorize_state,
+    make_name_id_cell,
+    _validate_queue_priority,
+    apply_nodegroup_and_queue_config,
+)
 from ..api.v2.client import APIClient
-from leptonai.api.v1.types.job import LeptonJobQueryMode
+from leptonai.api.v1.types.job import LeptonJobQueryMode, LeptonJobSegmentConfig
+from leptonai.api.v1.types.common import Metadata, LeptonVisibility
+from leptonai.api.v1.photon import make_mounts_from_strings
+from leptonai.api.v2.types.finetune import (
+    LeptonFineTuneJob,
+    LeptonFineTuneJobSpec,
+    Trainer,
+)
 
 
 def _fetch_template_schema(template_id: str) -> Dict[str, Any]:
@@ -133,9 +148,7 @@ class DynamicSchemaCommand(click.Command):
                             multiple=True,
                             required=name in required,
                             callback=_parse_kv_list,
-                            help=(
-                                (desc + " — ") if desc else ""
-                            )
+                            help=((desc + " — ") if desc else "")
                             + "repeatable KEY:VALUE (e.g., question:prompt)",
                             show_default=False,
                         )
@@ -147,7 +160,8 @@ class DynamicSchemaCommand(click.Command):
                             type=str,
                             default=default,
                             required=name in required,
-                            help=desc + (" (JSON)" if ptype in ("object", "array") else ""),
+                            help=desc
+                            + (" (JSON)" if ptype in ("object", "array") else ""),
                             show_default=True,
                         )
                     )
@@ -181,18 +195,29 @@ def _print_finetune_jobs_table(jobs, dashboard_base_url: Optional[str] = None):
             if dashboard_base_url and getattr(md, "id_", None)
             else None
         )
-        name_id_cell = make_name_id_cell(getattr(md, "name", None), getattr(md, "id_", None), link=job_url, link_target="id")
+        name_id_cell = make_name_id_cell(
+            getattr(md, "name", None),
+            getattr(md, "id_", None),
+            link=job_url,
+            link_target="id",
+        )
         created_ts = format_timestamp_ms(getattr(md, "created_at", None))
         state_cell = colorize_state(getattr(status, "state", None))
         owner = getattr(md, "owner", "-")
         # Node groups
         try:
-            ngs = getattr(getattr(spec, "affinity", None), "allowed_dedicated_node_groups", None)
+            ngs = getattr(
+                getattr(spec, "affinity", None), "allowed_dedicated_node_groups", None
+            )
             ng_str = "\n".join(ngs).lower() if ngs else ""
         except Exception:
             ng_str = ""
         # Workers and shape from spec
-        workers = getattr(spec, "completions", None) or getattr(spec, "parallelism", None) or 1
+        workers = (
+            getattr(spec, "completions", None)
+            or getattr(spec, "parallelism", None)
+            or 1
+        )
         shape = getattr(spec, "resource_shape", None) or "-"
         # Colorize: shape in bold cyan, node group(s) in dim gray
         shape_line = f"[bold cyan]{shape}[/]"
@@ -251,14 +276,32 @@ def _print_finetune_jobs_table(jobs, dashboard_base_url: Optional[str] = None):
 
 
 @finetune.command(name="list")
-@click.option("-q", "--q", type=str, required=False, help="Substring match for job name.")
+@click.option(
+    "-q", "--q", type=str, required=False, help="Substring match for job name."
+)
 @click.option("--query", type=str, required=False, help="Label selector query.")
-@click.option("--status", type=str, multiple=True, help="Filter by job state (repeatable).")
-@click.option("--node-group", "node_groups", type=str, multiple=True, help="Filter by node group (repeatable).")
-@click.option("--created-by", type=str, required=False, help="Filter by creator email (single).")
+@click.option(
+    "--status", type=str, multiple=True, help="Filter by job state (repeatable)."
+)
+@click.option(
+    "--node-group",
+    "node_groups",
+    type=str,
+    multiple=True,
+    help="Filter by node group (repeatable).",
+)
+@click.option(
+    "--created-by", type=str, required=False, help="Filter by creator email (single)."
+)
 @click.option("--page", type=int, required=False, help="Page number (1-based).")
 @click.option("--page-size", type=int, required=False, help="Items per page.")
-@click.option("--include-archived", "-ia",is_flag=True, default=False, help="Include archived jobs (alive_and_archive).")
+@click.option(
+    "--include-archived",
+    "-ia",
+    is_flag=True,
+    default=False,
+    help="Include archived jobs (alive_and_archive).",
+)
 def list_command(
     q: Optional[str],
     query: Optional[str],
@@ -291,7 +334,13 @@ def list_command(
 
 @finetune.command(name="get")
 @click.option("--id", "-i", type=str, required=True, help="Fine-tune job ID")
-@click.option("--include-archived", "-ia", is_flag=True, default=False, help="Include archived jobs when resolving the ID")
+@click.option(
+    "--include-archived",
+    "-ia",
+    is_flag=True,
+    default=False,
+    help="Include archived jobs when resolving the ID",
+)
 def get_command(id: str, include_archived: bool):
     """Get a finetune job by ID."""
     client = APIClient()
@@ -306,7 +355,13 @@ def get_command(id: str, include_archived: bool):
 
 @finetune.command(name="delete")
 @click.option("--id", "-i", type=str, required=True, help="Fine-tune job ID")
-@click.option("--include-archived", "-ia", is_flag=True, default=False, help="Include archived jobs when resolving the ID")
+@click.option(
+    "--include-archived",
+    "-ia",
+    is_flag=True,
+    default=False,
+    help="Include archived jobs when resolving the ID",
+)
 def delete_command(id: str, include_archived: bool):
     """Delete a finetune job by ID."""
     client = APIClient()
@@ -330,7 +385,10 @@ def list_trainers_command():
     table.add_column("Trainer ID")
     table.add_column("Is Default")
     for t in trainers:
-        table.add_row(getattr(t, "trainer_id", "-"), "Yes" if getattr(t, "is_default", False) else "")
+        table.add_row(
+            getattr(t, "trainer_id", "-"),
+            "Yes" if getattr(t, "is_default", False) else "",
+        )
     console.print(table)
 
 
@@ -358,28 +416,224 @@ def list_supported_models_command():
 
 @finetune.command(name="create", cls=DynamicSchemaCommand)
 @click.option(
+    "--name",
+    "-n",
+    type=str,
+    required=True,
+    help="Finetune job name.",
+)
+@click.option(
     "-t",
     "--template",
-    "--template-id",
     type=str,
     required=False,
+    hidden=True,
     help=(
         "Template ID to derive parameters from (default: nemo-automodel). "
         "Use -h after setting this to see dynamic flags."
     ),
 )
-def create_command(**kwargs):
+@click.option(
+    "--resource-shape",
+    "-rs",
+    type=str,
+    help="Resource shape for the pod.",
+    default=None,
+)
+@click.option(
+    "--num-workers",
+    "-w",
+    help="Number of workers to use for the job. For distributed execution, set > 1.",
+    type=int,
+    default=None,
+)
+@click.option(
+    "--segment-count",
+    type=int,
+    default=None,
+    help=(
+        "Segment count (advanced). Must satisfy 1 <= segment_count < num_workers and "
+        "num_workers % segment_count == 0."
+    ),
+)
+@click.option(
+    "--mount",
+    multiple=True,
+    help=(
+        "Persistent storage to be mounted to the job, in the format"
+        " `STORAGE_PATH:MOUNT_PATH` or `STORAGE_PATH:MOUNT_PATH:MOUNT_FROM`."
+    ),
+)
+@click.option(
+    "--shared-memory-size",
+    type=int,
+    help="Specify the shared memory size for this job, in MiB.",
+)
+@click.option(
+    "--node-group",
+    "-ng",
+    "node_groups",
+    type=str,
+    multiple=True,
+    help="Node group(s) for the job (repeatable).",
+)
+@click.option(
+    "--node-id",
+    "-ni",
+    "node_ids",
+    type=str,
+    multiple=True,
+    help="Specific node id(s) within the chosen node group(s) (repeatable).",
+)
+@click.option(
+    "--queue-priority",
+    "-qp",
+    "queue_priority",
+    callback=_validate_queue_priority,
+    help=(
+        "Set the priority for this job (dedicated node groups only). "
+        "Examples: 1..9 or aliases like low/mid/high."
+    ),
+)
+@click.option(
+    "--can-be-preempted",
+    "-cbp",
+    is_flag=True,
+    default=None,
+    help="Allow this job to be preempted by higher priority jobs.",
+)
+@click.option(
+    "--can-preempt",
+    "-cp",
+    is_flag=True,
+    default=None,
+    help="Allow this job to preempt lower priority jobs.",
+)
+@click.option(
+    "--with-reservation",
+    type=str,
+    help="Use a specific reservation ID (dedicated node groups only).",
+)
+@click.option(
+    "--allow-burst-to-other-reservation",
+    is_flag=True,
+    default=False,
+    help="Allow burst to other reservation pools when available.",
+)
+@click.option(
+    "--visibility",
+    type=str,
+    required=False,
+    help="Visibility of the job. Can be 'public' or 'private'.",
+)
+def create_command(
+    name: str,
+    template: Optional[str],
+    resource_shape: Optional[str],
+    num_workers: Optional[int],
+    segment_count: Optional[int],
+    mount: Optional[List[str]],
+    shared_memory_size: Optional[int],
+    node_groups: Optional[List[str]],
+    node_ids: Optional[List[str]],
+    queue_priority: Optional[str],
+    can_be_preempted: Optional[bool],
+    can_preempt: Optional[bool],
+    with_reservation: Optional[str],
+    allow_burst_to_other_reservation: bool,
+    visibility: Optional[str],
+    **kwargs,
+):
     """Create a finetune job (WIP). Dynamic flags are injected from the template schema."""
-    _ = kwargs.pop("template", None)
-    _ = kwargs.pop("template_id", None)
 
-    train_config: Dict[str, Any] = {k: v for k, v in kwargs.items() if v is not None}
-    payload = {"trainer": {"train_config": train_config}}
-    logger.trace(json.dumps(payload, indent=2))
-    console.print("[yellow]Finetune creation is WIP. Collected trainer.train_config shown in trace log.[/]")
+    job_params = {
+        "name": name,
+        "resource_shape": resource_shape,
+        "num_workers": num_workers,
+        "segment_count": segment_count,
+        "mount": list(mount) if mount else None,
+        "shared_memory_size": shared_memory_size,
+        "node_groups": list(node_groups) if node_groups else None,
+        "node_ids": list(node_ids) if node_ids else None,
+        "queue_priority": queue_priority,
+        "can_be_preempted": can_be_preempted,
+        "can_preempt": can_preempt,
+        "with_reservation": with_reservation,
+        "allow_burst_to_other_reservation": allow_burst_to_other_reservation,
+        "visibility": visibility,
+    }
+    trainer_flags: Dict[str, Any] = {k: v for k, v in kwargs.items() if v is not None}
+    payload = {"trainer": {"train_config": trainer_flags}}
+    logger.trace(json.dumps({"job_params": job_params, "payload": payload}, indent=2))
+
+    spec = LeptonFineTuneJobSpec()
+    if resource_shape:
+        spec.resource_shape = resource_shape
+    if num_workers is not None:
+        if num_workers <= 0:
+            console.print("[red]Error: --num-workers must be greater than 0.[/]")
+            raise SystemExit(1)
+        spec.completions = num_workers
+        spec.parallelism = num_workers
+        spec.intra_job_communication = True
+    if segment_count is not None:
+        err = None
+        if not num_workers or num_workers <= 1:
+            err = "--segment-count requires --num-workers > 1."
+        elif not (1 <= segment_count < num_workers) or (
+            num_workers % segment_count != 0
+        ):
+            err = "segment-count must be in [1, num_workers) and divide num_workers."
+        if err:
+            console.print(f"[red]Error[/]: {err}")
+            raise SystemExit(1)
+        spec.segment_config = LeptonJobSegmentConfig(
+            count_per_segment=num_workers // segment_count
+        )
+    if shared_memory_size is not None:
+        if shared_memory_size < 0:
+            console.print("[red]Error: --shared-memory-size must be >= 0.[/]")
+            raise SystemExit(1)
+        spec.shared_memory_size = shared_memory_size
+    if mount:
+        try:
+            spec.mounts = make_mounts_from_strings(mount)  # type: ignore
+        except Exception as e:
+            console.print(f"[red]Error parsing --mount[/]: {e}")
+            raise SystemExit(1)
+    try:
+        apply_nodegroup_and_queue_config(
+            spec=spec,
+            node_groups=node_groups,
+            node_ids=node_ids,
+            queue_priority=queue_priority,
+            can_be_preempted=can_be_preempted,
+            can_preempt=can_preempt,
+            with_reservation=with_reservation,
+            allow_burst=allow_burst_to_other_reservation,
+        )
+    except ValueError as e:
+        console.print(f"[red]{e}[/]")
+        raise SystemExit(1)
+    # Attach trainer
+    spec.trainer = Trainer(train_config=trainer_flags or None)
+
+    job = LeptonFineTuneJob(
+        metadata=Metadata(
+            id=name,
+            visibility=LeptonVisibility(visibility) if visibility else None,
+        ),
+        spec=spec,
+    )
+    client = APIClient()
+    try:
+        created = client.finetune.create(job)
+        console.print(f"Finetune job [green]{created.metadata.id_}[/] created.")
+        logger.trace(json.dumps(client.finetune.safe_json(created), indent=2))
+    except Exception as e:
+        console.print(f"[red]Failed to create finetune job[/]: {e}")
+        raise SystemExit(1)
 
 
 def add_command(cli_group):
     cli_group.add_command(finetune)
-
-
