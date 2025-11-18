@@ -17,7 +17,12 @@ class RayClusterAPI(APIResourse):
         - {
             "spec": {
               "worker_group_specs": [
-                 { "group_name"?, "min_replicas", "max_replicas"?, ... },
+                {
+                  "group_name"?,
+                  "min_replicas",
+                  "max_replicas"?,
+                  "segment_config"?: { "count_per_segment": int } | null
+                },
                  ...
               ]?,
               "suspend"?: bool
@@ -74,18 +79,19 @@ class RayClusterAPI(APIResourse):
                 if not isinstance(wg, dict):
                     raise ValueError(
                         f"spec.worker_group_specs[{idx}] must be an object with"
-                        " min_replicas (and optional max_replicas)"
+                        " min_replicas (and optional max_replicas, segment_config)"
                     )
                 unexpected_wg = set(wg.keys()) - {
                     "group_name",
                     "min_replicas",
                     "max_replicas",
+                    "segment_config",
                 }
                 if unexpected_wg:
                     raise ValueError(
-                        f"spec.worker_group_specs[{idx}] may only include group_name, "
-                        "min_replicas and max_replicas. Unexpected fields:"
-                        f" {', '.join(sorted(unexpected_wg))}"
+                        f"spec.worker_group_specs[{idx}] may only include group_name,"
+                        " min_replicas, max_replicas and segment_config. Unexpected"
+                        f" fields: {', '.join(sorted(unexpected_wg))}"
                     )
                 if "min_replicas" not in wg:
                     raise ValueError(
@@ -113,6 +119,48 @@ class RayClusterAPI(APIResourse):
                             f"spec.worker_group_specs[{idx}].max_replicas must be a"
                             " positive integer"
                         )
+
+                # Validate segment_config if provided
+                if "segment_config" in wg:
+                    seg = wg["segment_config"]
+                    if seg is not None:
+                        if not isinstance(seg, dict):
+                            raise ValueError(
+                                f"spec.worker_group_specs[{idx}].segment_config must be"
+                                " an object"
+                            )
+                        unexpected_seg = set(seg.keys()) - {"count_per_segment"}
+                        if unexpected_seg:
+                            raise ValueError(
+                                f"spec.worker_group_specs[{idx}].segment_config may"
+                                " only include count_per_segment. Unexpected fields:"
+                                f" {', '.join(sorted(unexpected_seg))}"
+                            )
+                        if "count_per_segment" not in seg:
+                            raise ValueError(
+                                f"spec.worker_group_specs[{idx}].segment_config.count_per_segment"
+                                " is required"
+                            )
+                        cps = seg["count_per_segment"]
+                        if not isinstance(cps, int):
+                            raise ValueError(
+                                f"spec.worker_group_specs[{idx}].segment_config.count_per_segment"
+                                " must be an integer"
+                            )
+                        if cps <= 0:
+                            raise ValueError(
+                                f"spec.worker_group_specs[{idx}].segment_config.count_per_segment"
+                                " must be > 0"
+                            )
+                        # If min_replicas present in this patch, verify divisibility
+                        mr_val = wg.get("min_replicas")
+                        if isinstance(mr_val, int) and mr_val >= 0:
+                            if mr_val % cps != 0:
+                                raise ValueError(
+                                    f"spec.worker_group_specs[{idx}].segment_config.count_per_segment"
+                                    f" ({cps}) must evenly divide min_replicas"
+                                    f" ({mr_val})"
+                                )
 
                 if "group_name" not in wg:
                     raise ValueError(

@@ -1206,7 +1206,7 @@ def update(name, worker_groups):
     )
 
 
-@raycluster.command()
+@raycluster.command(name="submit-job")
 @click.option(
     "--name", "-n", help="The raycluster name to submit a job to.", required=True
 )
@@ -1276,7 +1276,7 @@ def update(name, worker_groups):
     help="Do not stream logs or wait for job completion.",
 )
 @click.argument("entrypoint", nargs=-1, type=click.UNPROCESSED)
-def submit(
+def submit_job(
     name,
     submission_id,
     runtime_env,
@@ -1293,7 +1293,7 @@ def submit(
     """
     Submits a job to a Ray cluster.
 
-    Usage: lep raycluster submit -n <cluster> -- <entrypoint command>
+    Usage: lep raycluster submit-job -n <cluster> -- <entrypoint command>
     Everything after "--" is treated as the entrypoint command, just like native Ray.
     """
     base_client = APIClient()
@@ -1429,6 +1429,135 @@ def submit(
             sys.exit(1)
     except Exception as e:
         console.print(f"[red]Failed to retrieve job status: {e}[/]")
+
+
+@raycluster.command(name="stop-job")
+@click.option(
+    "--name", "-n", help="The raycluster name that hosts the job.", required=True
+)
+@click.option(
+    "--job-id",
+    "-j",
+    type=str,
+    required=True,
+    help="The Ray job ID to stop.",
+)
+def stop_job_command(name, job_id):
+    """
+    Stops a Ray job by job ID on a given Ray cluster.
+    """
+    base_client = APIClient()
+
+    # Ensure cluster exists
+    try:
+        _ = base_client.raycluster.get(name)
+    except Exception as e:
+        console.print(f"[red]Failed to fetch raycluster {name}: {e}[/]")
+        sys.exit(1)
+
+    # Determine address (use cluster dashboard URL)
+    ray_head_dashboard_url = f"{base_client.url}/rayclusters/{name}/dashboard"
+
+    # Suppress urllib3 InsecureRequestWarning when verify=False (unverified HTTPS)
+    warnings.filterwarnings(
+        "ignore",
+        category=urllib3.exceptions.InsecureRequestWarning,
+    )
+
+    submission_client = JobSubmissionClient(
+        address=ray_head_dashboard_url,
+        headers={
+            "Authorization": f"Bearer {base_client.token()}",
+            "origin": base_client.get_dashboard_base_url(),
+        },
+        verify=False,  # TODO: make this more secure
+    )
+
+    try:
+        submission_client.stop_job(job_id)
+        console.print(
+            f"Requested stop for job [blue]{job_id}[/] on cluster [green]{name}[/]."
+        )
+    except Exception as e:
+        console.print(f"[red]Failed to stop job {job_id} on {name}: {e}[/]")
+        sys.exit(1)
+
+
+@raycluster.command(name="list-jobs")
+@click.option(
+    "--name", "-n", help="The raycluster name to list jobs for.", required=True
+)
+def list_jobs_command(name):
+    """
+    Lists Ray jobs on a given Ray cluster.
+    """
+    base_client = APIClient()
+
+    try:
+        _ = base_client.raycluster.get(name)
+    except Exception as e:
+        console.print(f"[red]Failed to fetch raycluster {name}: {e}[/]")
+        sys.exit(1)
+
+    ray_head_dashboard_url = f"{base_client.url}/rayclusters/{name}/dashboard"
+
+    warnings.filterwarnings(
+        "ignore",
+        category=urllib3.exceptions.InsecureRequestWarning,
+    )
+
+    submission_client = JobSubmissionClient(
+        address=ray_head_dashboard_url,
+        headers={
+            "Authorization": f"Bearer {base_client.token()}",
+            "origin": base_client.get_dashboard_base_url(),
+        },
+        verify=False,
+    )
+
+    try:
+        jobs = submission_client.list_jobs() or []
+    except Exception as e:
+        console.print(f"[red]Failed to list jobs on {name}: {e}[/]")
+        sys.exit(1)
+
+    if not jobs:
+        console.print("No Ray jobs found on this cluster.")
+        return
+
+    def _fmt_ts_ms(ts_ms):
+        if ts_ms is None:
+            return "N/A"
+        try:
+            return datetime.fromtimestamp(ts_ms / 1000).strftime("%Y-%m-%d %H:%M:%S")
+        except Exception:
+            return str(ts_ms)
+
+    table = Table(title=f"Jobs on {name}", show_lines=True, show_header=True)
+    table.add_column("Job ID")
+    table.add_column("Status")
+    table.add_column("Entrypoint")
+    table.add_column("Start")
+    table.add_column("End")
+    table.add_column("Message")
+
+    for j in jobs:
+        job_id_disp = (
+            getattr(j, "submission_id", None) or getattr(j, "job_id", "-") or "-"
+        )
+        status_disp = getattr(j, "status", None)
+        status_str = (
+            status_disp.value
+            if hasattr(status_disp, "value")
+            else str(status_disp or "-")
+        )
+        entrypoint = getattr(j, "entrypoint", None) or "-"
+        start_str = _fmt_ts_ms(getattr(j, "start_time", None))
+        end_str = _fmt_ts_ms(getattr(j, "end_time", None))
+        message = getattr(j, "message", None) or "-"
+        table.add_row(job_id_disp, status_str, entrypoint, start_str, end_str, message)
+
+    console.print(table)
 
 
 def add_command(cli_group):
