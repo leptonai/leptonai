@@ -8,6 +8,7 @@ from leptonai.config import compatible_field_validator, v2only_field_validator
 from .affinity import LeptonResourceAffinity
 from .common import Metadata, LeptonUserSecurityContext
 from .deployment import EnvVar, Mount, QueueConfig, ReservationConfig, LeptonContainer
+from .job import LeptonJobSegmentConfig
 
 
 class RayClusterCommonGroupSpec(BaseModel):
@@ -42,6 +43,7 @@ class RayClusterCommonGroupSpec(BaseModel):
     queue_config: Optional[QueueConfig] = None
     user_security_context: Optional[LeptonUserSecurityContext] = None
     reservation_config: Optional[ReservationConfig] = None
+    segment_config: Optional[LeptonJobSegmentConfig] = None
 
     @compatible_field_validator("min_replicas")
     def validate_min_replicas(cls, min_replicas):
