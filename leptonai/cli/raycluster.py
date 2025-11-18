@@ -6,6 +6,7 @@ import warnings
 import urllib3
 import yaml
 import asyncio
+import textwrap
 
 import click
 from ray.job_submission import JobSubmissionClient, JobStatus
@@ -212,7 +213,17 @@ class WorkerGroupCommand(click.Command):
                     )
                 # If value not provided inline, consume next token
                 if value is None:
-                    if i + 1 >= n or args[i + 1].startswith("-"):
+                    # NOTE: values may legitimately start with '-' (e.g. negative numbers),
+                    # so only treat the next token as "missing" when it is clearly another
+                    # flag/marker we understand.
+                    if i + 1 >= n:
+                        raise click.UsageError(f'"{flag}" requires a value.')
+                    nxt = args[i + 1]
+                    if (
+                        nxt in self._WG_MARKERS
+                        or nxt in self._GROUP_FLAGS
+                        or nxt.startswith("--")
+                    ):
                         raise click.UsageError(f'"{flag}" requires a value.')
                     value = args[i + 1]
                     i += 1
@@ -239,6 +250,54 @@ class WorkerGroupCommand(click.Command):
 
         ctx.params["worker_groups"] = groups
         return super().parse_args(ctx, remaining)
+
+    def get_help(self, ctx):
+        base_help = super().get_help(ctx)
+        # Only augment help for the 'create' subcommand; 'update' already documents its flags.
+        if getattr(self, "name", None) != "create":
+            return base_help
+        group_help = textwrap.dedent("""
+            Worker group blocks (-wg/--worker-group)
+              Define one or more worker groups by repeating a -wg/--worker-group marker,
+              followed by any of these per-group flags. Example:
+                lep raycluster create -n myrc -wg --group-name g1 --resource-shape A100:1 --node-group ng-a \\
+                  --min-replicas 2 --env FOO=bar -wg --group-name g2 --resource-shape A100:2 --node-group ng-b
+
+              Per-group flags:
+                --group-name TEXT
+                    Logical name for this worker group.
+                --image TEXT
+                    Container image for this group's workers.
+                --command TEXT
+                    Container command (as a single string; shlex-split).
+                --resource-shape TEXT
+                    REQUIRED. Resource shape identifier for nodes (e.g., GPU/CPU shape).
+                --shared-memory-size INTEGER
+                    Size of shared memory in MiB allocated to the container.
+                --min-replicas INTEGER
+                    Minimum number of replicas (default: 1).
+                --max-replicas INTEGER
+                    Only when autoscaler is enabled; must be greater than --min-replicas.
+                --segment-count INTEGER
+                    Only when autoscaler is disabled; must be positive and evenly divide --min-replicas.
+                --node-group TEXT
+                    REQUIRED. Dedicated node group (affinity) for this worker group.
+                --allowed-nodes TEXT
+                    Comma-separated node names within the chosen node group.
+                --reservation TEXT
+                    Reservation ID to place the group onto.
+                --allow-burst BOOL
+                    Allow bursting to other reservations when available (true/false).
+                --privileged BOOL
+                    Run containers in privileged mode (true/false).
+                --env, -e NAME=VALUE
+                    Repeatable or comma-separated. Environment variables to set.
+                --secret, -s NAME=SECRET_NAME
+                    Repeatable or comma-separated. Inject secret as env var NAME from secret SECRET_NAME.
+                --mount STORAGE_PATH:MOUNT_PATH:MOUNT_FROM
+                    Repeatable or comma-separated. Persistent storage mount specification.
+            """).rstrip()
+        return f"{base_help}\n\n{group_help}"
 
 
 def _validate_resource_shape_nonempty(resource_shape: str | None, label: str) -> None:
@@ -326,8 +385,20 @@ def _build_group_spec(
 
     spec.min_replicas = 1
     if min_replicas is not None:
+        if min_replicas < 0:
+            console.print(
+                f"[red]{label} --min-replicas must be a non-negative integer. "
+                f"Found {min_replicas}.[/]"
+            )
+            sys.exit(1)
         spec.min_replicas = min_replicas
     if max_replicas is not None:
+        if max_replicas < 0:
+            console.print(
+                f"[red]{label} --max-replicas must be a non-negative integer. "
+                f"Found {max_replicas}.[/]"
+            )
+            sys.exit(1)
         spec.max_replicas = max_replicas
 
     # Optional envs/mounts (only set when provided to avoid overwriting file-loaded spec)
@@ -771,12 +842,22 @@ def create(
     # Worker groups: build from custom-parsed worker_groups (list of dicts)
     num_groups = len(worker_groups)
     built_specs: list[RayWorkerGroupSpec] = []
+    seen_worker_group_names: set[str] = set()
     for idx in range(num_groups):
         ws = RayWorkerGroupSpec()
         g = worker_groups[idx] or {}
         # per-group fields
         if g.get("group_name"):
             ws.group_name = g.get("group_name")
+            if isinstance(ws.group_name, str):
+                ws.group_name = ws.group_name.strip()
+            if ws.group_name in seen_worker_group_names:
+                console.print(
+                    f"[red]Duplicate worker group name '{ws.group_name}' detected. "
+                    "Each worker group must have a unique --group-name.[/]"
+                )
+                sys.exit(1)
+            seen_worker_group_names.add(ws.group_name)
         rs_val = g.get("resource_shape")
         sms_val = (
             int(g["shared_memory_size"])
@@ -1104,7 +1185,7 @@ def update(name, worker_groups):
     # Validate target groups exist
     existing_names = [
         wg.group_name
-        for wg in (existing_rc.spec.worker_group_specs or [])
+        for wg in existing_rc.spec.worker_group_specs or []
         if getattr(wg, "group_name", None)
     ]
 
@@ -1207,7 +1288,7 @@ def update(name, worker_groups):
     )
 
 
-@raycluster.command()
+@raycluster.command(name="submit-job")
 @click.option(
     "--name", "-n", help="The raycluster name to submit a job to.", required=True
 )
@@ -1277,7 +1358,7 @@ def update(name, worker_groups):
     help="Do not stream logs or wait for job completion.",
 )
 @click.argument("entrypoint", nargs=-1, type=click.UNPROCESSED)
-def submit(
+def submit_job(
     name,
     submission_id,
     runtime_env,
@@ -1294,7 +1375,7 @@ def submit(
     """
     Submits a job to a Ray cluster.
 
-    Usage: lep raycluster submit -n <cluster> -- <entrypoint command>
+    Usage: lep raycluster submit-job -n <cluster> -- <entrypoint command>
     Everything after "--" is treated as the entrypoint command, just like native Ray.
     """
     base_client = APIClient()
@@ -1430,6 +1511,135 @@ def submit(
             sys.exit(1)
     except Exception as e:
         console.print(f"[red]Failed to retrieve job status: {e}[/]")
+
+
+@raycluster.command(name="stop-job")
+@click.option(
+    "--name", "-n", help="The raycluster name that hosts the job.", required=True
+)
+@click.option(
+    "--job-id",
+    "-j",
+    type=str,
+    required=True,
+    help="The Ray job ID to stop.",
+)
+def stop_job_command(name, job_id):
+    """
+    Stops a Ray job by job ID on a given Ray cluster.
+    """
+    base_client = APIClient()
+
+    # Ensure cluster exists
+    try:
+        _ = base_client.raycluster.get(name)
+    except Exception as e:
+        console.print(f"[red]Failed to fetch raycluster {name}: {e}[/]")
+        sys.exit(1)
+
+    # Determine address (use cluster dashboard URL)
+    ray_head_dashboard_url = f"{base_client.url}/rayclusters/{name}/dashboard"
+
+    # Suppress urllib3 InsecureRequestWarning when verify=False (unverified HTTPS)
+    warnings.filterwarnings(
+        "ignore",
+        category=urllib3.exceptions.InsecureRequestWarning,
+    )
+
+    submission_client = JobSubmissionClient(
+        address=ray_head_dashboard_url,
+        headers={
+            "Authorization": f"Bearer {base_client.token()}",
+            "origin": base_client.get_dashboard_base_url(),
+        },
+        verify=False,  # TODO: make this more secure
+    )
+
+    try:
+        submission_client.stop_job(job_id)
+        console.print(
+            f"Requested stop for job [blue]{job_id}[/] on cluster [green]{name}[/]."
+        )
+    except Exception as e:
+        console.print(f"[red]Failed to stop job {job_id} on {name}: {e}[/]")
+        sys.exit(1)
+
+
+@raycluster.command(name="list-jobs")
+@click.option(
+    "--name", "-n", help="The raycluster name to list jobs for.", required=True
+)
+def list_jobs_command(name):
+    """
+    Lists Ray jobs on a given Ray cluster.
+    """
+    base_client = APIClient()
+
+    try:
+        _ = base_client.raycluster.get(name)
+    except Exception as e:
+        console.print(f"[red]Failed to fetch raycluster {name}: {e}[/]")
+        sys.exit(1)
+
+    ray_head_dashboard_url = f"{base_client.url}/rayclusters/{name}/dashboard"
+
+    warnings.filterwarnings(
+        "ignore",
+        category=urllib3.exceptions.InsecureRequestWarning,
+    )
+
+    submission_client = JobSubmissionClient(
+        address=ray_head_dashboard_url,
+        headers={
+            "Authorization": f"Bearer {base_client.token()}",
+            "origin": base_client.get_dashboard_base_url(),
+        },
+        verify=False,
+    )
+
+    try:
+        jobs = submission_client.list_jobs() or []
+    except Exception as e:
+        console.print(f"[red]Failed to list jobs on {name}: {e}[/]")
+        sys.exit(1)
+
+    if not jobs:
+        console.print("No Ray jobs found on this cluster.")
+        return
+
+    def _fmt_ts_ms(ts_ms):
+        if ts_ms is None:
+            return "N/A"
+        try:
+            return datetime.fromtimestamp(ts_ms / 1000).strftime("%Y-%m-%d %H:%M:%S")
+        except Exception:
+            return str(ts_ms)
+
+    table = Table(title=f"Jobs on {name}", show_lines=True, show_header=True)
+    table.add_column("Job ID")
+    table.add_column("Status")
+    table.add_column("Entrypoint")
+    table.add_column("Start")
+    table.add_column("End")
+    table.add_column("Message")
+
+    for j in jobs:
+        job_id_disp = (
+            getattr(j, "submission_id", None) or getattr(j, "job_id", "-") or "-"
+        )
+        status_disp = getattr(j, "status", None)
+        status_str = (
+            status_disp.value
+            if hasattr(status_disp, "value")
+            else str(status_disp or "-")
+        )
+        entrypoint = getattr(j, "entrypoint", None) or "-"
+        start_str = _fmt_ts_ms(getattr(j, "start_time", None))
+        end_str = _fmt_ts_ms(getattr(j, "end_time", None))
+        message = getattr(j, "message", None) or "-"
+        table.add_row(job_id_disp, status_str, entrypoint, start_str, end_str, message)
+
+    console.print(table)
 
 
 def add_command(cli_group):
