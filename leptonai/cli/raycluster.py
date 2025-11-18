@@ -31,6 +31,7 @@ from ..api.v1.types.raycluster import (
 )
 from ..api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 from ..api.v1.types.deployment import LeptonContainer
+from ..api.v1.types.job import LeptonJobSegmentConfig
 
 DEFAULT_RAY_IMAGE = "ray:2.49.2-py312-gpu"
 DEFAULT_RAY_IMAGES = {
@@ -141,6 +142,7 @@ class WorkerGroupCommand(click.Command):
         "--shared-memory-size": "shared_memory_size",
         "--min-replicas": "min_replicas",
         "--max-replicas": "max_replicas",
+        "--segment-count": "segment_count",
         "--node-group": "node_group",
         "--allowed-nodes": "allowed_nodes",
         "--reservation": "reservation",
@@ -170,6 +172,7 @@ class WorkerGroupCommand(click.Command):
                     "shared_memory_size": None,
                     "min_replicas": None,
                     "max_replicas": None,
+                    "segment_count": None,
                     "node_group": None,
                     "allowed_nodes": None,
                     "reservation": None,
@@ -710,6 +713,13 @@ def create(
     # Ensure head group and container exist before applying overrides
     if spec.head_group_spec is None:
         spec.head_group_spec = RayHeadGroupSpec()
+    # Validate: head must NOT contain segment_config (file-provided spec safety)
+    if getattr(spec.head_group_spec, "segment_config", None) is not None:
+        console.print(
+            "[red]Head group does not support segment configuration"
+            " (--segment-count/segment_config).[/]"
+        )
+        sys.exit(1)
     if spec.head_group_spec.container is None:
         spec.head_group_spec.container = LeptonContainer()
 
@@ -775,6 +785,41 @@ def create(
         )
         min_val = int(g["min_replicas"]) if g.get("min_replicas") is not None else None
         max_val = int(g["max_replicas"]) if g.get("max_replicas") is not None else None
+        # segment count (only for workers)
+        seg_cnt = None
+        if g.get("segment_count") is not None:
+            try:
+                seg_cnt = int(g.get("segment_count"))
+            except Exception:
+                console.print(
+                    "[red]--segment-count must be a positive integer (worker group"
+                    f" {idx + 1}).[/]"
+                )
+                sys.exit(1)
+            if enable_autoscaler:
+                console.print(
+                    "[red]--segment-count is not supported when autoscaler is"
+                    " enabled.[/]"
+                )
+                sys.exit(1)
+            if seg_cnt <= 0:
+                console.print(
+                    "[red]--segment-count must be a positive integer (worker group"
+                    f" {idx + 1}).[/]"
+                )
+                sys.exit(1)
+            if min_val is None:
+                console.print(
+                    "[red]--min-replicas is required when --segment-count is set"
+                    f" (worker group {idx + 1}).[/]"
+                )
+                sys.exit(1)
+            if min_val % seg_cnt != 0:
+                console.print(
+                    f"[red]--segment-count ({seg_cnt}) must evenly divide"
+                    f" --min-replicas ({min_val}) (worker group {idx + 1}).[/]"
+                )
+                sys.exit(1)
         wimg_val = g.get("image")
         wcmd_val = g.get("command")
         wcmd_tokens = shlex.split(wcmd_val) if wcmd_val else None
@@ -840,6 +885,8 @@ def create(
             allow_burst=allow_burst_bool,
             privileged=privileged_bool,
         )
+        if seg_cnt is not None:
+            ws.segment_config = LeptonJobSegmentConfig(count_per_segment=seg_cnt)
 
         built_specs.append(ws)
 
@@ -1019,50 +1066,16 @@ def get(name, detail, path):
             sys.exit(1)
 
 
-@raycluster.command()
+@raycluster.command(cls=WorkerGroupCommand)
 @click.option("--name", "-n", help="The raycluster name to update.", required=True)
-@click.option(
-    "--worker-group",
-    "-wg",
-    is_flag=True,
-    multiple=True,
-    help=(
-        "Start a new worker group update definition. Repeat this flag once per worker"
-        " group and pair with per-group options like"
-        " --group-name/--min-replicas/--max-replicas. Values are associated to groups"
-        " by the order they appear."
-    ),
-)
-@click.option(
-    "--group-name",
-    type=str,
-    multiple=True,
-    required=False,
-    help=(
-        "Per-group name to target for update. If omitted and only one group exists, it"
-        " is inferred."
-    ),
-)
-@click.option(
-    "--min-replicas",
-    type=int,
-    multiple=True,
-    required=True,
-    help="Per-group minimum replicas for the worker group.",
-)
-@click.option(
-    "--max-replicas",
-    type=int,
-    multiple=True,
-    required=False,
-    help="Per-group maximum replicas. Only allowed when autoscaler is enabled.",
-)
-def update(name, worker_group, group_name, min_replicas, max_replicas):
+def update(name, worker_groups):
     """
     Updates one or more Ray worker groups' replica settings.
-    - Use repeated -wg flags to delineate multiple groups, pairing values by order.
-    - If --group-name is omitted for a single group, it is inferred when the cluster has exactly one worker group.
-    - If --max-replicas is provided for a group, autoscaler must be enabled and max > min.
+    - Start a worker group definition with -wg/--worker-group and follow it with per-group flags:
+      --group-name, --min-replicas, --max-replicas, --segment-count
+    - If --group-name is omitted and there is exactly one existing worker group and one -wg block, it is inferred.
+    - --max-replicas is only allowed when autoscaler is enabled, and must be greater than --min-replicas.
+    - --segment-count is only allowed when autoscaler is disabled, must be positive, and must evenly divide --min-replicas.
     """
     client = APIClient()
 
@@ -1079,22 +1092,12 @@ def update(name, worker_group, group_name, min_replicas, max_replicas):
 
     autoscaler_enabled = bool(getattr(existing_rc.spec, "autoscaler", None))
 
-    # Helper to access nth element of a possibly shorter tuple
-    def nth(seq, idx):
-        return seq[idx] if idx < len(seq) else None
-
-    # Determine how many groups to process:
-    # - Prefer explicit count from -wg flags
-    # - Otherwise, fall back to number of provided --min-replicas entries
-    num_groups = (
-        len(worker_group)
-        if worker_group and len(worker_group) > 0
-        else len(min_replicas)
-    )
-    if num_groups == 0:
+    # Require at least one worker group definition parsed by the custom command
+    if worker_groups is None or len(worker_groups) == 0:
         console.print(
-            "[red]At least one worker group update is required. Use -wg and provide"
-            " per-group values.[/]"
+            "[red]At least one worker group update is required. Use -wg followed by"
+            " per-group flags like"
+            " --group-name/--min-replicas/--max-replicas/--segment-count.[/]"
         )
         sys.exit(1)
 
@@ -1107,10 +1110,13 @@ def update(name, worker_group, group_name, min_replicas, max_replicas):
 
     update_specs: list[RayWorkerGroupSpec] = []
     updated_group_names: list[str] = []
+    num_groups = len(worker_groups)
     for idx in range(num_groups):
-        gn = nth(list(group_name), idx)
-        mr = nth(list(min_replicas), idx)
-        xr = nth(list(max_replicas), idx)
+        g = worker_groups[idx] or {}
+        gn = g.get("group_name")
+        mr = int(g["min_replicas"]) if g.get("min_replicas") is not None else None
+        xr = int(g["max_replicas"]) if g.get("max_replicas") is not None else None
+        sc = int(g["segment_count"]) if g.get("segment_count") is not None else None
 
         # Infer group name when omitted and there is exactly one existing worker group,
         # and only a single update is being requested.
@@ -1152,6 +1158,32 @@ def update(name, worker_group, group_name, min_replicas, max_replicas):
                 )
                 sys.exit(1)
 
+        # Validate segment count if provided
+        if sc is not None:
+            if autoscaler_enabled:
+                console.print(
+                    "[red]--segment-count is not supported when autoscaler is"
+                    " enabled.[/]"
+                )
+                sys.exit(1)
+            if not isinstance(sc, int) or sc <= 0:
+                console.print(
+                    f"[red]--segment-count must be a positive integer (group: {gn}).[/]"
+                )
+                sys.exit(1)
+            if mr is None:
+                console.print(
+                    "[red]--min-replicas is required when --segment-count is provided"
+                    f" (group: {gn}).[/]"
+                )
+                sys.exit(1)
+            if mr % sc != 0:
+                console.print(
+                    f"[red]--segment-count ({sc}) must evenly divide --min-replicas"
+                    f" ({mr}) (group: {gn}).[/]"
+                )
+                sys.exit(1)
+
         update_specs.append(
             RayWorkerGroupSpec(
                 group_name=gn,
@@ -1159,6 +1191,10 @@ def update(name, worker_group, group_name, min_replicas, max_replicas):
                 max_replicas=(xr if xr is not None else None),
             )
         )
+        if sc is not None:
+            update_specs[-1].segment_config = LeptonJobSegmentConfig(
+                count_per_segment=sc
+            )
         updated_group_names.append(gn)
 
     spec = LeptonRayClusterUserSpec(worker_group_specs=update_specs)
