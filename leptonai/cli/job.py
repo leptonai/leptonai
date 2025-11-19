@@ -834,7 +834,17 @@ def create(
     required=False,
     multiple=True,
 )
-def list_command(state, user, name_or_id, node_group):
+@click.option(
+    "--include-archived",
+    "-ia",
+    is_flag=True,
+    default=False,
+    help=(
+        "Include archived jobs in the list. Please use full user id to filter archived"
+        " jobs."
+    ),
+)
+def list_command(state, user, name_or_id, node_group, include_archived):
     """
     Lists all jobs in the current workspace.
 
@@ -847,6 +857,11 @@ def list_command(state, user, name_or_id, node_group):
     Multiple filters can be combined. For example:
     lep job list -s queue -u alice -n train -ng h100
     """
+
+    if include_archived and state:
+        console.print("[red]Error[/]: --include-archived cannot be used with --state.")
+        sys.exit(1)
+
     client = get_client()
 
     if node_group:
@@ -861,8 +876,16 @@ def list_command(state, user, name_or_id, node_group):
         list_params["q"] = name_or_id
     if node_group:
         list_params["node_groups"] = list(node_group)
+    if include_archived:
+        list_params["job_query_mode"] = "alive_and_archive"
 
     jobs = client.job.list_all(**list_params)
+    if len(jobs) == 0 and include_archived:
+        console.print(
+            "[yellow]No jobs matched your filters.[/] \n[dim]Note[/]: Please use full"
+            " user id to filter archived jobs."
+        )
+        sys.exit(0)
 
     _display_jobs_table(jobs, dashboard_base_url=client.get_dashboard_base_url())
 
@@ -1154,7 +1177,7 @@ def get(name, id, path):
         target_jobs.append(job)
 
     if name:
-        jobs = client.job.list_all()
+        jobs = client.job.list_all(job_query_mode="alive_and_archive", q=name)
         for job in jobs:
             if job.metadata.name == name:
                 target_jobs.append(job)
@@ -1247,11 +1270,14 @@ def remove(id, name):
         target_job_ids.append(id)
 
     if name:
-        job = _get_newest_job_by_name(name)
+        job = _get_newest_job_by_name(name, job_query_mode="alive_only")
         if job:
             target_job_ids.append(job.metadata.id_)
         else:
-            console.print(f"No job found with name [red]{name}[/].")
+            console.print(
+                f"No job found with name [red]{name}[/]. \n [dim]Note: This command"
+                " only alive jobs could be removed.[/]"
+            )
             sys.exit(1)
 
     for job_id in target_job_ids:
@@ -1384,6 +1410,7 @@ def stop(id):
     """
     client = APIClient()
     cur_job = client.job.get(id)
+
     if cur_job.spec.stopped is True or cur_job.status.state in [
         LeptonJobState.Stopped,
         LeptonJobState.Stopping,
