@@ -528,7 +528,9 @@ def _get_valid_node_ids(node_group_ids: [str], node_ids: [str]):
     return valid_nodes_id
 
 
-def _get_newest_job_by_name(job_name: str, job_query_mode: str = LeptonJobQueryMode.AliveOnly.value) -> LeptonJob:
+def _get_newest_job_by_name(
+    job_name: str, job_query_mode: str = LeptonJobQueryMode.AliveOnly.value
+) -> LeptonJob:
     """
     Resolve the newest job by exact name under the given query mode.
     Returns the newest LeptonJob or None if no exact match.
