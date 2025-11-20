@@ -28,7 +28,6 @@ class FineTuneAPI(APIResourse):
     ) -> List[LeptonFineTuneJob]:
         """
         List fine-tune jobs with optional server-side filtering.
-        Mirrors v1 JobAPI list parameters where applicable.
         """
         params_base = {"job_query_mode": job_query_mode}
         if q:
@@ -110,6 +109,8 @@ class FineTuneAPI(APIResourse):
         response = self._get("/finetune/supported-models")
         return self.ensure_list(response, FineTuneModelInfo)
 
-    def list_trainers(self) -> List[TrainerInfo]:
-        response = self._get("/finetune/trainers", params={"default_only": "true"})
+    def list_trainers(self, default_only: bool = True) -> List[TrainerInfo]:
+        response = self._get(
+            "/finetune/trainers", params={"default_only": str(default_only).lower()}
+        )
         return self.ensure_list(response, TrainerInfo)

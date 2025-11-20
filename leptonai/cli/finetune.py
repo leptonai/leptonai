@@ -1,4 +1,6 @@
 import json
+import os
+import sys
 from typing import Any, Dict, List, Optional
 
 import click
@@ -18,6 +20,7 @@ from ..api.v2.client import APIClient
 from leptonai.api.v1.types.job import LeptonJobQueryMode, LeptonJobSegmentConfig
 from leptonai.api.v1.types.common import Metadata, LeptonVisibility
 from leptonai.api.v1.photon import make_mounts_from_strings
+from leptonai.config import VALID_SHAPES
 from leptonai.api.v2.types.finetune import (
     LeptonFineTuneJob,
     LeptonFineTuneJobSpec,
@@ -57,11 +60,18 @@ class DynamicSchemaCommand(click.Command):
     _generated_for_template: Optional[str] = None
 
     def make_context(self, info_name, args, parent=None, **extra):
-        template_id = self._parse_template_arg(args) or "nemo-automodel"
-        if template_id and template_id != self._generated_for_template:
-            schema = _fetch_template_schema(template_id)
-            self.params += self._build_options_from_schema(schema)
-            self._generated_for_template = template_id
+        if not self._has_file_arg(args):
+            try:
+                default_template_id = (
+                    APIClient().finetune.list_trainers(default_only=True)[0].trainer_id
+                )
+            except Exception:
+                default_template_id = "nemo-automodel"
+            template_id = self._parse_template_arg(args) or default_template_id
+            if template_id and template_id != self._generated_for_template:
+                schema = _fetch_template_schema(template_id)
+                self.params += self._build_options_from_schema(schema)
+                self._generated_for_template = template_id
         return super().make_context(info_name, args, parent=parent, **extra)
 
     @staticmethod
@@ -74,6 +84,15 @@ class DynamicSchemaCommand(click.Command):
             if a.startswith("--template-id="):
                 return a.split("=", 1)[1]
         return None
+
+    @staticmethod
+    def _has_file_arg(args: List[str]) -> bool:
+        for i, a in enumerate(args):
+            if a in ("-f", "--file") and i + 1 < len(args):
+                return True
+            if a.startswith("--file="):
+                return True
+        return False
 
     @staticmethod
     def _build_options_from_schema(schema: Dict[str, Any]) -> List[click.Option]:
@@ -106,13 +125,14 @@ class DynamicSchemaCommand(click.Command):
                 and isinstance(addl, dict)
                 and addl.get("type") == "string"
             )
+            trainer_tag = "[trainer]"
             param_decls: Any
             if ptype == "boolean":
                 param_decls = (f"{flag(name)}/--no-{name.replace('_','-')}",)
                 options.append(
                     click.Option(
                         param_decls,
-                        help=desc,
+                        help=f"{trainer_tag} {(desc or '').strip()}",
                         default=bool(default) if default is not None else False,
                         show_default=True,
                     )
@@ -124,7 +144,7 @@ class DynamicSchemaCommand(click.Command):
                         type=int,
                         default=default,
                         required=name in required,
-                        help=desc,
+                        help=f"{trainer_tag} {(desc or '').strip()}",
                         show_default=True,
                     )
                 )
@@ -135,7 +155,7 @@ class DynamicSchemaCommand(click.Command):
                         type=float,
                         default=default,
                         required=name in required,
-                        help=desc,
+                        help=f"{trainer_tag} {(desc or '').strip()}",
                         show_default=True,
                     )
                 )
@@ -148,8 +168,11 @@ class DynamicSchemaCommand(click.Command):
                             multiple=True,
                             required=name in required,
                             callback=_parse_kv_list,
-                            help=((desc + " — ") if desc else "")
-                            + "repeatable KEY:VALUE (e.g., question:prompt)",
+                            help=f"{trainer_tag} "
+                            + (
+                                ((desc + " — ") if desc else "")
+                                + "repeatable KEY:VALUE (e.g., question:prompt)"
+                            ),
                             show_default=False,
                         )
                     )
@@ -160,8 +183,11 @@ class DynamicSchemaCommand(click.Command):
                             type=str,
                             default=default,
                             required=name in required,
-                            help=desc
-                            + (" (JSON)" if ptype in ("object", "array") else ""),
+                            help=f"{trainer_tag} "
+                            + (
+                                (desc or "")
+                                + (" (JSON)" if ptype in ("object", "array") else "")
+                            ),
                             show_default=True,
                         )
                     )
@@ -341,7 +367,25 @@ def list_command(
     default=False,
     help="Include archived jobs when resolving the ID",
 )
-def get_command(id: str, include_archived: bool):
+@click.option(
+    "--path",
+    "-p",
+    type=click.Path(
+        exists=False,
+        file_okay=True,
+        dir_okay=True,
+        writable=True,
+        readable=True,
+        resolve_path=True,
+    ),
+    required=False,
+    help=(
+        "Optional local path to save the job spec JSON. Directory or full filename "
+        "accepted. If a directory is provided, the file will be saved as "
+        "finetune-job-spec-<job_id>.json."
+    ),
+)
+def get_command(id: str, include_archived: bool, path: Optional[str]):
     """Get a finetune job by ID."""
     client = APIClient()
     job_query_mode = (
@@ -351,6 +395,34 @@ def get_command(id: str, include_archived: bool):
     )
     job = client.finetune.get(id, job_query_mode=job_query_mode)
     console.print(json.dumps(client.finetune.safe_json(job), indent=2))
+    if path:
+        job_spec_json = job.spec.model_dump_json(indent=2, by_alias=True)
+        path_is_dir = (
+            os.path.isdir(path)
+            or path.endswith(os.sep)
+            or (not os.path.exists(path) and not os.path.splitext(path)[1])
+        )
+        target_dir = path.rstrip(os.sep) if path_is_dir else os.path.dirname(path)
+        if target_dir and not os.path.exists(target_dir):
+            try:
+                os.makedirs(target_dir)
+            except Exception as e:
+                console.print(
+                    f"[red][ERROR]failed to create directory:[/] {target_dir} ({e})"
+                )
+                sys.exit(1)
+        save_path = (
+            os.path.join(target_dir, f"finetune-job-spec-{job.metadata.id_}.json")
+            if path_is_dir
+            else path
+        )
+        try:
+            with open(save_path, "w") as f:
+                f.write(job_spec_json)
+            console.print(f"Job spec saved to [green]{save_path}[/].")
+        except Exception as e:
+            console.print(f"[red]Failed to save job spec: {e}[/]")
+            sys.exit(1)
 
 
 @finetune.command(name="delete")
@@ -375,7 +447,7 @@ def delete_command(id: str, include_archived: bool):
     console.print(f"Finetune job [green]{id}[/] deleted successfully.")
 
 
-@finetune.command(name="list-trainers")
+@finetune.command(name="list-trainers", hidden=True)
 def list_trainers_command():
     """List available finetune trainers."""
     client = APIClient()
@@ -392,35 +464,13 @@ def list_trainers_command():
     console.print(table)
 
 
-@finetune.command(name="list-supported-models")
-def list_supported_models_command():
-    """List supported models and techniques."""
-    client = APIClient()
-    models = client.finetune.list_supported_models()
-    table = Table(title="Supported Models", show_header=True, show_lines=True)
-    table.add_column("Model ID")
-    table.add_column("SFT")
-    table.add_column("LoRA")
-
-    def _fmt(b: Optional[bool]) -> str:
-        if b is None:
-            return "-"
-        return "[green]Yes[/]" if b else "[red]No[/]"
-
-    for m in models:
-        sft = getattr(getattr(m, "sft", None), "is_supported", None)
-        lora = getattr(getattr(m, "lora", None), "is_supported", None)
-        table.add_row(getattr(m, "model_id", "-"), _fmt(sft), _fmt(lora))
-    console.print(table)
-
-
 @finetune.command(name="create", cls=DynamicSchemaCommand)
 @click.option(
     "--name",
     "-n",
     type=str,
     required=True,
-    help="Finetune job name.",
+    help="[job] Finetune job name.",
 )
 @click.option(
     "-t",
@@ -429,61 +479,74 @@ def list_supported_models_command():
     required=False,
     hidden=True,
     help=(
-        "Template ID to derive parameters from (default: nemo-automodel). "
-        "Use -h after setting this to see dynamic flags."
+        "Template ID to derive parameters from (default: nemo-automodel). Use -h after"
+        " setting this to see dynamic flags. will be ignored in --file mode."
     ),
 )
 @click.option(
     "--resource-shape",
     "-rs",
     type=str,
-    help="Resource shape for the pod.",
+    help="[job] Resource shape for the finetune job.",
     default=None,
 )
 @click.option(
     "--num-workers",
     "-w",
-    help="Number of workers to use for the job. For distributed execution, set > 1.",
+    help=(
+        "[job] Number of workers to use for the job. For distributed execution, set"
+        " > 1."
+    ),
     type=int,
     default=None,
 )
 @click.option(
     "--segment-count",
+    help=(
+        "[job] Segment count for GB200 node groups. Must satisfy: 1 <= segment_count <"
+        " num_workers, and num_workers % segment_count == 0. Workers within the same"
+        " segment are scheduled into one NVL72 domain."
+    ),
     type=int,
     default=None,
-    help=(
-        "Segment count (advanced). Must satisfy 1 <= segment_count < num_workers and "
-        "num_workers % segment_count == 0."
-    ),
 )
 @click.option(
     "--mount",
     multiple=True,
     help=(
-        "Persistent storage to be mounted to the job, in the format"
-        " `STORAGE_PATH:MOUNT_PATH` or `STORAGE_PATH:MOUNT_PATH:MOUNT_FROM`."
+        "[job] Persistent storage to be mounted to the job, in the format"
+        "`STORAGE_PATH:MOUNT_PATH:MOUNT_FROM`."
     ),
 )
 @click.option(
     "--shared-memory-size",
     type=int,
-    help="Specify the shared memory size for this job, in MiB.",
+    help="[job] Specify the shared memory size for this job, in MiB.",
 )
 @click.option(
     "--node-group",
     "-ng",
     "node_groups",
+    help=(
+        "[job] Node group for the job. You can repeat"
+        " this flag multiple times to choose multiple node groups. Multiple node group"
+        " option is currently not supported but coming soon for enterprise users. Only"
+        " the first node group will be set if you input multiple node groups at this"
+        " time."
+    ),
     type=str,
     multiple=True,
-    help="Node group(s) for the job (repeatable).",
 )
 @click.option(
     "--node-id",
     "-ni",
     "node_ids",
+    help=(
+        "[job] Node for the job. You can repeat this flag multiple times to choose"
+        " multiple nodes. Please specify the node group when you are using this option"
+    ),
     type=str,
     multiple=True,
-    help="Specific node id(s) within the chosen node group(s) (repeatable).",
 )
 @click.option(
     "--queue-priority",
@@ -491,8 +554,11 @@ def list_supported_models_command():
     "queue_priority",
     callback=_validate_queue_priority,
     help=(
-        "Set the priority for this job (dedicated node groups only). "
-        "Examples: 1..9 or aliases like low/mid/high."
+        "[job] Set the priority for this job (feature available only for dedicated node"
+        " groups).\nCould be one of low-1, low-2, low-3, mid-4, mid-5, mid-6,"
+        " high-7, high-8, high-9,Options: 1-9 or keywords: l / low (will be 1), m /"
+        " mid (will be 4), h / high (will be 7).\nExamples: -qp 1, -qp 9, -qp low,"
+        " -qp mid, -qp high, -qp l, -qp m, -qp h"
     ),
 )
 @click.option(
@@ -500,33 +566,57 @@ def list_supported_models_command():
     "-cbp",
     is_flag=True,
     default=None,
-    help="Allow this job to be preempted by higher priority jobs.",
+    help="[job] Allow this job to be preempted by higher priority jobs.",
 )
 @click.option(
     "--can-preempt",
     "-cp",
     is_flag=True,
     default=None,
-    help="Allow this job to preempt lower priority jobs.",
+    help="[job] Allow this job to preempt lower priority jobs.",
 )
 @click.option(
     "--with-reservation",
     type=str,
-    help="Use a specific reservation ID (dedicated node groups only).",
+    help=(
+        "[job] Assign the job to a specific reserved compute resource using a"
+        " reservation ID (only applicable to dedicated node groups). If not provided,"
+        " the job will be scheduled as usual."
+    ),
 )
 @click.option(
     "--allow-burst-to-other-reservation",
     is_flag=True,
     default=False,
-    help="Allow burst to other reservation pools when available.",
+    help=(
+        "[job] If set, the job can temporarily use free resources from nodes reserved"
+        " by other reservations. Be aware that when a new workload bound to those"
+        " reservations starts, your job may be evicted."
+    ),
 )
 @click.option(
     "--visibility",
     type=str,
     required=False,
-    help="Visibility of the job. Can be 'public' or 'private'.",
+    help="[job] Visibility of the job. Can be 'public' or 'private'.",
 )
+@click.option(
+    "--file",
+    "-f",
+    help=(
+        "Load finetune job spec from JSON file, then allow job-related CLI options to"
+        " override it. Note: in --file mode, trainer parameters are NOT injected;"
+        " dynamic trainer options are unavailable (unknown options will error). To"
+        " change trainer settings, please edit the spec file.Use `lep finetune get -i"
+        " <job_id> --path <download_path>` to download the spec file of existing"
+        " finetune job."
+    ),
+    type=str,
+    required=False,
+)
+@click.pass_context
 def create_command(
+    ctx: click.Context,
     name: str,
     template: Optional[str],
     resource_shape: Optional[str],
@@ -542,9 +632,10 @@ def create_command(
     with_reservation: Optional[str],
     allow_burst_to_other_reservation: bool,
     visibility: Optional[str],
+    file: Optional[str],
     **kwargs,
 ):
-    """Create a finetune job (WIP). Dynamic flags are injected from the template schema."""
+    """Create a finetune job."""
 
     job_params = {
         "name": name,
@@ -563,16 +654,30 @@ def create_command(
         "visibility": visibility,
     }
     trainer_flags: Dict[str, Any] = {k: v for k, v in kwargs.items() if v is not None}
-    payload = {"trainer": {"train_config": trainer_flags}}
-    logger.trace(json.dumps({"job_params": job_params, "payload": payload}, indent=2))
+    trainer_payload = {"trainer": {"train_config": trainer_flags}}
+    logger.trace(
+        json.dumps({"job_params": job_params, "trainer": trainer_payload}, indent=2)
+    )
 
-    spec = LeptonFineTuneJobSpec()
-    if resource_shape:
+    # Load base spec from file if provided
+    if file:
+        try:
+            with open(file, "r") as f:
+                content = f.read()
+                spec = LeptonFineTuneJobSpec.parse_raw(content)
+        except Exception as e:
+            console.print(f"[red]Cannot load finetune spec from file[/]: {file} ({e})")
+            sys.exit(1)
+    else:
+        spec = LeptonFineTuneJobSpec()
+
+    # Apply simple presence-based overrides (no defaults for job params)
+    if resource_shape is not None:
         spec.resource_shape = resource_shape
     if num_workers is not None:
         if num_workers <= 0:
             console.print("[red]Error: --num-workers must be greater than 0.[/]")
-            raise SystemExit(1)
+            sys.exit(1)
         spec.completions = num_workers
         spec.parallelism = num_workers
         spec.intra_job_communication = True
@@ -586,21 +691,21 @@ def create_command(
             err = "segment-count must be in [1, num_workers) and divide num_workers."
         if err:
             console.print(f"[red]Error[/]: {err}")
-            raise SystemExit(1)
+            sys.exit(1)
         spec.segment_config = LeptonJobSegmentConfig(
             count_per_segment=num_workers // segment_count
         )
     if shared_memory_size is not None:
         if shared_memory_size < 0:
             console.print("[red]Error: --shared-memory-size must be >= 0.[/]")
-            raise SystemExit(1)
+            sys.exit(1)
         spec.shared_memory_size = shared_memory_size
     if mount:
         try:
             spec.mounts = make_mounts_from_strings(mount)  # type: ignore
         except Exception as e:
             console.print(f"[red]Error parsing --mount[/]: {e}")
-            raise SystemExit(1)
+            sys.exit(1)
     try:
         apply_nodegroup_and_queue_config(
             spec=spec,
@@ -614,9 +719,23 @@ def create_command(
         )
     except ValueError as e:
         console.print(f"[red]{e}[/]")
-        raise SystemExit(1)
-    # Attach trainer
-    spec.trainer = Trainer(train_config=trainer_flags or None)
+        sys.exit(1)
+    if not spec.resource_shape:
+        available_types = "\n      ".join(VALID_SHAPES)
+        console.print(
+            "[red]Error: Missing option '--resource-shape'.[/] "
+            f"Available types are:\n      {available_types} \n"
+        )
+        sys.exit(1)
+    # Trainer: in file mode, do not override; warn if CLI trainer flags present
+    if file:
+        if trainer_flags:
+            console.print(
+                "[yellow]Warning[/]: using --file; CLI trainer parameters are ignored."
+            )
+        # keep spec.trainer as loaded from file
+    else:
+        spec.trainer = Trainer(train_config=trainer_flags or None)
 
     job = LeptonFineTuneJob(
         metadata=Metadata(
@@ -625,6 +744,7 @@ def create_command(
         ),
         spec=spec,
     )
+    logger.trace(json.dumps(job.model_dump(), indent=2))
     client = APIClient()
     try:
         created = client.finetune.create(job)
@@ -632,7 +752,7 @@ def create_command(
         logger.trace(json.dumps(client.finetune.safe_json(created), indent=2))
     except Exception as e:
         console.print(f"[red]Failed to create finetune job[/]: {e}")
-        raise SystemExit(1)
+        sys.exit(1)
 
 
 def add_command(cli_group):

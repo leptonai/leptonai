@@ -456,7 +456,7 @@ def job():
     "-ng",
     "node_groups",
     help=(
-        "Node group for the job. If not set, use on-demand resources. You can repeat"
+        "Node group for the job. You can repeat"
         " this flag multiple times to choose multiple node groups. Multiple node group"
         " option is currently not supported but coming soon for enterprise users. Only"
         " the first node group will be set if you input multiple node groups at this"
@@ -1206,7 +1206,7 @@ def get(name, id, path, include_archived):
         import os
 
         job = target_jobs[0]
-        job_spec_json = job.spec.model_dump_json(indent=2)
+        job_spec_json = job.spec.model_dump_json(indent=2, by_alias=True)
 
         # Determine final save path
         save_path = path
