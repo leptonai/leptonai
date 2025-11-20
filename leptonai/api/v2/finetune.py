@@ -1,6 +1,7 @@
 from typing import Union, List, Optional
 
 from ..v1.api_resource import APIResourse
+from leptonai.api.v1.types.job import LeptonJobQueryMode
 from .types.finetune import (
     LeptonFineTuneJob,
     FineTuneModelInfo,
@@ -17,7 +18,7 @@ class FineTuneAPI(APIResourse):
     def list_all(
         self,
         *,
-        job_query_mode: str = "alive_only",
+        job_query_mode: str = LeptonJobQueryMode.AliveOnly.value,
         q: Optional[str] = None,
         query: Optional[str] = None,
         status: Optional[List[str]] = None,
@@ -77,7 +78,7 @@ class FineTuneAPI(APIResourse):
         self,
         id_or_job: Union[str, LeptonFineTuneJob],
         *,
-        job_query_mode: str = "alive_only",
+        job_query_mode: str = LeptonJobQueryMode.AliveOnly.value,
     ) -> LeptonFineTuneJob:
         response = self._get(
             f"/finetune/jobs/{self._to_id(id_or_job)}",
@@ -97,7 +98,7 @@ class FineTuneAPI(APIResourse):
         self,
         name_or_job: Union[str, LeptonFineTuneJob],
         *,
-        job_query_mode: str = "alive_only",
+        job_query_mode: str = LeptonJobQueryMode.AliveOnly.value,
     ) -> bool:
         response = self._delete(
             f"/finetune/jobs/{self._to_id(name_or_job)}",

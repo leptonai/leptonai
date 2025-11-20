@@ -3,7 +3,7 @@ from typing import Union, List, Iterator, Optional
 from .api_resource import APIResourse
 from .types.events import LeptonEvent
 
-from .types.job import LeptonJob
+from .types.job import LeptonJob, LeptonJobQueryMode
 from .types.replica import Replica
 
 
@@ -16,7 +16,7 @@ class JobAPI(APIResourse):
     def list_all(
         self,
         *,
-        job_query_mode: str = "alive_only",
+        job_query_mode: str = LeptonJobQueryMode.AliveOnly.value,
         q: Optional[str] = None,
         query: Optional[str] = None,
         status: Optional[List[str]] = None,
@@ -86,7 +86,10 @@ class JobAPI(APIResourse):
         return self.ensure_type(response, LeptonJob)
 
     def get(
-        self, id_or_job: Union[str, LeptonJob], *, job_query_mode: str = "alive_only"
+        self,
+        id_or_job: Union[str, LeptonJob],
+        *,
+        job_query_mode: str = LeptonJobQueryMode.AliveOnly.value,
     ) -> LeptonJob:
         response = self._get(
             f"/jobs/{self._to_id(id_or_job)}",
@@ -99,7 +102,10 @@ class JobAPI(APIResourse):
         return self.ensure_ok(response)
 
     def delete(
-        self, name_or_job: Union[str, LeptonJob], *, job_query_mode: str = "alive_only"
+        self,
+        name_or_job: Union[str, LeptonJob],
+        *,
+        job_query_mode: str = LeptonJobQueryMode.AliveOnly.value,
     ) -> bool:
         response = self._delete(
             f"/jobs/{self._to_id(name_or_job)}",
