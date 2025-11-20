@@ -14,7 +14,8 @@
   "mounts": [
     {
       "path": "/",
-      "mount_path": "/test"
+      "mount_path": "/test",
+      "from": "node-nfs:nfs-name"
     }
   ],
   "ttl_seconds_after_finished": 259200,

@@ -401,7 +401,7 @@ def job():
     "--mount",
     help=(
         "Persistent storage to be mounted to the job, in the format"
-        " `STORAGE_PATH:MOUNT_PATH` or `STORAGE_PATH:MOUNT_PATH:MOUNT_FROM`."
+        " `STORAGE_PATH:MOUNT_PATH:MOUNT_FROM`."
     ),
     multiple=True,
 )

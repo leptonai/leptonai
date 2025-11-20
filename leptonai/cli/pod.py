@@ -109,7 +109,7 @@ def pod():
     "--mount",
     help=(
         "Persistent storage to be mounted to the deployment, in the format"
-        " `STORAGE_PATH:MOUNT_PATH`."
+        " `STORAGE_PATH:MOUNT_PATH:MOUNT_FROM`."
     ),
     multiple=True,
 )

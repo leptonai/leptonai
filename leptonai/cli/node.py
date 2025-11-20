@@ -367,5 +367,89 @@ def resource_shape_command(node_group=None):
     console.print(table)
 
 
+@node.command(name="storage")
+@click.option(
+    "--node-group",
+    "-ng",
+    help=(
+        "Show storage for specific node groups by their IDs or names. Can use"
+        " partial name/ID (e.g., 'h100' will match any name/ID containing 'h100'). Can"
+        " specify multiple values."
+    ),
+    type=str,
+    required=False,
+    multiple=True,
+)
+def storage_command(node_group=None):
+    """
+    List storage volumes configured for node groups.
+
+    Shows the volumes attached to each node group including their size,
+    source, mount path, and creation mode.
+    """
+    client = APIClient()
+    node_groups = client.nodegroup.list_all()
+
+    if node_group:
+        filters = node_group
+        node_groups = [
+            ng
+            for ng in node_groups
+            if any((f in ng.metadata.id_) or (f in ng.metadata.name) for f in filters)
+        ]
+
+    table = Table(title="Storage Volumes by Node Group", show_lines=True)
+    table.add_column("Node Group")
+    table.add_column("Storage Name")
+    table.add_column("Type")
+
+    for ng in node_groups:
+        ng_name = ng.metadata.name
+        ng_id = ng.metadata.id_
+        volumes = getattr(ng.spec, "volumes", None) or []
+
+        if not volumes:
+            nodegroup_text = f"[bold]{ng_name}[/bold]\n[dim]{ng_id}[/dim]"
+            table.add_row(nodegroup_text, "None", "")
+            continue
+
+        volume_name_lines = []
+        volume_type_lines = []
+        for vol in volumes:
+            volume_name = getattr(vol, "name", "-")
+            from_source = getattr(vol, "from_", None)
+
+            if from_source is not None and from_source != "-":
+                source_str = str(
+                    from_source.value if hasattr(from_source, "value") else from_source
+                ).lower()
+                if source_str == "local":
+                    type_text = f"[green]node-{source_str}[/green]"
+                elif source_str == "nfs":
+                    type_text = f"[cyan]node-{source_str}[/cyan]"
+                else:
+                    type_text = f"node-{source_str}"
+            else:
+                type_text = "-"
+
+            volume_name_lines.append(volume_name)
+            volume_type_lines.append(type_text)
+
+        nodegroup_text = f"[bold]{ng_name}[/bold]\n[dim]{ng_id}[/dim]"
+        table.add_row(
+            nodegroup_text,
+            "\n".join(volume_name_lines),
+            "\n".join(volume_type_lines),
+        )
+
+    console.print(table)
+
+    console.print(
+        "[dim]Note:[/dim] Mount syntax: "
+        "`--mount STORAGE_PATH:MOUNT_PATH:MOUNT_FROM`\n"
+        "[dim]Where `MOUNT_FROM` = `<type>:<storage_name>`.[/dim]"
+    )
+
+
 def add_command(cli_group):
     cli_group.add_command(node)

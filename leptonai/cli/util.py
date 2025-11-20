@@ -185,6 +185,10 @@ def click_group(*args, **kwargs):
                 sys.exit(1)
             except (click.ClickException, click.exceptions.Exit):
                 raise
+            except ValueError as e:
+                console.print(f"[red]Error[/]: {e}")
+                logger.trace(traceback.format_exc())
+                sys.exit(1)
             except Exception as e:
                 console.print(f"[red]Unexpected error[/]: {e}")
                 console.print(traceback.format_exc())
