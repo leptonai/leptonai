@@ -118,7 +118,13 @@ class DynamicSchemaCommand(click.Command):
         for name, prop in props.items():
             desc = prop.get("description", "")
             default = prop.get("default", None)
-            ptype = prop.get("type", "string")
+            raw_type = prop.get("type", "string")
+            # Normalize union types like ["integer", "null"] to their primary non-null type
+            if isinstance(raw_type, list):
+                non_null_types = [t for t in raw_type if t != "null"]
+                ptype = non_null_types[0] if non_null_types else "string"
+            else:
+                ptype = raw_type
             addl = prop.get("additionalProperties")
             is_string_mapping = (
                 ptype == "object"
