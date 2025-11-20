@@ -30,6 +30,7 @@ from ..v1.ingress import IngressAPI
 from ..v1.storage import StorageAPI
 from .resource_shape import ResourceShapeAPI
 from .template import TemplateAPI
+from .finetune import FineTuneAPI
 from ..v1.raycluster import RayClusterAPI
 
 
@@ -39,6 +40,7 @@ from .utils import (
     WorkspaceUnauthorizedError,
     WorkspaceNotFoundError,
     _get_workspace_origin_url,
+    WorkspaceConfigurationError,
 )
 from .workspace_record import WorkspaceRecord
 from loguru import logger
@@ -96,7 +98,7 @@ class APIClient(object):
             or (WorkspaceRecord.current().id_ if WorkspaceRecord.current() else None)
         )
         if workspace_id is None:
-            raise RuntimeError(
+            raise WorkspaceConfigurationError(
                 "You must specify workspace_id or set LEPTON_WORKSPACE_ID in the"
                 " environment, or use commandline `lep login` to log in to a "
                 " workspace. If you do not know your workspace credentials, go to"
@@ -226,6 +228,7 @@ class APIClient(object):
         self.object_storage = ObjectStorageAPI(self)
         self.log = LogAPI(self)
         self.template = TemplateAPI(self)
+        self.finetune = FineTuneAPI(self)
         self.shapes = ResourceShapeAPI(self)
         self.raycluster = RayClusterAPI(self)
 

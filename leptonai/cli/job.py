@@ -38,6 +38,7 @@ from leptonai.api.v1.types.job import (
     LeptonJobUserSpec,
     LeptonJobState,
     LeptonJobSegmentConfig,
+    LeptonJobQueryMode,
 )
 from leptonai.api.v1.types.deployment import (
     LeptonLog,
@@ -455,7 +456,7 @@ def job():
     "-ng",
     "node_groups",
     help=(
-        "Node group for the job. If not set, use on-demand resources. You can repeat"
+        "Node group for the job. You can repeat"
         " this flag multiple times to choose multiple node groups. Multiple node group"
         " option is currently not supported but coming soon for enterprise users. Only"
         " the first node group will be set if you input multiple node groups at this"
@@ -834,7 +835,14 @@ def create(
     required=False,
     multiple=True,
 )
-def list_command(state, user, name_or_id, node_group):
+@click.option(
+    "--include-archived",
+    "-ia",
+    is_flag=True,
+    default=False,
+    help="Include archived jobs (alive_and_archive)",
+)
+def list_command(state, user, name_or_id, node_group, include_archived):
     """
     Lists all jobs in the current workspace.
 
@@ -862,7 +870,12 @@ def list_command(state, user, name_or_id, node_group):
     if node_group:
         list_params["node_groups"] = list(node_group)
 
-    jobs = client.job.list_all(**list_params)
+    job_query_mode = (
+        LeptonJobQueryMode.AliveAndArchive.value
+        if include_archived
+        else LeptonJobQueryMode.AliveOnly.value
+    )
+    jobs = client.job.list_all(job_query_mode=job_query_mode, **list_params)
 
     _display_jobs_table(jobs, dashboard_base_url=client.get_dashboard_base_url())
 
@@ -1109,6 +1122,13 @@ def stop_all(state, user, name, node_group):
 @click.option("--name", "-n", help="Job name", type=str, required=False)
 @click.option("--id", "-i", help="Job id", type=str, required=False)
 @click.option(
+    "--include-archived",
+    "-ia",
+    is_flag=True,
+    default=False,
+    help="Include archived jobs when resolving name/id",
+)
+@click.option(
     "--path",
     "-p",
     type=click.Path(
@@ -1126,7 +1146,7 @@ def stop_all(state, user, name, node_group):
     ),
     required=False,
 )
-def get(name, id, path):
+def get(name, id, path, include_archived):
     """
     Gets detailed information about jobs.
 
@@ -1147,14 +1167,19 @@ def get(name, id, path):
         )
 
     client = APIClient()
+    job_query_mode = (
+        LeptonJobQueryMode.AliveAndArchive.value
+        if include_archived
+        else LeptonJobQueryMode.AliveOnly.value
+    )
     target_jobs = []
 
     if id:
-        job = client.job.get(id)
+        job = client.job.get(id, job_query_mode=job_query_mode)
         target_jobs.append(job)
 
     if name:
-        jobs = client.job.list_all()
+        jobs = client.job.list_all(job_query_mode=job_query_mode)
         for job in jobs:
             if job.metadata.name == name:
                 target_jobs.append(job)
@@ -1181,7 +1206,7 @@ def get(name, id, path):
         import os
 
         job = target_jobs[0]
-        job_spec_json = job.spec.model_dump_json(indent=2)
+        job_spec_json = job.spec.model_dump_json(indent=2, by_alias=True)
 
         # Determine final save path
         save_path = path
@@ -1219,7 +1244,14 @@ def get(name, id, path):
     ),
     required=False,
 )
-def remove(id, name):
+@click.option(
+    "--include-archived",
+    "-ia",
+    is_flag=True,
+    default=False,
+    help="Include archived jobs when resolving name/id",
+)
+def remove(id, name, include_archived):
     """
     Removes a single job.
 
@@ -1241,13 +1273,18 @@ def remove(id, name):
         )
 
     client = APIClient()
+    job_query_mode = (
+        LeptonJobQueryMode.AliveAndArchive.value
+        if include_archived
+        else LeptonJobQueryMode.AliveOnly.value
+    )
 
     target_job_ids = []
     if id:
         target_job_ids.append(id)
 
     if name:
-        job = _get_newest_job_by_name(name)
+        job = _get_newest_job_by_name(name, job_query_mode=job_query_mode)
         if job:
             target_job_ids.append(job.metadata.id_)
         else:
@@ -1255,7 +1292,7 @@ def remove(id, name):
             sys.exit(1)
 
     for job_id in target_job_ids:
-        client.job.delete(job_id)
+        client.job.delete(job_id, job_query_mode=job_query_mode)
         console.print(f"Job [green]{job_id}[/] deleted successfully.")
 
 
