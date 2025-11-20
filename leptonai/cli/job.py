@@ -1273,21 +1273,18 @@ def remove(id, name, include_archived):
         )
 
     client = APIClient()
-    job_query_mode = "alive_and_archive" if include_archived else "alive_only"
+    job_query_mode = (
+        LeptonJobQueryMode.AliveAndArchive.value
+        if include_archived
+        else LeptonJobQueryMode.AliveOnly.value
+    )
 
     target_job_ids = []
     if id:
         target_job_ids.append(id)
 
     if name:
-        # Resolve newest by name with requested query mode
-        jobs = client.job.list_all(job_query_mode=job_query_mode, q=name)
-        exact_matches = [j for j in jobs if j.metadata.name == name]
-        job = (
-            max(exact_matches, key=lambda j: j.metadata.created_at)
-            if exact_matches
-            else None
-        )
+        job = _get_newest_job_by_name(name, job_query_mode=job_query_mode)
         if job:
             target_job_ids.append(job.metadata.id_)
         else:

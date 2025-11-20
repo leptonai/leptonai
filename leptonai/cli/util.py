@@ -13,7 +13,7 @@ from leptonai.api.v1.api_resource import ClientError, ServerError
 from leptonai.api.v2.utils import WorkspaceError, WorkspaceConfigurationError
 
 from rich.console import Console
-from leptonai.api.v1.types.job import LeptonJob
+from leptonai.api.v1.types.job import LeptonJob, LeptonJobQueryMode
 from leptonai.api.v2.client import APIClient
 
 from leptonai.api.v1.types.deployment import (
@@ -528,12 +528,14 @@ def _get_valid_node_ids(node_group_ids: [str], node_ids: [str]):
     return valid_nodes_id
 
 
-def _get_newest_job_by_name(job_name: str) -> LeptonJob:
+def _get_newest_job_by_name(job_name: str, job_query_mode: str = LeptonJobQueryMode.AliveOnly.value) -> LeptonJob:
+    """
+    Resolve the newest job by exact name under the given query mode.
+    Returns the newest LeptonJob or None if no exact match.
+    """
     client = get_client()
-
-    job_list = client.job.list_all(q=job_name)
+    job_list = client.job.list_all(job_query_mode=job_query_mode, q=job_name)
     exact_matches = [j for j in job_list if j.metadata.name == job_name]
-
     if not exact_matches:
         return None
     return max(exact_matches, key=lambda j: j.metadata.created_at)
