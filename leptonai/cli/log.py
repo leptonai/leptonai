@@ -1,6 +1,8 @@
 import re
 import sys
 import os
+import traceback
+
 from loguru import logger
 from .util import _get_newest_job_by_name
 from .util import click_group, console
@@ -213,6 +215,8 @@ def fetch_all_within_time_slot(
                 )
                 break
             except Exception as e:
+                logger.trace(traceback.format_exc())
+                logger.trace(e)
                 delay = base_delay * (2 ** (retry))
                 if retry < max_retries - 1:
                     time.sleep(delay)

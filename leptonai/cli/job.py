@@ -1305,10 +1305,7 @@ def remove(id, name, include_archived):
         if job:
             target_job_ids.append(job.metadata.id_)
         else:
-            console.print(
-                f"No job found with name [red]{name}[/]. \n [dim]Note: This command"
-                " only alive jobs could be removed.[/]"
-            )
+            console.print(f"No job found with name [red]{name}[/].")
             sys.exit(1)
 
     for job_id in target_job_ids:
