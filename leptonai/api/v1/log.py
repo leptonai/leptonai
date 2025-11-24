@@ -4,6 +4,7 @@ from leptonai.api.v1.api_resource import APIResourse
 from leptonai.api.v1.types.deployment import LeptonDeployment
 from leptonai.api.v1.types.job import LeptonJob
 from leptonai.api.v1.types.replica import Replica
+from leptonai.api.v1.types.job import LeptonJobQueryMode
 
 
 class LogAPI(APIResourse):
@@ -17,7 +18,7 @@ class LogAPI(APIResourse):
         interval_ms: int = None,
         limit: int = None,
         q: str = "",
-        job_query_mode: str = "alive_and_archive",
+        job_query_mode: str = LeptonJobQueryMode.AliveAndArchive.value,
         direction: str = "backward",
     ):
         """
