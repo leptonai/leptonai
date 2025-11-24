@@ -880,7 +880,6 @@ def list_command(state, user, name_or_id, node_group, include_archived):
     if include_archived:
         list_params["job_query_mode"] = "alive_and_archive"
 
-
     job_query_mode = (
         LeptonJobQueryMode.AliveAndArchive.value
         if include_archived
