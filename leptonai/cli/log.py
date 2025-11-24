@@ -216,12 +216,13 @@ def fetch_all_within_time_slot(
                 delay = base_delay * (2 ** (retry))
                 if retry < max_retries - 1:
                     time.sleep(delay)
-        
+
         if log_dict is None:
             console.print(
-                f"[yellow]Warning[/]: failed to fetch logs for time range "
-                f"{_epoch_to_time_str(time_start)}–{_epoch_to_time_str(time_end)} after {max_retries} retries; "
-                f"skipping this time range. Output may be incomplete. "
+                "[yellow]Warning[/]: failed to fetch logs for time range"
+                f" {_epoch_to_time_str(time_start)}–{_epoch_to_time_str(time_end)} after"
+                f" {max_retries} retries; skipping this time range. Output may be"
+                " incomplete. "
             )
             return
 
