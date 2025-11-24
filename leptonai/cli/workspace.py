@@ -137,6 +137,7 @@ def login(
            [yellow]Contact us if the workspace remains unavailable after 10 minutes.[/yellow]
            (Current Time: [bold blue]{current_time}[/bold blue])
         """)
+        sys.exit(1)
 
     except WorkspaceNotFoundError as e:
         console.print("\n", e)
@@ -154,6 +155,7 @@ def login(
         3. [yellow]Login to the workspace with valid credentials:[/yellow]
            [green]lep workspace login -i <valid_workspace_id> -t <valid_workspace_token>[/green]
         """)
+        sys.exit(1)
 
 
 @workspace.command()
