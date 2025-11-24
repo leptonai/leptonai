@@ -26,6 +26,7 @@ from leptonai.api.v2.types.finetune import (
     LeptonFineTuneJobSpec,
     Trainer,
 )
+from .util import _ValidatedCommand
 
 
 def _fetch_template_schema(template_id: str) -> Dict[str, Any]:
@@ -39,8 +40,11 @@ def _fetch_template_schema(template_id: str) -> Dict[str, Any]:
     if tpl is None:
         try:
             tpl = client.template.get_private(template_id)
-        except Exception:
-            tpl = None
+        except Exception as e:
+            console.print(
+                f"[red]Failed to fetch training template[/]: {template_id} ({e})"
+            )
+            raise e
     if tpl and getattr(tpl, "spec", None):
         schema = getattr(tpl.spec, "json_schema", None) or {}
         if isinstance(schema, dict):
@@ -54,7 +58,7 @@ def _fetch_template_schema(template_id: str) -> Dict[str, Any]:
     return {}
 
 
-class DynamicSchemaCommand(click.Command):
+class DynamicSchemaCommand(_ValidatedCommand):
     """A Click command that injects options at runtime from a template's json_schema."""
 
     _generated_for_template: Optional[str] = None
