@@ -15,17 +15,10 @@ def make_token_vars_from_config(
     # Note that None is different from [] here. None means that the tokens are not
     # changed, while [] means that the tokens are cleared (aka, no tokens)
 
-    if is_public and tokens:
-        raise ValueError(
-            "For access control, you cannot specify both is_public and token at the"
-            " same time. Please specify either is_public=True with no tokens passed"
-            " in, or is_public=False and tokens as a list."
-        )
-    # If no changes to tokens are requested, return None (no change)
     if tokens is None and is_public is None:
         return None
 
-    if is_public:
+    if is_public and not tokens:
         return []
 
     # Workspace token is no longer accessible

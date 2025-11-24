@@ -368,14 +368,14 @@ def job():
 # Failure handling options
 @click.option(
     "--max-failure-retry",
-    type=int,
-    help="Maximum number of failures to retry per worker.",
+    type=click.IntRange(min=0),
+    help="Maximum number of failures to retry per worker (>= 0).",
     default=None,
 )
 @click.option(
     "--max-job-failure-retry",
-    type=int,
-    help="Maximum number of failures to retry per whole job.",
+    type=click.IntRange(min=0),
+    help="Maximum number of failures to retry per whole job (>= 0).",
     default=None,
 )
 
@@ -400,7 +400,7 @@ def job():
     "--mount",
     help=(
         "Persistent storage to be mounted to the job, in the format"
-        " `STORAGE_PATH:MOUNT_PATH` or `STORAGE_PATH:MOUNT_PATH:MOUNT_FROM`."
+        " `STORAGE_PATH:MOUNT_PATH:MOUNT_FROM`."
     ),
     multiple=True,
 )
@@ -430,7 +430,7 @@ def job():
 )
 @click.option(
     "--ttl-seconds-after-finished",
-    type=int,
+    type=click.IntRange(min=0),
     help=(
         "(advanced feature) limits the lifetime of a job that has finished execution"
         " (either Completed or Failed). If not set, we will have it default to 72"
@@ -672,9 +672,9 @@ def create(
         )
 
     # Set failure retry limits
-    if max_failure_retry:
+    if max_failure_retry is not None:
         job_spec.max_failure_retry = max_failure_retry
-    if max_job_failure_retry:
+    if max_job_failure_retry is not None:
         job_spec.max_job_failure_retry = max_job_failure_retry
 
     # Configure container settings
@@ -721,7 +721,7 @@ def create(
             )
         else:
             job_spec.user_security_context.privileged = privileged
-    if ttl_seconds_after_finished:
+    if ttl_seconds_after_finished is not None:
         job_spec.ttl_seconds_after_finished = ttl_seconds_after_finished
     if log_collection is not None:
         job_spec.log = LeptonLog(enable_collection=log_collection)
@@ -817,7 +817,7 @@ def create(
     "-n",
     help=(
         "Filter jobs by name or id. Case-insensitive and matches any part of the name"
-        " or id. Can specify multiple names or ids. Example: 'train' will match"
+        " or id. Does not support multiple values. Example: 'train' will match"
         " 'training-job-123'"
     ),
     type=str,
@@ -923,7 +923,7 @@ def list_command(state, user, name_or_id, node_group, include_archived):
     "-n",
     help=(
         "Filter jobs by exact name match. Case-sensitive. "
-        "Can specify multiple names. For safety, this is an exact match."
+        "Multiple values are not supported. For safety, this is an exact match."
     ),
     type=str,
     required=False,
@@ -1042,7 +1042,7 @@ def remove_all(state, user, name, node_group):
     "-n",
     help=(
         "Filter jobs by exact name match. Case-sensitive. "
-        "Can specify multiple names. For safety, this is an exact match."
+        "Multiple values are not supported. For safety, this is an exact match."
     ),
     type=str,
     required=False,
