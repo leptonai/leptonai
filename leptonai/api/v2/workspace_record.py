@@ -21,6 +21,7 @@ from .utils import (
     WorkspaceNotCreatedYet,
     _get_workspace_origin_url,
     _print_workspace_not_created_yet_message,
+    WorkspaceConfigurationError,
 )
 
 # so we avoid circular imports
@@ -96,7 +97,7 @@ class WorkspaceRecord(object):
         if workspace_id:
             cls.set(workspace_id, auth_token, workspace_url, workspace_origin_url)
         else:
-            raise RuntimeError(
+            raise WorkspaceConfigurationError(
                 "LEPTON_WORKSPACE_ID environment variable is not set. Please set it to"
                 " the workspace id you want to log in to."
             )
@@ -238,7 +239,7 @@ class WorkspaceRecord(object):
         if not workspace_id:
             workspace_id = cls._singleton_record.current_workspace
             if workspace_id is None:
-                raise RuntimeError(
+                raise WorkspaceConfigurationError(
                     "You have not specified a workspace id, and have not set the"
                     " current workspace either."
                 )
@@ -269,7 +270,7 @@ class WorkspaceRecord(object):
             else:
                 cls._singleton_record.current_workspace = None
         else:
-            raise RuntimeError("You are not logged in to any workspace.")
+            raise WorkspaceConfigurationError("You are not logged in to any workspace.")
         cls._save_to_file()
 
     @classmethod

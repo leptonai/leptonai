@@ -72,6 +72,22 @@ class WorkspaceNotCreatedYet(WorkspaceError):
         super().__init__(f"Workspace {workspace_id} is not created yet.", workspace_id)
 
 
+class WorkspaceConfigurationError(WorkspaceError):
+    """
+    Raised when local workspace configuration is missing or invalid
+    (e.g., missing workspace_id/token/url).
+    """
+
+    def __init__(
+        self,
+        message: str,
+        workspace_id: Optional[str] = None,
+        workspace_url: Optional[str] = None,
+        auth_token: Optional[str] = None,
+    ):
+        super().__init__(message, workspace_id, workspace_url, auth_token)
+
+
 def _print_workspace_not_created_yet_message(workspace_id: str):
     """
     Help message to be used to print a message when a workspace is not created yet.

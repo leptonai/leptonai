@@ -1,4 +1,8 @@
 from rich.table import Table
+import json
+import os
+import sys
+import click
 
 from .util import console, click_group
 from ..api.v2.client import APIClient
@@ -47,6 +51,85 @@ def list_command():
     _emit(private_items)
 
     console.print(table)
+
+
+@template.command(name="get", hidden=True)
+@click.option("--id", "-i", type=str, required=True, help="Template ID to retrieve.")
+@click.option(
+    "--public", is_flag=True, default=False, help="Get from public templates."
+)
+@click.option(
+    "--private", is_flag=True, default=False, help="Get from private templates."
+)
+@click.option(
+    "--path",
+    type=click.Path(
+        exists=False,
+        file_okay=True,
+        dir_okay=True,
+        writable=True,
+        readable=True,
+        resolve_path=True,
+    ),
+    default=None,
+    show_default=False,
+    help="Optional local path to save the template JSON.",
+)
+def get_command(id: str, public: bool, private: bool, path: str | None):
+    """Get a template by ID. If --path is set, save JSON to file.
+
+    Namespace selection:
+    - If --public is set, fetch from public.
+    - If --private is set, fetch from private.
+    - If neither is set, auto-detect by checking public first; if not found, use private.
+    """
+    if public and private:
+        console.print("[red]Cannot specify both --public and --private.[/red]")
+        sys.exit(1)
+
+    client = APIClient()
+    ns = "auto"
+    try:
+        if public:
+            tpl = client.template.get_public(id)
+            ns = "public"
+        elif private:
+            tpl = client.template.get_private(id)
+            ns = "private"
+        else:
+            pubs = client.template.list_public()
+            in_public = any(t.metadata and t.metadata.id_ == id for t in pubs)
+            if in_public:
+                tpl = client.template.get_public(id)
+                ns = "public"
+            else:
+                tpl = client.template.get_private(id)
+                ns = "private"
+    except Exception as e:
+        console.print(f"[red]Failed to get template '{id}':[/] {e}")
+        sys.exit(1)
+
+    data = tpl.model_dump() if hasattr(tpl, "model_dump") else tpl.dict()
+
+    if path:
+        directory = os.path.dirname(path)
+        if directory and not os.path.exists(directory):
+            try:
+                os.makedirs(directory)
+            except Exception as e:
+                console.print(
+                    f"[red][ERROR]{directory} not exist and failed to create"
+                    f" directory:[/] {directory} ({e})"
+                )
+                sys.exit(1)
+        if os.path.isdir(path):
+            default_filename = f"template_{id}.json"
+            path = os.path.join(path, default_filename)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        console.print(f"[bold green]Saved template ({ns}) to:[/bold green] {path}")
+    else:
+        console.print_json(data=data)
 
 
 def add_command(cli_group):

@@ -461,7 +461,7 @@ def get(name, path):
     if path:
         import os
 
-        spec_json = dep.spec.model_dump_json(indent=2)
+        spec_json = dep.spec.model_dump_json(indent=2, by_alias=True)
         save_path = path
         if os.path.isdir(path) or path.endswith(os.sep):
             os.makedirs(path, exist_ok=True)
