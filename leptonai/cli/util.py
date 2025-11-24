@@ -10,9 +10,10 @@ from urllib.parse import urlparse
 import click
 from loguru import logger
 from leptonai.api.v1.api_resource import ClientError, ServerError
+from leptonai.api.v2.utils import WorkspaceError, WorkspaceConfigurationError
 
 from rich.console import Console
-from leptonai.api.v1.types.job import LeptonJob
+from leptonai.api.v1.types.job import LeptonJob, LeptonJobQueryMode
 from leptonai.api.v2.client import APIClient
 
 from leptonai.api.v1.types.deployment import (
@@ -35,70 +36,63 @@ def catch_deprecated_flag(old_name, new_name):
     return warn_old_name
 
 
+class _ValidatedCommand(click.Command):
+    """Global guard: forbid empty or whitespace-only string values from CLI.
+
+    This validates only values provided from COMMANDLINE source, and supports
+    both single-value and multiple=True options. It does not change default
+    values or environment-derived values.
+    """
+
+    def invoke(self, ctx):
+        def _is_blank_str(v):
+            return isinstance(v, str) and v.strip() == ""
+
+        for param_name, param_value in ctx.params.items():
+            # Only enforce for values explicitly provided on the command line
+            try:
+                src = ctx.get_parameter_source(param_name)
+            except Exception:
+                src = None
+            if src != click.core.ParameterSource.COMMANDLINE:
+                continue
+
+            # Single string value
+            if _is_blank_str(param_value):
+                param_obj = next(
+                    (p for p in self.params if getattr(p, "name", None) == param_name),
+                    None,
+                )
+                msg = (
+                    "must not be empty or only whitespace. Omit the flag instead of"
+                    " passing an empty string."
+                )
+                if param_obj is not None:
+                    raise click.BadParameter(msg, param=param_obj)
+                ctx.fail(f"Option '--{param_name}' {msg}")
+
+            # Multiple values
+            if isinstance(param_value, (list, tuple)) and any(
+                _is_blank_str(x) for x in param_value
+            ):
+                param_obj = next(
+                    (p for p in self.params if getattr(p, "name", None) == param_name),
+                    None,
+                )
+                msg = "contains empty value(s). Remove empty items."
+                if param_obj is not None:
+                    raise click.BadParameter(msg, param=param_obj)
+                ctx.fail(f"Option '--{param_name}' {msg}")
+
+        return super().invoke(ctx)
+
+
 def click_group(*args, **kwargs):
     """
     A wrapper around click.group that allows for command shorthands as long as
     they are unambiguous. For example, in the lepton case, the command `lep deployment`
     can be shortened to `lep depl` as `depl` uniquely identifies the `deployment` command.
     """
-
-    class _ValidatedCommand(click.Command):
-        """Global guard: forbid empty or whitespace-only string values from CLI.
-
-        This validates only values provided from COMMANDLINE source, and supports
-        both single-value and multiple=True options. It does not change default
-        values or environment-derived values.
-        """
-
-        def invoke(self, ctx):
-            def _is_blank_str(v):
-                return isinstance(v, str) and v.strip() == ""
-
-            for param_name, param_value in ctx.params.items():
-                # Only enforce for values explicitly provided on the command line
-                try:
-                    src = ctx.get_parameter_source(param_name)
-                except Exception:
-                    src = None
-                if src != click.core.ParameterSource.COMMANDLINE:
-                    continue
-
-                # Single string value
-                if _is_blank_str(param_value):
-                    param_obj = next(
-                        (
-                            p
-                            for p in self.params
-                            if getattr(p, "name", None) == param_name
-                        ),
-                        None,
-                    )
-                    msg = (
-                        "must not be empty or only whitespace. Omit the flag instead of"
-                        " passing an empty string."
-                    )
-                    if param_obj is not None:
-                        raise click.BadParameter(msg, param=param_obj)
-                    ctx.fail(f"Option '--{param_name}' {msg}")
-
-                # Multiple values
-                if isinstance(param_value, (list, tuple)) and any(
-                    _is_blank_str(x) for x in param_value
-                ):
-                    param_obj = next(
-                        (
-                            p
-                            for p in self.params
-                            if getattr(p, "name", None) == param_name
-                        ),
-                        None,
-                    )
-                    msg = "contains empty value(s). Remove empty items."
-                    if param_obj is not None:
-                        raise click.BadParameter(msg, param=param_obj)
-                    ctx.fail(f"Option '--{param_name}' {msg}")
-
-            return super().invoke(ctx)
 
     class ClickAliasedGroup(click.Group):
         def get_command(self, ctx, cmd_name):
@@ -141,6 +135,12 @@ def click_group(*args, **kwargs):
         def invoke(self, ctx):
             try:
                 return super().invoke(ctx)
+            except WorkspaceConfigurationError as e:
+                console.print(f"[red]Workspace configuration error[/]: {e}")
+                sys.exit(1)
+            except WorkspaceError as e:
+                console.print(f"[red]{e.__class__.__name__}[/]: {e}")
+                sys.exit(1)
             except ClientError as e:
                 resp = getattr(e, "response", None)
                 status = getattr(resp, "status_code", None)
@@ -522,13 +522,15 @@ def _get_valid_node_ids(node_group_ids: [str], node_ids: [str]):
 
 
 def _get_newest_job_by_name(
-    job_name: str, job_query_mode: str = "alive_and_archive"
+    job_name: str, job_query_mode: str = LeptonJobQueryMode.AliveOnly.value
 ) -> LeptonJob:
+    """
+    Resolve the newest job by exact name under the given query mode.
+    Returns the newest LeptonJob or None if no exact match.
+    """
     client = get_client()
-
-    job_list = client.job.list_all(q=job_name, job_query_mode=job_query_mode)
+    job_list = client.job.list_all(job_query_mode=job_query_mode, q=job_name)
     exact_matches = [j for j in job_list if j.metadata.name == job_name]
-
     if not exact_matches:
         return None
     return max(exact_matches, key=lambda j: j.metadata.created_at)
