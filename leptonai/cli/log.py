@@ -196,16 +196,34 @@ def fetch_all_within_time_slot(
 ):
     client = APIClient()
     while time_end >= time_start:
-        log_dict = client.log.get_log(
-            name_or_deployment=deployment,
-            name_or_job=job,
-            replica=replica,
-            job_history_name=job_history_name,
-            start=time_start,
-            end=time_end,
-            limit=10000,
-            q=query,
-        )
+        max_retries = 5
+        base_delay = 0.5
+        log_dict = None
+        for retry in range(max_retries):
+            try:
+                log_dict = client.log.get_log(
+                    name_or_deployment=deployment,
+                    name_or_job=job,
+                    replica=replica,
+                    job_history_name=job_history_name,
+                    start=time_start,
+                    end=time_end,
+                    limit=10000,
+                    q=query,
+                )
+                break
+            except Exception as e:
+                delay = base_delay * (2 ** (retry))
+                if retry < max_retries - 1:
+                    time.sleep(delay)
+        
+        if log_dict is None:
+            console.print(
+                f"[yellow]Warning[/]: failed to fetch logs for time range "
+                f"{_epoch_to_time_str(time_start)}–{_epoch_to_time_str(time_end)} after {max_retries} retries; "
+                f"skipping this time range. Output may be incomplete. "
+            )
+            return
 
         lines = log_dict["data"]["result"]
         cur_log_list = []
