@@ -89,7 +89,7 @@ class JobAPI(APIResourse):
         self,
         id_or_job: Union[str, LeptonJob],
         *,
-        job_query_mode: str = LeptonJobQueryMode.AliveOnly.value,
+        job_query_mode: str = LeptonJobQueryMode.AliveAndArchive.value,
     ) -> LeptonJob:
         response = self._get(
             f"/jobs/{self._to_id(id_or_job)}",
@@ -117,8 +117,15 @@ class JobAPI(APIResourse):
         response = self._get(f"/jobs/{self._to_id(name_or_job)}/events")
         return self.ensure_list(response, LeptonEvent)
 
-    def get_replicas(self, name_or_job: Union[str, LeptonJob]) -> List[Replica]:
-        response = self._get(f"/jobs/{self._to_id(name_or_job)}/replicas")
+    def get_replicas(
+        self,
+        name_or_job: Union[str, LeptonJob],
+        job_query_mode: str = "alive_and_archive",
+    ) -> List[Replica]:
+        response = self._get(
+            f"/jobs/{self._to_id(name_or_job)}/replicas",
+            params={"job_query_mode": job_query_mode},
+        )
         return self.ensure_list(response, Replica)
 
     def get_log(

@@ -840,7 +840,10 @@ def create(
     "-ia",
     is_flag=True,
     default=False,
-    help="Include archived jobs (alive_and_archive)",
+    help=(
+        "Include archived jobs in the list. Please use full user id to filter archived"
+        " jobs."
+    ),
 )
 def list_command(state, user, name_or_id, node_group, include_archived):
     """
@@ -855,6 +858,11 @@ def list_command(state, user, name_or_id, node_group, include_archived):
     Multiple filters can be combined. For example:
     lep job list -s queue -u alice -n train -ng h100
     """
+
+    if include_archived and state:
+        console.print("[red]Error[/]: --include-archived cannot be used with --state.")
+        sys.exit(1)
+
     client = get_client()
 
     if node_group:
@@ -869,6 +877,8 @@ def list_command(state, user, name_or_id, node_group, include_archived):
         list_params["q"] = name_or_id
     if node_group:
         list_params["node_groups"] = list(node_group)
+    if include_archived:
+        list_params["job_query_mode"] = "alive_and_archive"
 
     job_query_mode = (
         LeptonJobQueryMode.AliveAndArchive.value
@@ -876,6 +886,13 @@ def list_command(state, user, name_or_id, node_group, include_archived):
         else LeptonJobQueryMode.AliveOnly.value
     )
     jobs = client.job.list_all(job_query_mode=job_query_mode, **list_params)
+
+    if len(jobs) == 0 and include_archived:
+        console.print(
+            "[yellow]No jobs matched your filters.[/] \n[dim]Note[/]: Please use full"
+            " user id to filter archived jobs."
+        )
+        sys.exit(0)
 
     _display_jobs_table(jobs, dashboard_base_url=client.get_dashboard_base_url())
 
@@ -1179,7 +1196,7 @@ def get(name, id, path, include_archived):
         target_jobs.append(job)
 
     if name:
-        jobs = client.job.list_all(job_query_mode=job_query_mode)
+        jobs = client.job.list_all(job_query_mode=job_query_mode, q=name)
         for job in jobs:
             if job.metadata.name == name:
                 target_jobs.append(job)
@@ -1298,7 +1315,14 @@ def remove(id, name, include_archived):
 
 @job.command()
 @click.option("--id", "-i", help="The job id to get events.", required=True)
-def clone(id):
+@click.option(
+    "--include-archived",
+    "-ia",
+    is_flag=True,
+    default=False,
+    help="Include archived jobs when resolving the ID",
+)
+def clone(id, include_archived):
     """
     Creates a copy of an existing job by its ID.
 
@@ -1310,7 +1334,12 @@ def clone(id):
         id: ID of the job to clone
     """
     client = APIClient()
-    job = client.job.get(id)
+    job_query_mode = (
+        LeptonJobQueryMode.AliveAndArchive.value
+        if include_archived
+        else LeptonJobQueryMode.AliveOnly.value
+    )
+    job = client.job.get(id, job_query_mode=job_query_mode)
     job_spec = job.spec
 
     visibility = job.metadata.visibility
@@ -1421,6 +1450,7 @@ def stop(id):
     """
     client = APIClient()
     cur_job = client.job.get(id)
+
     if cur_job.spec.stopped is True or cur_job.status.state in [
         LeptonJobState.Stopped,
         LeptonJobState.Stopping,

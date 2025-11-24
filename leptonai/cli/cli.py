@@ -185,8 +185,9 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url):
                     candidates[choice].is_lepton_classic,
                 )
                 console.print(
-                    "Hint: If you have multiple workspaces, you can pick the one you"
-                    " want\nto log in via `lep workspace login -i workspace_id`."
+                    "[dim]Note: If you have multiple workspaces, you can pick the one"
+                    " you want\nto log in via `lep workspace login -i"
+                    " workspace_id`.[/dim]"
                 )
     if need_further_login:
         # there is no credentials, and no current workspace. Will need to ask the
