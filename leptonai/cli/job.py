@@ -608,6 +608,9 @@ def create(
         except Exception as e:
             console.print(f"[red]Failed to render template[/]: {e}")
             sys.exit(1)
+        if template == "mpi" or template == "torchrun":
+            job_spec.envs = []
+            
     elif file:
         try:
             with open(file, "r") as f:
