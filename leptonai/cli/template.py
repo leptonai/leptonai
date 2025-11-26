@@ -1,10 +1,9 @@
 from rich.table import Table
 import json
-import os
 import sys
 import click
 
-from .util import console, click_group
+from .util import console, click_group, resolve_save_path, PathResolutionError
 from ..api.v2.client import APIClient
 
 
@@ -112,19 +111,11 @@ def get_command(id: str, public: bool, private: bool, path: str | None):
     data = tpl.model_dump() if hasattr(tpl, "model_dump") else tpl.dict()
 
     if path:
-        directory = os.path.dirname(path)
-        if directory and not os.path.exists(directory):
-            try:
-                os.makedirs(directory)
-            except Exception as e:
-                console.print(
-                    f"[red][ERROR]{directory} not exist and failed to create"
-                    f" directory:[/] {directory} ({e})"
-                )
-                sys.exit(1)
-        if os.path.isdir(path):
-            default_filename = f"template_{id}.json"
-            path = os.path.join(path, default_filename)
+        try:
+            path = resolve_save_path(path, f"template_{id}.json")
+        except PathResolutionError as e:
+            console.print(f"[red]Failed to save template: {e}[/]")
+            sys.exit(1)
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         console.print(f"[bold green]Saved template ({ns}) to:[/bold green] {path}")

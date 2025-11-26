@@ -2,6 +2,7 @@
 Common utilities for the CLI.
 """
 
+import os
 import sys
 import traceback
 from typing import Any, Dict, List, Optional, Union
@@ -22,6 +23,52 @@ from leptonai.api.v1.types.deployment import (
 )
 
 console = Console(highlight=False)
+
+
+class PathResolutionError(Exception):
+    """Raised when preparing target directory for save path fails."""
+
+    def __init__(self, directory: str, cause: Exception):
+        super().__init__(f"failed to create directory: {directory} ({cause})")
+        self.directory = directory
+        self.cause = cause
+
+
+def resolve_save_path(path: str, default_filename: str) -> str:
+    """Resolve a final file path to save to, creating directory if needed.
+
+    Rules:
+    - Treat input as directory if:
+      * it is an existing directory, or
+      * it ends with os.sep, or
+      * it does not exist AND has no file extension
+    - Otherwise treat input as a file path.
+    - Create the target directory if it does not exist.
+    - Return the final file path (directory joined with default_filename when needed).
+
+    Raises:
+        PathResolutionError: when directory creation fails.
+    """
+    # Determine whether the given path should be treated as a directory
+    is_dir_like = (
+        os.path.isdir(path)
+        or path.endswith(os.sep)
+        or (not os.path.exists(path) and not os.path.splitext(path)[1])
+    )
+
+    # Normalize the target directory to avoid issues with trailing separators
+    target_dir = os.path.normpath(path) if is_dir_like else os.path.dirname(path)
+
+    # Create directory if needed
+    if target_dir and not os.path.exists(target_dir):
+        try:
+            os.makedirs(target_dir)
+        except Exception as e:
+            raise PathResolutionError(target_dir, e)
+
+    # Construct final path
+    final_path = os.path.join(target_dir, default_filename) if is_dir_like else path
+    return final_path
 
 
 def catch_deprecated_flag(old_name, new_name):

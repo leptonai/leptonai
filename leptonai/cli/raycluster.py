@@ -12,7 +12,13 @@ from ray.job_submission import JobSubmissionClient, JobStatus
 from rich.table import Table
 from rich.pretty import Pretty
 
-from .util import console, click_group, apply_nodegroup_and_queue_config
+from .util import (
+    console,
+    click_group,
+    apply_nodegroup_and_queue_config,
+    resolve_save_path,
+    PathResolutionError,
+)
 from ..api.v2.client import APIClient
 from ..api.v1.types.common import LeptonVisibility, Metadata
 from ..api.v1.types.raycluster import (
@@ -674,18 +680,13 @@ def get(name, detail, path):
         console.print(Pretty(rc.model_dump()))
 
     if path:
-        import os
-
         spec_json = rc.spec.model_dump_json(indent=2) if rc.spec else "{}"
 
-        save_path = path
-        if os.path.isdir(path) or path.endswith(os.sep):
-            os.makedirs(path, exist_ok=True)
-            save_path = os.path.join(path, f"raycluster-spec-{name}.json")
-        else:
-            parent = os.path.dirname(save_path)
-            if parent:
-                os.makedirs(parent, exist_ok=True)
+        try:
+            save_path = resolve_save_path(path, f"raycluster-spec-{name}.json")
+        except PathResolutionError as e:
+            console.print(f"[red]Failed to save spec: {e}[/]")
+            sys.exit(1)
 
         try:
             with open(save_path, "w") as f:
