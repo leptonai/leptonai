@@ -67,9 +67,7 @@ def resolve_save_path(path: str, default_filename: str) -> str:
             raise PathResolutionError(target_dir, e)
 
     # Construct final path
-    final_path = (
-        os.path.join(target_dir, default_filename) if is_dir_like else path
-    )
+    final_path = os.path.join(target_dir, default_filename) if is_dir_like else path
     return final_path
 
 

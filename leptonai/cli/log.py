@@ -705,7 +705,8 @@ def log_command(
                 path = resolve_save_path(path, default_filename)
             except PathResolutionError as e:
                 console.print(
-                    f"[red][ERROR]failed to create directory:[/] {e.directory} ({e.cause})"
+                    "[red][ERROR]failed to create directory:[/]"
+                    f" {e.directory} ({e.cause})"
                 )
                 sys.exit(1)
 
