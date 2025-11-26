@@ -1,6 +1,5 @@
 import re
 import sys
-import os
 import traceback
 
 from loguru import logger

@@ -1,6 +1,5 @@
 from rich.table import Table
 import json
-import os
 import sys
 import click
 
