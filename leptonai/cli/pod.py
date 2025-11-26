@@ -34,6 +34,8 @@ from .util import (
     make_name_id_cell,
     colorize_state,
     format_timestamp_ms,
+    resolve_save_path,
+    PathResolutionError,
 )
 from .util import make_container_ports_from_str_list
 from ..api.v2.client import APIClient
@@ -459,17 +461,12 @@ def get(name, path):
     console.print(json.dumps(client.deployment.safe_json(dep), indent=2))
 
     if path:
-        import os
-
         spec_json = dep.spec.model_dump_json(indent=2, by_alias=True)
-        save_path = path
-        if os.path.isdir(path) or path.endswith(os.sep):
-            os.makedirs(path, exist_ok=True)
-            save_path = os.path.join(path, f"pod-spec-{name}.json")
-        else:
-            parent = os.path.dirname(save_path)
-            if parent:
-                os.makedirs(parent, exist_ok=True)
+        try:
+            save_path = resolve_save_path(path, f"pod-spec-{name}.json")
+        except PathResolutionError as e:
+            console.print(f"[red]Failed to save spec: {e}[/]")
+            sys.exit(1)
 
         try:
             with open(save_path, "w") as f:

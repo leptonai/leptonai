@@ -23,6 +23,8 @@ from .util import (
     make_name_id_cell,
     colorize_state,
     format_timestamp_ms,
+    resolve_save_path,
+    PathResolutionError,
 )
 
 from .util import make_container_port_from_string  # noqa: F401
@@ -1220,23 +1222,15 @@ def get(name, id, path, include_archived):
             )
             sys.exit(1)
 
-        import os
-
         job = target_jobs[0]
         job_spec_json = job.spec.model_dump_json(indent=2, by_alias=True)
 
         # Determine final save path
-        save_path = path
-
-        if os.path.isdir(path) or path.endswith(os.sep):
-            # Path is a directory (existing or intended). Ensure it exists.
-            os.makedirs(path, exist_ok=True)
-            save_path = os.path.join(path, f"job-spec-{job.metadata.id_}.json")
-        else:
-            # Ensure parent dir exists
-            parent_dir = os.path.dirname(save_path)
-            if parent_dir:
-                os.makedirs(parent_dir, exist_ok=True)
+        try:
+            save_path = resolve_save_path(path, f"job-spec-{job.metadata.id_}.json")
+        except PathResolutionError as e:
+            console.print(f"[red]Failed to save job spec: {e}[/]")
+            sys.exit(1)
 
         try:
             with open(save_path, "w") as f:

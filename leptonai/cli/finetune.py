@@ -15,6 +15,8 @@ from .util import (
     make_name_id_cell,
     _validate_queue_priority,
     apply_nodegroup_and_queue_config,
+    resolve_save_path,
+    PathResolutionError,
 )
 from ..api.v2.client import APIClient
 from leptonai.api.v1.types.job import LeptonJobQueryMode, LeptonJobSegmentConfig
@@ -407,25 +409,13 @@ def get_command(id: str, include_archived: bool, path: Optional[str]):
     console.print(json.dumps(client.finetune.safe_json(job), indent=2))
     if path:
         job_spec_json = job.spec.model_dump_json(indent=2, by_alias=True)
-        path_is_dir = (
-            os.path.isdir(path)
-            or path.endswith(os.sep)
-            or (not os.path.exists(path) and not os.path.splitext(path)[1])
-        )
-        target_dir = path.rstrip(os.sep) if path_is_dir else os.path.dirname(path)
-        if target_dir and not os.path.exists(target_dir):
-            try:
-                os.makedirs(target_dir)
-            except Exception as e:
-                console.print(
-                    f"[red][ERROR]failed to create directory:[/] {target_dir} ({e})"
-                )
-                sys.exit(1)
-        save_path = (
-            os.path.join(target_dir, f"finetune-job-spec-{job.metadata.id_}.json")
-            if path_is_dir
-            else path
-        )
+        try:
+            save_path = resolve_save_path(
+                path, f"finetune-job-spec-{job.metadata.id_}.json"
+            )
+        except PathResolutionError as e:
+            console.print(f"[red]Failed to save job spec: {e}[/]")
+            sys.exit(1)
         try:
             with open(save_path, "w") as f:
                 f.write(job_spec_json)

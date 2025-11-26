@@ -6,6 +6,7 @@ import traceback
 from loguru import logger
 from .util import _get_newest_job_by_name
 from .util import click_group, console
+from .util import resolve_save_path, PathResolutionError
 
 from ..api.v2.client import APIClient
 
@@ -527,6 +528,19 @@ def log_command(
                 time_windows.append((start_ns, end_ns))
             log_list = [[] for _ in range(len(time_windows))]
             start_perf = time.perf_counter()
+            # Resolve save path early before starting progress/executor
+            if path:
+                default_filename = (
+                    f"log-{job or deployment or replica or job_history_name or ''}{datetime.now().strftime('%Y%m%d-%H%M%S')}.txt"
+                )
+                try:
+                    path = resolve_save_path(path, default_filename)
+                except PathResolutionError as e:
+                    console.print(
+                        "[red][ERROR]failed to create directory:[/]"
+                        f" {e.directory} ({e.cause})"
+                    )
+                    sys.exit(1)
             with Progress() as progress:
                 worker_count = (
                     min(len(time_windows), workers)
@@ -557,34 +571,6 @@ def log_command(
 
                     future_complete_list = [False for _ in range(len(time_windows))]
                     if path:
-                        path_is_dir = (
-                            os.path.isdir(path)
-                            or path.endswith(os.sep)
-                            or (
-                                not os.path.exists(path)
-                                and not os.path.splitext(path)[1]
-                            )
-                        )
-                        target_dir = (
-                            path.rstrip(os.sep)
-                            if path_is_dir
-                            else os.path.dirname(path)
-                        )
-                        if target_dir and not os.path.exists(target_dir):
-                            try:
-                                os.makedirs(target_dir)
-                            except Exception as e:
-                                console.print(
-                                    "[red][ERROR]failed to create directory:[/]"
-                                    f" {target_dir} ({e})"
-                                )
-                                sys.exit(1)
-                        if path_is_dir:
-                            default_filename = (
-                                f"log-{job or deployment or replica or job_history_name or ''}{datetime.now().strftime('%Y%m%d-%H%M%S')}.txt"
-                            )
-                            path = os.path.join(target_dir, default_filename)
-
                         next_writing_index = 0
                         total_lines = 0
                         first_utc_time = ""
@@ -711,6 +697,17 @@ def log_command(
         return log_list
 
     def fetch_and_print_logs(start, end, limit, path=None):
+        if path and limit is not None:
+            default_filename = (
+                f"log-{job or deployment or replica or job_history_name or ''}{datetime.now().strftime('%Y%m%d-%H%M%S')}.txt"
+            )
+            try:
+                path = resolve_save_path(path, default_filename)
+            except PathResolutionError as e:
+                console.print(
+                    f"[red][ERROR]failed to create directory:[/] {e.directory} ({e.cause})"
+                )
+                sys.exit(1)
 
         log_list = fetch_log(start, end, limit, path)
 
@@ -725,26 +722,6 @@ def log_command(
         )
         last_utc_time = _epoch_to_time_str(log_list[0][0]) if len(log_list) > 0 else end
         if path and limit is not None:
-            path_is_dir = (
-                os.path.isdir(path)
-                or path.endswith(os.sep)
-                or (not os.path.exists(path) and not os.path.splitext(path)[1])
-            )
-            target_dir = path.rstrip(os.sep) if path_is_dir else os.path.dirname(path)
-            if target_dir and not os.path.exists(target_dir):
-                try:
-                    os.makedirs(target_dir)
-                except Exception as e:
-                    console.print(
-                        f"[red][ERROR]failed to create directory:[/] {target_dir} ({e})"
-                    )
-                    sys.exit(1)
-            if path_is_dir:
-                default_filename = (
-                    f"log-{job or deployment or replica or job_history_name or ''}{datetime.now().strftime('%Y%m%d-%H%M%S')}.txt"
-                )
-                path = os.path.join(target_dir, default_filename)
-
             with open(path, "w", encoding="utf-8") as f:
                 f.write(
                     f"Time range: UTC|{first_utc_time} → "
