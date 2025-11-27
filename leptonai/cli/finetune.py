@@ -19,7 +19,7 @@ from .util import (
 from ..api.v2.client import APIClient
 from leptonai.api.v1.types.job import LeptonJobQueryMode, LeptonJobSegmentConfig
 from leptonai.api.v1.types.common import Metadata, LeptonVisibility
-from leptonai.api.v1.photon import make_mounts_from_strings
+from leptonai.api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
 from leptonai.config import VALID_SHAPES
 from leptonai.api.v2.types.finetune import (
     LeptonFineTuneJob,
@@ -624,6 +624,26 @@ def list_trainers_command():
     type=str,
     required=False,
 )
+@click.option(
+    "--hf-token",
+    type=str,
+    required=False,
+    help=(
+        "[trainer] Secret name for Hugging Face token (NOT the token value). "
+        "Create it in Workspace Settings -> Secrets or via `lep secret create`. "
+        "This option injects env 'HF_TOKEN' referencing that secret."
+    ),
+)
+@click.option(
+    "--wandb-api-key",
+    type=str,
+    required=False,
+    help=(
+        "[trainer] Secret name for Weights & Biases API key (NOT the raw key). "
+        "Create it in Workspace Settings -> Secrets or via `lep secret create`. "
+        "This option injects env 'WANDB_API_KEY' referencing that secret."
+    ),
+)
 @click.pass_context
 def create_command(
     ctx: click.Context,
@@ -643,6 +663,8 @@ def create_command(
     allow_burst_to_other_reservation: bool,
     visibility: Optional[str],
     file: Optional[str],
+    hf_token: Optional[str],
+    wandb_api_key: Optional[str],
     **kwargs,
 ):
     """Create a finetune job."""
@@ -716,6 +738,15 @@ def create_command(
         except Exception as e:
             console.print(f"[red]Error parsing --mount[/]: {e}")
             sys.exit(1)
+    fixed_secrets: List[str] = []
+    if hf_token:
+        fixed_secrets.append(f"HF_TOKEN={hf_token}")
+    if wandb_api_key:
+        fixed_secrets.append(f"WANDB_API_KEY={wandb_api_key}")
+    if fixed_secrets:
+        injected = make_env_vars_from_strings(env=None, secret=fixed_secrets)
+        if injected:
+            spec.envs = (spec.envs or []) + injected
     try:
         apply_nodegroup_and_queue_config(
             spec=spec,
