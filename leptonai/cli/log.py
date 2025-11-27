@@ -476,6 +476,11 @@ def log_command(
             sys.exit(1)
         job = job.metadata.id_
 
+    if deployment:
+        client.deployment.get(deployment)
+    if job and not job_name:
+        client.job.get(job)
+
     if (job or deployment) and replica:
         replicas = (
             client.job.get_replicas(job)
@@ -505,6 +510,26 @@ def log_command(
             " 00:00:00)"
         )
         start = "today"
+
+    try:
+        unix_start_probe = _preprocess_time(start, epoch=True)
+        unix_end_probe = _preprocess_time(end, epoch=True)
+        probe = client.log.get_log(
+            name_or_deployment=deployment,
+            name_or_job=job,
+            replica=replica,
+            job_history_name=job_history_name,
+            start=unix_start_probe,
+            end=unix_end_probe,
+            limit=1,
+            q=query,
+        )
+        if not probe or not probe.get("data", {}).get("result"):
+            console.print("[yellow]No logs found in the specified time range.[/]")
+            sys.exit(0)
+    except Exception as e:
+        console.print(f"[red]Failed to query logs[/]: {e}")
+        sys.exit(1)
 
     def fetch_log(start, end, limit, path=None):
         unix_start = _preprocess_time(start, epoch=True)
