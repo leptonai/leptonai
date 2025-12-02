@@ -2126,15 +2126,6 @@ def update(
         ])
         if will_restart:
 
-            confirmed = (not sys.stdin.isatty()) or Confirm.ask(
-                "This update will trigger a rolling restart. Are you sure you want to"
-                " continue?",
-                default=True,
-            )
-
-            if not confirmed:
-                sys.exit(1)
-
             replicas = client.deployment.get_replicas(lepton_deployment)
 
             version_str_list = [lepton_deployment.metadata.semantic_version] + [
@@ -2142,11 +2133,24 @@ def update(
             ]
 
             updating_ongoing = not _same_major_version(version_str_list)
-            if updating_ongoing:
-                console.print(
-                    "[red]An update is in progress. Please try again later.[/]"
+
+            confirmation_prompt = (
+                "Warning: another update is currently in progress for this"
+                " deployment.\nProceeding will start a new rolling restart that may"
+                " overlap with the ongoing update.\nAre you sure you want to continue?"
+                if updating_ongoing
+                else (
+                    "This update will trigger a rolling restart. Are you sure you want"
+                    " to continue?"
                 )
-                sys.exit(1)
+            )
+            confirmed = (not sys.stdin.isatty()) or Confirm.ask(
+                confirmation_prompt,
+                default=True,
+            )
+
+            if not confirmed:
+                sys.exit(0)
 
             console.print("Proceeding with the update...")
 
