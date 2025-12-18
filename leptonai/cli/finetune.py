@@ -140,36 +140,33 @@ class DynamicSchemaCommand(_ValidatedCommand):
             param_decls: Any
             if ptype == "boolean":
                 param_decls = (f"{flag(name)}/--no-{name.replace('_','-')}",)
-                options.append(
-                    click.Option(
-                        param_decls,
-                        help=f"{trainer_tag} {(desc or '').strip()}",
-                        default=bool(default) if default is not None else False,
-                        show_default=True,
-                    )
-                )
+                option_kwargs = {
+                    "help": f"{trainer_tag} {(desc or '').strip()}",
+                }
+                if default is not None:
+                    option_kwargs["default"] = bool(default)
+                    option_kwargs["show_default"] = True
+                options.append(click.Option(param_decls, **option_kwargs))
             elif ptype == "integer":
-                options.append(
-                    click.Option(
-                        (flag(name),),
-                        type=int,
-                        default=default,
-                        required=name in required,
-                        help=f"{trainer_tag} {(desc or '').strip()}",
-                        show_default=True,
-                    )
-                )
+                option_kwargs = {
+                    "type": int,
+                    "required": name in required,
+                    "help": f"{trainer_tag} {(desc or '').strip()}",
+                }
+                if default is not None:
+                    option_kwargs["default"] = default
+                    option_kwargs["show_default"] = True
+                options.append(click.Option((flag(name),), **option_kwargs))
             elif ptype == "number":
-                options.append(
-                    click.Option(
-                        (flag(name),),
-                        type=float,
-                        default=default,
-                        required=name in required,
-                        help=f"{trainer_tag} {(desc or '').strip()}",
-                        show_default=True,
-                    )
-                )
+                option_kwargs = {
+                    "type": float,
+                    "required": name in required,
+                    "help": f"{trainer_tag} {(desc or '').strip()}",
+                }
+                if default is not None:
+                    option_kwargs["default"] = default
+                    option_kwargs["show_default"] = True
+                options.append(click.Option((flag(name),), **option_kwargs))
             else:
                 if is_string_mapping:
                     options.append(
@@ -188,20 +185,18 @@ class DynamicSchemaCommand(_ValidatedCommand):
                         )
                     )
                 else:
-                    options.append(
-                        click.Option(
-                            (flag(name),),
-                            type=str,
-                            default=default,
-                            required=name in required,
-                            help=f"{trainer_tag} "
-                            + (
-                                (desc or "")
-                                + (" (JSON)" if ptype in ("object", "array") else "")
-                            ),
-                            show_default=True,
-                        )
-                    )
+                    option_kwargs = {
+                        "type": str,
+                        "required": name in required,
+                        "help": f"{trainer_tag} " + (
+                            (desc or "")
+                            + (" (JSON)" if ptype in ("object", "array") else "")
+                        ),
+                    }
+                    if default is not None:
+                        option_kwargs["default"] = default
+                        option_kwargs["show_default"] = True
+                    options.append(click.Option((flag(name),), **option_kwargs))
         return options
 
 
