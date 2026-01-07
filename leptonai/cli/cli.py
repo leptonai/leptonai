@@ -18,11 +18,8 @@ from loguru import logger
 import leptonai
 from . import deployment, node
 from . import job
-from . import kv
-from . import objectstore
 from . import photon
 from . import pod
-from . import queue
 from . import secret
 from . import storage
 from . import workspace
@@ -70,11 +67,8 @@ def lep():
 # Add subcommands
 deployment.add_command(lep)
 job.add_command(lep)
-kv.add_command(lep)
-objectstore.add_command(lep)
 photon.add_command(lep)
 pod.add_command(lep)
-queue.add_command(lep)
 secret.add_command(lep)
 storage.add_command(lep)
 workspace.add_command(lep)

@@ -11,7 +11,6 @@ import requests
 from typing import Optional, Union, Dict, Tuple
 
 from ..v1.log import LogAPI
-from ..v1.object_storage import ObjectStorageAPI
 
 from ..v1.types.workspace import WorkspaceInfo
 
@@ -23,8 +22,6 @@ from ..v1.photon import PhotonAPI
 from ..v1.deployment import DeploymentAPI
 from ..v1.job import JobAPI
 from ..v1.secret import SecretAPI
-from ..v1.kv import KVAPI
-from ..v1.queue import QueueAPI
 from ..v1.pod import PodAPI
 from ..v1.ingress import IngressAPI
 from ..v1.storage import StorageAPI
@@ -221,11 +218,8 @@ class APIClient(object):
         self.job = JobAPI(self)
         self.pod = PodAPI(self)
         self.secret = SecretAPI(self)
-        self.kv = KVAPI(self)
-        self.queue = QueueAPI(self)
         self.ingress = IngressAPI(self)
         self.storage = StorageAPI(self)
-        self.object_storage = ObjectStorageAPI(self)
         self.log = LogAPI(self)
         self.template = TemplateAPI(self)
         self.finetune = FineTuneAPI(self)
