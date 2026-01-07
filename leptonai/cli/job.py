@@ -23,6 +23,8 @@ from .util import (
     make_name_id_cell,
     colorize_state,
     format_timestamp_ms,
+    resolve_save_path,
+    PathResolutionError,
 )
 
 from .util import make_container_port_from_string  # noqa: F401
@@ -38,6 +40,7 @@ from leptonai.api.v1.types.job import (
     LeptonJobUserSpec,
     LeptonJobState,
     LeptonJobSegmentConfig,
+    LeptonJobQueryMode,
 )
 from leptonai.api.v1.types.deployment import (
     LeptonLog,
@@ -400,7 +403,7 @@ def job():
     "--mount",
     help=(
         "Persistent storage to be mounted to the job, in the format"
-        " `STORAGE_PATH:MOUNT_PATH` or `STORAGE_PATH:MOUNT_PATH:MOUNT_FROM`."
+        " `STORAGE_PATH:MOUNT_PATH:MOUNT_FROM`."
     ),
     multiple=True,
 )
@@ -455,7 +458,7 @@ def job():
     "-ng",
     "node_groups",
     help=(
-        "Node group for the job. If not set, use on-demand resources. You can repeat"
+        "Node group for the job. You can repeat"
         " this flag multiple times to choose multiple node groups. Multiple node group"
         " option is currently not supported but coming soon for enterprise users. Only"
         " the first node group will be set if you input multiple node groups at this"
@@ -607,6 +610,10 @@ def create(
         except Exception as e:
             console.print(f"[red]Failed to render template[/]: {e}")
             sys.exit(1)
+        # For MPI and Torchrun templates, we remove the envs.
+        if template == "mpi" or template == "torchrun":
+            job_spec.envs = []
+
     elif file:
         try:
             with open(file, "r") as f:
@@ -834,7 +841,17 @@ def create(
     required=False,
     multiple=True,
 )
-def list_command(state, user, name_or_id, node_group):
+@click.option(
+    "--include-archived",
+    "-ia",
+    is_flag=True,
+    default=False,
+    help=(
+        "Include archived jobs in the list. Please use full user id to filter archived"
+        " jobs."
+    ),
+)
+def list_command(state, user, name_or_id, node_group, include_archived):
     """
     Lists all jobs in the current workspace.
 
@@ -847,6 +864,11 @@ def list_command(state, user, name_or_id, node_group):
     Multiple filters can be combined. For example:
     lep job list -s queue -u alice -n train -ng h100
     """
+
+    if include_archived and state:
+        console.print("[red]Error[/]: --include-archived cannot be used with --state.")
+        sys.exit(1)
+
     client = get_client()
 
     if node_group:
@@ -861,8 +883,22 @@ def list_command(state, user, name_or_id, node_group):
         list_params["q"] = name_or_id
     if node_group:
         list_params["node_groups"] = list(node_group)
+    if include_archived:
+        list_params["job_query_mode"] = "alive_and_archive"
 
-    jobs = client.job.list_all(**list_params)
+    job_query_mode = (
+        LeptonJobQueryMode.AliveAndArchive.value
+        if include_archived
+        else LeptonJobQueryMode.AliveOnly.value
+    )
+    jobs = client.job.list_all(job_query_mode=job_query_mode, **list_params)
+
+    if len(jobs) == 0 and include_archived:
+        console.print(
+            "[yellow]No jobs matched your filters.[/] \n[dim]Note[/]: Please use full"
+            " user id to filter archived jobs."
+        )
+        sys.exit(0)
 
     _display_jobs_table(jobs, dashboard_base_url=client.get_dashboard_base_url())
 
@@ -1109,6 +1145,13 @@ def stop_all(state, user, name, node_group):
 @click.option("--name", "-n", help="Job name", type=str, required=False)
 @click.option("--id", "-i", help="Job id", type=str, required=False)
 @click.option(
+    "--include-archived",
+    "-ia",
+    is_flag=True,
+    default=False,
+    help="Include archived jobs when resolving name/id",
+)
+@click.option(
     "--path",
     "-p",
     type=click.Path(
@@ -1126,7 +1169,7 @@ def stop_all(state, user, name, node_group):
     ),
     required=False,
 )
-def get(name, id, path):
+def get(name, id, path, include_archived):
     """
     Gets detailed information about jobs.
 
@@ -1147,14 +1190,19 @@ def get(name, id, path):
         )
 
     client = APIClient()
+    job_query_mode = (
+        LeptonJobQueryMode.AliveAndArchive.value
+        if include_archived
+        else LeptonJobQueryMode.AliveOnly.value
+    )
     target_jobs = []
 
     if id:
-        job = client.job.get(id)
+        job = client.job.get(id, job_query_mode=job_query_mode)
         target_jobs.append(job)
 
     if name:
-        jobs = client.job.list_all()
+        jobs = client.job.list_all(job_query_mode=job_query_mode, q=name)
         for job in jobs:
             if job.metadata.name == name:
                 target_jobs.append(job)
@@ -1178,23 +1226,15 @@ def get(name, id, path):
             )
             sys.exit(1)
 
-        import os
-
         job = target_jobs[0]
-        job_spec_json = job.spec.model_dump_json(indent=2)
+        job_spec_json = job.spec.model_dump_json(indent=2, by_alias=True)
 
         # Determine final save path
-        save_path = path
-
-        if os.path.isdir(path) or path.endswith(os.sep):
-            # Path is a directory (existing or intended). Ensure it exists.
-            os.makedirs(path, exist_ok=True)
-            save_path = os.path.join(path, f"job-spec-{job.metadata.id_}.json")
-        else:
-            # Ensure parent dir exists
-            parent_dir = os.path.dirname(save_path)
-            if parent_dir:
-                os.makedirs(parent_dir, exist_ok=True)
+        try:
+            save_path = resolve_save_path(path, f"job-spec-{job.metadata.id_}.json")
+        except PathResolutionError as e:
+            console.print(f"[red]Failed to save job spec: {e}[/]")
+            sys.exit(1)
 
         try:
             with open(save_path, "w") as f:
@@ -1219,7 +1259,14 @@ def get(name, id, path):
     ),
     required=False,
 )
-def remove(id, name):
+@click.option(
+    "--include-archived",
+    "-ia",
+    is_flag=True,
+    default=False,
+    help="Include archived jobs when resolving name/id",
+)
+def remove(id, name, include_archived):
     """
     Removes a single job.
 
@@ -1241,13 +1288,18 @@ def remove(id, name):
         )
 
     client = APIClient()
+    job_query_mode = (
+        LeptonJobQueryMode.AliveAndArchive.value
+        if include_archived
+        else LeptonJobQueryMode.AliveOnly.value
+    )
 
     target_job_ids = []
     if id:
         target_job_ids.append(id)
 
     if name:
-        job = _get_newest_job_by_name(name)
+        job = _get_newest_job_by_name(name, job_query_mode=job_query_mode)
         if job:
             target_job_ids.append(job.metadata.id_)
         else:
@@ -1255,13 +1307,20 @@ def remove(id, name):
             sys.exit(1)
 
     for job_id in target_job_ids:
-        client.job.delete(job_id)
+        client.job.delete(job_id, job_query_mode=job_query_mode)
         console.print(f"Job [green]{job_id}[/] deleted successfully.")
 
 
 @job.command()
 @click.option("--id", "-i", help="The job id to get events.", required=True)
-def clone(id):
+@click.option(
+    "--include-archived",
+    "-ia",
+    is_flag=True,
+    default=False,
+    help="Include archived jobs when resolving the ID",
+)
+def clone(id, include_archived):
     """
     Creates a copy of an existing job by its ID.
 
@@ -1273,7 +1332,12 @@ def clone(id):
         id: ID of the job to clone
     """
     client = APIClient()
-    job = client.job.get(id)
+    job_query_mode = (
+        LeptonJobQueryMode.AliveAndArchive.value
+        if include_archived
+        else LeptonJobQueryMode.AliveOnly.value
+    )
+    job = client.job.get(id, job_query_mode=job_query_mode)
     job_spec = job.spec
 
     visibility = job.metadata.visibility
@@ -1384,6 +1448,7 @@ def stop(id):
     """
     client = APIClient()
     cur_job = client.job.get(id)
+
     if cur_job.spec.stopped is True or cur_job.status.state in [
         LeptonJobState.Stopped,
         LeptonJobState.Stopping,

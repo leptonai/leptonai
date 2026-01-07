@@ -19,6 +19,8 @@ from .util import (
     make_name_id_cell,
     colorize_state,
     format_timestamp_ms,
+    resolve_save_path,
+    PathResolutionError,
 )
 
 
@@ -520,7 +522,7 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     type=int,
     help=(
         "Guest OS port to listen to in the container. If not specified, default to"
-        " 8080."
+        " 40000."
     ),
 )
 @click.option(
@@ -570,7 +572,7 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--mount",
     help=(
         "Persistent storage to be mounted to the endpoint, in the format"
-        " `STORAGE_PATH:MOUNT_PATH` or `STORAGE_PATH:MOUNT_PATH:MOUNT_FROM`."
+        " `STORAGE_PATH:MOUNT_PATH:MOUNT_FROM`."
     ),
     multiple=True,
 )
@@ -2219,19 +2221,12 @@ def get(name, path):
     console.print(json.dumps(client.deployment.safe_json(dep), indent=2))
 
     if path:
-        import os
-
-        spec_json = dep.spec.model_dump_json(indent=2)
-
-        save_path = path
-        if os.path.isdir(path) or path.endswith(os.sep):
-            os.makedirs(path, exist_ok=True)
-            save_path = os.path.join(path, f"endpoint-spec-{name}.json")
-        else:
-            parent = os.path.dirname(save_path)
-            if parent:
-                os.makedirs(parent, exist_ok=True)
-
+        spec_json = dep.spec.model_dump_json(indent=2, by_alias=True)
+        try:
+            save_path = resolve_save_path(path, f"endpoint-spec-{name}.json")
+        except PathResolutionError as e:
+            console.print(f"[red]Failed to save spec: {e}[/]")
+            sys.exit(1)
         try:
             with open(save_path, "w") as f:
                 f.write(spec_json)

@@ -4,6 +4,7 @@ from typing import Any, Optional, Union, Dict, Tuple
 import yaml
 
 from loguru import logger
+from ..v2.utils import WorkspaceConfigurationError
 
 from leptonai.config import CACHE_DIR
 from leptonai.util import create_cached_dir_if_needed
@@ -244,7 +245,7 @@ def login(
             logger.warning("Warning: you have not specified an auth token.")
         WorkspaceInfoLocalRecord.set_and_save(workspace_id, auth_token, url)
     else:
-        raise RuntimeError(
+        raise WorkspaceConfigurationError(
             "You must specify workspace_id or set LEPTON_WORKSPACE_ID in the"
             " environment. If you do not know your workspace id, go to"
             " https://dashboard.lepton.ai/credentials and login with the"

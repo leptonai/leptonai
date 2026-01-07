@@ -30,6 +30,12 @@ class LeptonJobSegmentConfig(BaseModel):
     count_per_segment: int
 
 
+class LeptonJobQueryMode(str, Enum):
+    AliveOnly = "alive_only"
+    ArchiveOnly = "archive_only"
+    AliveAndArchive = "alive_and_archive"
+
+
 class LeptonJobUserSpec(BaseModel):
     """
     The desired state of a Lepton Job.
