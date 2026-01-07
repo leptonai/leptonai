@@ -522,7 +522,7 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     type=int,
     help=(
         "Guest OS port to listen to in the container. If not specified, default to"
-        " 8080."
+        " 40000."
     ),
 )
 @click.option(
