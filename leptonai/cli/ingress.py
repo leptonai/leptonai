@@ -1,4 +1,5 @@
 import json
+import sys
 
 import click
 from datetime import datetime
@@ -245,7 +246,7 @@ def update_endpoint(name, deployment, weight):
             f"[red]Error[/]: Ingress [cyan]{name}[/] has no endpoints. "
             "Use 'lep ingress add-endpoint' first."
         )
-        return
+        sys.exit(1)
 
     # Find and update the endpoint
     found = False
