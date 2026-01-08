@@ -181,7 +181,7 @@ def remove_endpoint(name, deployment):
 
     if not current_ingress.spec.endpoints:
         console.print(f"[red]Error[/]: Ingress [cyan]{name}[/] has no endpoints.")
-        return
+        sys.exit(1)
 
     # Check if deployment exists
     endpoint_exists = any(
@@ -193,7 +193,7 @@ def remove_endpoint(name, deployment):
             f"[red]Error[/]: Endpoint [cyan]{deployment}[/] not found in ingress"
             f" [cyan]{name}[/]."
         )
-        return
+        sys.exit(1)
 
     # Use the dedicated delete_endpoint API method
     updated_ingress = client.ingress.delete_endpoint(name, deployment)
@@ -261,7 +261,7 @@ def update_endpoint(name, deployment, weight):
             f"[red]Error[/]: Endpoint [cyan]{deployment}[/] not found in ingress"
             f" [cyan]{name}[/].\nUse 'lep ingress add-endpoint' to add it first."
         )
-        return
+        sys.exit(1)
 
     # Update ingress
     client.ingress.update(name, current_ingress)
@@ -320,7 +320,7 @@ def set_endpoints(name, endpoints):
                     f"[red]Error[/]: Weight must be non-negative, got {weight} for"
                     f" endpoint {deployment}"
                 )
-                return
+                sys.exit(1)
             new_endpoints.append(
                 LeptonIngressEndpoint(deployment=deployment.strip(), weight=weight)
             )
@@ -329,11 +329,11 @@ def set_endpoints(name, endpoints):
                 f"[red]Error[/]: Invalid endpoint specification '{endpoint_spec}'. "
                 "Expected format: 'endpoint:weight'"
             )
-            return
+            sys.exit(1)
 
     if not new_endpoints:
         console.print("[red]Error[/]: At least one endpoint must be specified.")
-        return
+        sys.exit(1)
 
     # Validate that sum of weights is greater than zero
     total_weight = sum(ep.weight for ep in new_endpoints)
@@ -342,7 +342,7 @@ def set_endpoints(name, endpoints):
             "[red]Error[/]: Sum of endpoint weights must be greater than zero. "
             "At least one endpoint must have a positive weight."
         )
-        return
+        sys.exit(1)
 
     # Get current ingress
     current_ingress = client.ingress.get(name)
