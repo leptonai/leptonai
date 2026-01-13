@@ -7,7 +7,8 @@ from leptonai.config import compatible_field_validator, v2only_field_validator
 
 from .affinity import LeptonResourceAffinity
 from .common import Metadata, LeptonUserSecurityContext
-from .deployment import EnvVar, Mount, QueueConfig, ReservationConfig
+from .deployment import EnvVar, Mount, QueueConfig, ReservationConfig, LeptonContainer
+from .job import LeptonJobSegmentConfig
 
 
 class RayClusterCommonGroupSpec(BaseModel):
@@ -36,11 +37,13 @@ class RayClusterCommonGroupSpec(BaseModel):
 
     resource_shape: Optional[str] = None
 
+    container: Optional[LeptonContainer] = None
     envs: Optional[List[EnvVar]] = None
     mounts: Optional[List[Mount]] = None
     queue_config: Optional[QueueConfig] = None
     user_security_context: Optional[LeptonUserSecurityContext] = None
     reservation_config: Optional[ReservationConfig] = None
+    segment_config: Optional[LeptonJobSegmentConfig] = None
 
     @compatible_field_validator("min_replicas")
     def validate_min_replicas(cls, min_replicas):
@@ -125,6 +128,8 @@ class LeptonRayClusterState(str, Enum):
     Starting = "Starting"
     Deleting = "Deleting"
     Scaling = "Scaling"
+    Stopping = "Stopping"
+    Stopped = "Stopped"
     Unknown = ""
 
     @classmethod
@@ -138,6 +143,7 @@ class LeptonRayClusterUserSpec(BaseModel):
     LeptonRayCluster user-facing spec only.
     """
 
+    # image is deprecated - use the LeptonContainer in the common group spec instead.
     image: Optional[str] = None
     image_pull_secrets: Optional[List[str]] = None
     ray_version: Optional[str] = None
