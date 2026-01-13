@@ -120,7 +120,13 @@ finetune.add_command(lep)
     default=None,
     hidden=True,
 )
-def login(credentials, workspace_url, lepton_classic, workspace_origin_url, credentials_page_url):
+def login(
+    credentials,
+    workspace_url,
+    lepton_classic,
+    workspace_origin_url,
+    credentials_page_url,
+):
     """
     Login to the DGX Cloud Lepton. This will open a browser window to the Lepton
     login page if credentials are not given. You will be redirected to a page with
@@ -216,10 +222,11 @@ def login(credentials, workspace_url, lepton_classic, workspace_origin_url, cred
         input("Press Enter to continue...")
 
         if not credentials_page_url:
-            credentials_page_url = "https://dashboard.dgxc-lepton.nvidia.com/credentials"
+            credentials_page_url = (
+                "https://dashboard.dgxc-lepton.nvidia.com/credentials"
+            )
             if lepton_classic:
                 credentials_page_url = "https://dashboard.lepton.ai/credentials"
-        
 
         success = webbrowser.open(credentials_page_url)
         if not success:
