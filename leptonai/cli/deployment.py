@@ -891,9 +891,7 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
         case_sensitive=False,
     ),
     default=None,
-    help=(
-        "Load balancing strategy: least-request | sticky-routing"
-    ),
+    help="Load balancing strategy: least-request | sticky-routing",
 )
 def create(
     name,
@@ -1813,9 +1811,7 @@ def log(name, replica):
         case_sensitive=False,
     ),
     default=None,
-    help=(
-        "Load balancing strategy: least-request | sticky-routing"
-    ),
+    help="Load balancing strategy: least-request | sticky-routing",
 )
 @click.option(
     "--cserve",
