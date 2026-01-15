@@ -217,11 +217,11 @@ def login(
             " credentials page\n2. If you have multiple workspaces, select the one you"
             " want to log in to\n3. Create the credential and paste it here\n4. Please"
             " include the workspace ID before the token:"
-            " [#76B900]<workspace_id>:<auth_token>[/]\n   (same format as shown after `lep"
-            " login -c ...`)."
+            " [#76B900]<workspace_id>:<auth_token>[/]\n   (same format as shown after"
+            " `lep login -c ...`)."
         )
         input("Press Enter to continue...")
-        
+
         base_url_override_enabled = True
         if not credentials_page_url:
             base_url_override_enabled = False
@@ -230,7 +230,7 @@ def login(
             )
             if lepton_classic:
                 credentials_page_url = "https://dashboard.lepton.ai/credentials"
-        
+
         success = webbrowser.open(credentials_page_url)
         if not success:
             console.print(
@@ -257,7 +257,10 @@ def login(
             base_url = parts[2] if len(parts) == 3 else None
             print(f"base_url: {base_url}")
             WorkspaceRecord.set_or_exit(
-                workspace_id, auth_token=auth_token, url=base_url, could_be_new_token=True
+                workspace_id,
+                auth_token=auth_token,
+                url=base_url,
+                could_be_new_token=True,
             )
         else:
             workspace_id, auth_token = credentials.split(":", 1)
