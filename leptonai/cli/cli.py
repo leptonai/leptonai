@@ -14,6 +14,7 @@ from leptonai.api.v2.utils import (
 from .util import console
 from leptonai.api.v2.workspace_record import WorkspaceRecord
 from loguru import logger
+from rich.prompt import Prompt
 
 import leptonai
 from . import deployment, node
@@ -212,22 +213,24 @@ def login(
             "Please log in with your registered account.\n"
         )
         console.print(
-            "[bold]Instructions:[/bold]\n"
-            "1. A browser window will open to the workspace credentials page\n"
-            "2. If you have multiple workspaces, select the one you want to log in to\n"
-            "3. Copy the credential and paste it here\n"
-            "4. The credential should be in the format:"
-            " [#76B900]<workspace_id>:<auth_token>[/]\n"
+            "[bold]Instructions:[/bold]\n1. A browser window will open to the workspace"
+            " credentials page\n2. If you have multiple workspaces, select the one you"
+            " want to log in to\n3. Create the credential and paste it here\n4. Please"
+            " include the workspace ID before the token:"
+            " [#76B900]<workspace_id>:<auth_token>[/]\n   (same format as shown after `lep"
+            " login -c ...`)."
         )
         input("Press Enter to continue...")
-
+        
+        base_url_override_enabled = True
         if not credentials_page_url:
+            base_url_override_enabled = False
             credentials_page_url = (
                 "https://dashboard.dgxc-lepton.nvidia.com/credentials"
             )
             if lepton_classic:
                 credentials_page_url = "https://dashboard.lepton.ai/credentials"
-
+        
         success = webbrowser.open(credentials_page_url)
         if not success:
             console.print(
@@ -237,17 +240,30 @@ def login(
                 r" over, or use `lep login -c \[credentials]` to log in."  # noqa: W605
             )
         while not credentials:
-            credentials = input("Credential: ")
+            credentials = Prompt.ask(
+                "\n[bold]Credential[/bold] ([#76B900]<workspace_id>:<auth_token>[/])",
+                console=console,
+            )
             if ":" not in credentials:
                 credentials = None
                 console.print(
                     "[red]A credential should be formatted as"
                     " <workspace_id>:<auth_token>[/]"
                 )
-        workspace_id, auth_token = credentials.split(":", 1)
-        WorkspaceRecord.set_or_exit(
-            workspace_id, auth_token=auth_token, could_be_new_token=True
-        )
+        if base_url_override_enabled:
+            parts = credentials.split(":", 2)
+            workspace_id = parts[0]
+            auth_token = parts[1]
+            base_url = parts[2] if len(parts) == 3 else None
+            print(f"base_url: {base_url}")
+            WorkspaceRecord.set_or_exit(
+                workspace_id, auth_token=auth_token, url=base_url, could_be_new_token=True
+            )
+        else:
+            workspace_id, auth_token = credentials.split(":", 1)
+            WorkspaceRecord.set_or_exit(
+                workspace_id, auth_token=auth_token, could_be_new_token=True
+            )
     # Try to login and print the info.
     api_client = WorkspaceRecord.client()
 
