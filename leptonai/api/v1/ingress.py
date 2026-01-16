@@ -78,5 +78,5 @@ class IngressAPI(APIResourse):
         deployment_name = self._to_name(name_or_deployment)
         url = f"/ingress/{name}/endpoint/deployment/{deployment_name}"
 
-        response = self.delete(url)
+        response = self._delete(url)
         return self.ensure_type(response, LeptonIngress)
