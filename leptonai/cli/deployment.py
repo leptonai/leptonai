@@ -886,17 +886,12 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     type=click.Choice(
         [
             "least-request",
-            "sticky-routing-default",
-            "sticky-routing-by-host-name",
-            "sticky-routing-by-resolved-ip",
+            "sticky-routing",
         ],
         case_sensitive=False,
     ),
     default=None,
-    help=(
-        "Load balancing strategy: least-request | sticky-routing-default |"
-        " sticky-routing-by-host-name | sticky-routing-by-resolved-ip"
-    ),
+    help="Load balancing strategy: least-request | sticky-routing",
 )
 def create(
     name,
@@ -1322,17 +1317,9 @@ def create(
                 spec.load_balance_config = LoadBalanceConfig(
                     least_request=LeastRequestLoadBalancer()
                 )
-            elif lb == "sticky-routing-default":
+            elif lb == "sticky-routing":
                 spec.load_balance_config = LoadBalanceConfig(
                     maglev=MaglevLoadBalancer()
-                )
-            elif lb == "sticky-routing-by-host-name":
-                spec.load_balance_config = LoadBalanceConfig(
-                    maglev=MaglevLoadBalancer(useHostnameForHashing=True)
-                )
-            elif lb == "sticky-routing-by-resolved-ip":
-                spec.load_balance_config = LoadBalanceConfig(
-                    maglev=MaglevLoadBalancer(useHostnameForHashing=False)
                 )
 
         if privileged:
@@ -1819,17 +1806,12 @@ def log(name, replica):
     type=click.Choice(
         [
             "least-request",
-            "sticky-routing-default",
-            "sticky-routing-by-host-name",
-            "sticky-routing-by-resolved-ip",
+            "sticky-routing",
         ],
         case_sensitive=False,
     ),
     default=None,
-    help=(
-        "Load balancing strategy: least-request | sticky-routing-default |"
-        " sticky-routing-by-host-name | sticky-routing-by-resolved-ip"
-    ),
+    help="Load balancing strategy: least-request | sticky-routing",
 )
 @click.option(
     "--cserve",
@@ -2073,20 +2055,10 @@ def update(
                 "least_request": {"choice_count": None},
                 "maglev": None,
             }
-        elif lb == "sticky-routing-default":
+        elif lb == "sticky-routing":
             lepton_deployment_spec.load_balance_config = {
                 "least_request": None,
                 "maglev": {"useHostnameForHashing": None},
-            }
-        elif lb == "sticky-routing-by-host-name":
-            lepton_deployment_spec.load_balance_config = {
-                "least_request": None,
-                "maglev": {"useHostnameForHashing": True},
-            }
-        elif lb == "sticky-routing-by-resolved-ip":
-            lepton_deployment_spec.load_balance_config = {
-                "least_request": None,
-                "maglev": {"useHostnameForHashing": False},
             }
 
     # Set IP access control in auth_config (independent of tokens)
