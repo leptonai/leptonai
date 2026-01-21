@@ -56,6 +56,7 @@ from ..api.v1.types.deployment import (
     LeptonDeploymentState,
     LeptonDeploymentUserSpec,
     LeptonContainer,
+    MultiNodeSpec,
     ResourceRequirement,
     ScaleDown,
     ContainerPort,
@@ -858,6 +859,28 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
         " reservations starts, your endpoint may be evicted."
     ),
 )
+# Multi-node options
+@click.option(
+    "--deployment-mode",
+    type=str,
+    default=None,
+    help=(
+        "Deployment mode for the endpoint. Use 'MultiNode' for leader-worker topology;"
+        " defaults to SingleNode unless multi-node flags are provided."
+    ),
+)
+@click.option(
+    "--multi-node-replicas",
+    type=int,
+    default=None,
+    help="Number of leader-worker groups (replicas) for multi-node.",
+)
+@click.option(
+    "--multi-node-workers",
+    type=int,
+    default=None,
+    help="Number of workers per replica (excluding the leader) for multi-node.",
+)
 @click.option(
     "--replica-spread",
     callback=_normalize_replica_spread,
@@ -939,6 +962,9 @@ def create(
     shared_memory_size,
     with_reservation,
     allow_burst_to_other_reservation,
+    deployment_mode,
+    multi_node_replicas,
+    multi_node_workers,
     replica_spread,
     ingress_timeout_seconds,
     load_balance,
@@ -1153,6 +1179,42 @@ def create(
 
     if shared_memory_size is not None:
         spec.resource_requirement.shared_memory_size = shared_memory_size
+
+    # Apply multi-node configuration
+    try:
+        normalized_mode = None
+        if deployment_mode:
+            dm = deployment_mode.strip()
+            if dm.lower() in ("multinode", "multi", "mn"):
+                normalized_mode = "MultiNode"
+            elif dm.lower() in ("singlenode", "single", "sn"):
+                normalized_mode = "SingleNode"
+            else:
+                # Pass through as-is to allow forward compatibility
+                normalized_mode = dm
+        # If user provided multi-node numbers but no mode, default to MultiNode
+        if normalized_mode is None and (
+            multi_node_replicas is not None or multi_node_workers is not None
+        ):
+            normalized_mode = "MultiNode"
+
+        if normalized_mode is not None:
+            spec.deployment_mode = normalized_mode
+
+        if multi_node_replicas is not None or multi_node_workers is not None:
+            current = spec.multi_node or MultiNodeSpec()
+            if multi_node_replicas is not None:
+                if multi_node_replicas < 0:
+                    raise ValueError("multi-node replicas must be >= 0")
+                current.replicas = multi_node_replicas
+            if multi_node_workers is not None:
+                if multi_node_workers < 0:
+                    raise ValueError("multi-node workers must be >= 0")
+                current.workers_per_replica = multi_node_workers
+            spec.multi_node = current
+    except ValueError as e:
+        console.print(f"[red]{e}[/]")
+        sys.exit(1)
 
     # Apply shared node group / queue / reservation config
     try:
