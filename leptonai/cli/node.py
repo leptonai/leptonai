@@ -304,7 +304,13 @@ def list_command(detail=False, node_group=None):
     required=False,
     multiple=True,
 )
-def resource_shape_command(node_group=None):
+@click.option(
+    "--purpose",
+    help="Filter shapes by purpose (e.g. deployment|pod|job).",
+    type=str,
+    required=False,
+)
+def resource_shape_command(node_group=None, purpose=None):
     """
     List resource shapes per node group.
 
@@ -329,17 +335,17 @@ def resource_shape_command(node_group=None):
     table.add_column("Shapes")
     table.add_column("Detailed")
 
-    wanted = {"pod", "deployment", "job"}
+    wanted = {str(purpose).lower()} if purpose else {"pod", "deployment", "job"}
 
     for ng in node_groups:
         ng_name = ng.metadata.name
         ng_id = ng.metadata.id_
 
-        shapes = client.shapes.list_shapes(node_group=ng_id)
+        shapes = client.shapes.list_shapes(node_group=ng_id, purpose=purpose)
         # Fallback to name if ID returns nothing
         if not shapes:
             try:
-                shapes = client.shapes.list_shapes(node_group=ng_name)
+                shapes = client.shapes.list_shapes(node_group=ng_name, purpose=purpose)
             except Exception:
                 shapes = []
 
