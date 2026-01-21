@@ -40,7 +40,9 @@ def _normalize_group_name(raw: str | None, context: str) -> str | None:
         return None
     name = str(raw).strip()
     if name == "":
-        console.print(f"[red]{context}: group_name cannot be empty or whitespace-only.[/]")
+        console.print(
+            f"[red]{context}: group_name cannot be empty or whitespace-only.[/]"
+        )
         sys.exit(1)
     return name
 
@@ -227,13 +229,13 @@ class WorkerGroupCommand(click.Command):
                         f'"{flag}" must follow a "-wg/--worker-group" marker.'
                     )
                 key = self._GROUP_FLAGS[flag]
-                
+
                 # Handle boolean flags (presence = True, absence = None)
                 if key in self._BOOLEAN_FLAGS:
                     current[key] = True
                     i += 1
                     continue
-                
+
                 # If value not provided inline, consume next token
                 if value is None:
                     # NOTE: values may legitimately start with '-' (e.g. negative numbers),
@@ -511,7 +513,9 @@ def _parse_bool(val, flag_name: str = "", context: str = "") -> bool | None:
     # Invalid boolean string
     ctx = f"{context}: " if context else ""
     flag = f"{flag_name} " if flag_name else ""
-    console.print(f"[red]{ctx}{flag}must be a boolean (true/false, yes/no, 1/0), got '{val}'.[/]")
+    console.print(
+        f"[red]{ctx}{flag}must be a boolean (true/false, yes/no, 1/0), got '{val}'.[/]"
+    )
     sys.exit(1)
 
 
@@ -574,21 +578,27 @@ def _merge_cli_into_worker_spec(
         try:
             spec.shared_memory_size = int(cli_overrides["shared_memory_size"])
         except (ValueError, TypeError):
-            console.print(f"[red]{cli_wg_context}: --shared-memory-size must be an integer.[/]")
+            console.print(
+                f"[red]{cli_wg_context}: --shared-memory-size must be an integer.[/]"
+            )
             sys.exit(1)
 
     if cli_overrides.get("min_replicas") is not None:
         try:
             spec.min_replicas = int(cli_overrides["min_replicas"])
         except (ValueError, TypeError):
-            console.print(f"[red]{cli_wg_context}: --min-replicas must be an integer.[/]")
+            console.print(
+                f"[red]{cli_wg_context}: --min-replicas must be an integer.[/]"
+            )
             sys.exit(1)
 
     if cli_overrides.get("max_replicas") is not None:
         try:
             spec.max_replicas = int(cli_overrides["max_replicas"])
         except (ValueError, TypeError):
-            console.print(f"[red]{cli_wg_context}: --max-replicas must be an integer.[/]")
+            console.print(
+                f"[red]{cli_wg_context}: --max-replicas must be an integer.[/]"
+            )
             sys.exit(1)
 
     if cli_overrides.get("image") is not None:
@@ -619,7 +629,9 @@ def _merge_cli_into_worker_spec(
 
     if node_group_val:
         node_groups_list = (
-            list(node_group_val) if isinstance(node_group_val, (list, tuple)) else [node_group_val]
+            list(node_group_val)
+            if isinstance(node_group_val, (list, tuple))
+            else [node_group_val]
         )
         allow_burst_bool = _parse_bool(allow_burst_val, "--allow-burst", cli_wg_context)
         _apply_affinity_and_reservation(
@@ -635,8 +647,8 @@ def _merge_cli_into_worker_spec(
     elif reservation_val is not None or allow_burst_val is not None:
         if not spec.affinity or not spec.affinity.allowed_dedicated_node_groups:
             console.print(
-                f"[red]{cli_wg_context}: --reservation and --allow-burst require either "
-                f"--node-group or existing node group in file spec.[/]"
+                f"[red]{cli_wg_context}: --reservation and --allow-burst require either"
+                " --node-group or existing node group in file spec.[/]"
             )
             sys.exit(1)
 
@@ -658,15 +670,23 @@ def _merge_cli_into_worker_spec(
         try:
             seg_cnt = int(cli_overrides["segment_count"])
             if enable_autoscaler:
-                console.print(f"[red]{cli_wg_context}: --segment-count is not supported when autoscaler is enabled.[/]")
+                console.print(
+                    f"[red]{cli_wg_context}: --segment-count is not supported when"
+                    " autoscaler is enabled.[/]"
+                )
                 sys.exit(1)
             elif seg_cnt <= 0:
-                console.print(f"[red]{cli_wg_context}: --segment-count must be a positive integer.[/]")
+                console.print(
+                    f"[red]{cli_wg_context}: --segment-count must be a positive"
+                    " integer.[/]"
+                )
                 sys.exit(1)
             else:
                 spec.segment_config = LeptonJobSegmentConfig(count_per_segment=seg_cnt)
         except (ValueError, TypeError):
-            console.print(f"[red]{cli_wg_context}: --segment-count must be a positive integer.[/]")
+            console.print(
+                f"[red]{cli_wg_context}: --segment-count must be a positive integer.[/]"
+            )
             sys.exit(1)
 
     if "privileged" in cli_overrides:
@@ -686,7 +706,9 @@ def _validate_final_raycluster_spec(
     enable_autoscaler: bool,
 ) -> None:
     if not spec.worker_group_specs or len(spec.worker_group_specs) == 0:
-        console.print("[red]At least one worker group is required (via CLI or spec file).[/]")
+        console.print(
+            "[red]At least one worker group is required (via CLI or spec file).[/]"
+        )
         sys.exit(1)
 
     name_to_indices: dict[str, list[int]] = {}
@@ -700,7 +722,10 @@ def _validate_final_raycluster_spec(
 
     for name, indices in name_to_indices.items():
         if len(indices) > 1:
-            console.print(f"[red]Duplicate worker group name '{name}' found at indices {indices}.[/]")
+            console.print(
+                f"[red]Duplicate worker group name '{name}' found at indices"
+                f" {indices}.[/]"
+            )
             sys.exit(1)
 
     for idx, ws in enumerate(spec.worker_group_specs):
@@ -724,7 +749,10 @@ def _validate_final_raycluster_spec(
             sys.exit(1)
         if ws.min_replicas is not None and ws.max_replicas is not None:
             if ws.min_replicas > ws.max_replicas:
-                console.print(f"[red]{ctx}: min_replicas ({ws.min_replicas}) cannot exceed max_replicas ({ws.max_replicas}).[/]")
+                console.print(
+                    f"[red]{ctx}: min_replicas ({ws.min_replicas}) cannot exceed"
+                    f" max_replicas ({ws.max_replicas}).[/]"
+                )
                 sys.exit(1)
 
         if ws.shared_memory_size is not None and ws.shared_memory_size < 0:
@@ -733,24 +761,36 @@ def _validate_final_raycluster_spec(
 
         if ws.segment_config is not None:
             if enable_autoscaler:
-                console.print(f"[red]{ctx}: segment_config is not supported when autoscaler is enabled.[/]")
+                console.print(
+                    f"[red]{ctx}: segment_config is not supported when autoscaler is"
+                    " enabled.[/]"
+                )
                 sys.exit(1)
-            seg_count = getattr(ws.segment_config, 'count_per_segment', None)
+            seg_count = getattr(ws.segment_config, "count_per_segment", None)
             if seg_count is not None:
                 if seg_count <= 0:
                     console.print(f"[red]{ctx}: segment_count must be positive.[/]")
                     sys.exit(1)
                 elif ws.min_replicas is not None and ws.min_replicas % seg_count != 0:
-                    console.print(f"[red]{ctx}: min_replicas ({ws.min_replicas}) must be divisible by segment_count ({seg_count}).[/]")
+                    console.print(
+                        f"[red]{ctx}: min_replicas ({ws.min_replicas}) must be"
+                        f" divisible by segment_count ({seg_count}).[/]"
+                    )
                     sys.exit(1)
 
         if enable_autoscaler:
             if ws.max_replicas is None or ws.max_replicas <= (ws.min_replicas or 0):
-                console.print(f"[red]{ctx}: max_replicas must be set and greater than min_replicas when autoscaler is enabled.[/]")
+                console.print(
+                    f"[red]{ctx}: max_replicas must be set and greater than"
+                    " min_replicas when autoscaler is enabled.[/]"
+                )
                 sys.exit(1)
         else:
             if ws.max_replicas is not None:
-                console.print(f"[red]{ctx}: max_replicas is only supported when autoscaler is enabled.[/]")
+                console.print(
+                    f"[red]{ctx}: max_replicas is only supported when autoscaler is"
+                    " enabled.[/]"
+                )
                 sys.exit(1)
 
 
@@ -772,36 +812,50 @@ def _build_worker_spec_from_cli(
         try:
             ws.shared_memory_size = int(g["shared_memory_size"])
         except (ValueError, TypeError):
-            console.print(f"[red]{cli_wg_context}: --shared-memory-size must be an integer.[/]")
+            console.print(
+                f"[red]{cli_wg_context}: --shared-memory-size must be an integer.[/]"
+            )
             sys.exit(1)
 
     if g.get("min_replicas") is not None:
         try:
             ws.min_replicas = int(g["min_replicas"])
         except (ValueError, TypeError):
-            console.print(f"[red]{cli_wg_context}: --min-replicas must be an integer.[/]")
+            console.print(
+                f"[red]{cli_wg_context}: --min-replicas must be an integer.[/]"
+            )
             sys.exit(1)
 
     if g.get("max_replicas") is not None:
         try:
             ws.max_replicas = int(g["max_replicas"])
         except (ValueError, TypeError):
-            console.print(f"[red]{cli_wg_context}: --max-replicas must be an integer.[/]")
+            console.print(
+                f"[red]{cli_wg_context}: --max-replicas must be an integer.[/]"
+            )
             sys.exit(1)
 
     if g.get("segment_count") is not None:
         try:
             seg_cnt = int(g["segment_count"])
             if seg_cnt <= 0:
-                console.print(f"[red]{cli_wg_context}: --segment-count must be a positive integer.[/]")
+                console.print(
+                    f"[red]{cli_wg_context}: --segment-count must be a positive"
+                    " integer.[/]"
+                )
                 sys.exit(1)
             elif enable_autoscaler:
-                console.print(f"[red]{cli_wg_context}: --segment-count is not supported when autoscaler is enabled.[/]")
+                console.print(
+                    f"[red]{cli_wg_context}: --segment-count is not supported when"
+                    " autoscaler is enabled.[/]"
+                )
                 sys.exit(1)
             else:
                 ws.segment_config = LeptonJobSegmentConfig(count_per_segment=seg_cnt)
         except (ValueError, TypeError):
-            console.print(f"[red]{cli_wg_context}: --segment-count must be a positive integer.[/]")
+            console.print(
+                f"[red]{cli_wg_context}: --segment-count must be a positive integer.[/]"
+            )
             sys.exit(1)
 
     wimg_val = g.get("image")
@@ -814,7 +868,9 @@ def _build_worker_spec_from_cli(
             try:
                 ws.container.command = shlex.split(wcmd_val)
             except ValueError as e:
-                console.print(f"[red]{cli_wg_context}: invalid --command quoting: {e}[/]")
+                console.print(
+                    f"[red]{cli_wg_context}: invalid --command quoting: {e}[/]"
+                )
                 sys.exit(1)
 
     envs_list = _flatten_csv_list(g.get("env"))
@@ -833,7 +889,11 @@ def _build_worker_spec_from_cli(
     allow_burst_bool = _parse_bool(allow_burst_val, "--allow-burst", cli_wg_context)
 
     if node_group_val:
-        node_groups_list = [node_group_val] if isinstance(node_group_val, str) else list(node_group_val)
+        node_groups_list = (
+            [node_group_val]
+            if isinstance(node_group_val, str)
+            else list(node_group_val)
+        )
         _apply_affinity_and_reservation(
             spec=ws,
             node_groups=node_groups_list,
@@ -852,7 +912,9 @@ def _build_worker_spec_from_cli(
         privileged_value = g["privileged"]
         if isinstance(privileged_value, str):
             privileged_value = privileged_value.lower() == "true"
-        ws.user_security_context = LeptonUserSecurityContext(privileged=privileged_value)
+        ws.user_security_context = LeptonUserSecurityContext(
+            privileged=privileged_value
+        )
 
     return ws
 
@@ -1143,7 +1205,9 @@ def list_command(name):
     "--head-privileged",
     type=click.BOOL,
     default=None,
-    help="Enable (true) or disable (false) privileged mode for the head group container.",
+    help=(
+        "Enable (true) or disable (false) privileged mode for the head group container."
+    ),
 )
 @click.option(
     "--enable-autoscaler",
@@ -1227,7 +1291,7 @@ def create(
             spec.head_group_spec.container = LeptonContainer()
         spec.head_group_spec.container.image = DEFAULT_RAY_IMAGE
     # else: file provided image, keep it (don't override)
-    
+
     # Get resolved image for ray_version lookup
     resolved_head_image = spec.head_group_spec.container.image
 
@@ -1295,7 +1359,10 @@ def create(
         if ws.group_name:
             if ws.group_name in file_groups_by_name:
                 prev_idx, _ = file_groups_by_name[ws.group_name]
-                console.print(f"[red]Duplicate worker group name '{ws.group_name}' in file at indices {prev_idx} and {idx}.[/]")
+                console.print(
+                    f"[red]Duplicate worker group name '{ws.group_name}' in file at"
+                    f" indices {prev_idx} and {idx}.[/]"
+                )
                 sys.exit(1)
             file_groups_by_name[ws.group_name] = (idx, ws)
 
@@ -1325,16 +1392,21 @@ def create(
             # Error if --index is used but there are no file worker groups to index into
             if has_index and not file_groups_by_index:
                 console.print(
-                    f"[red]{cli_wg_context}: --index can only be used when the spec file (-f) provides worker groups.[/]"
+                    f"[red]{cli_wg_context}: --index can only be used when the spec"
+                    " file (-f) provides worker groups.[/]"
                 )
                 sys.exit(1)
 
             # Error if --group-name is used for merge but file has no worker groups
             # (only applies when a file was provided; in CLI-only mode, --group-name just names the new group)
             if has_name and file and not file_groups_by_index:
-                cli_name_for_error = _normalize_group_name(g.get("group_name"), cli_wg_context)
+                cli_name_for_error = _normalize_group_name(
+                    g.get("group_name"), cli_wg_context
+                )
                 console.print(
-                    f"[red]{cli_wg_context}: no worker group named '{cli_name_for_error}' found in spec file (file has no worker groups).[/]"
+                    f"[red]{cli_wg_context}: no worker group named"
+                    f" '{cli_name_for_error}' found in spec file (file has no worker"
+                    " groups).[/]"
                 )
                 sys.exit(1)
 
@@ -1343,14 +1415,17 @@ def create(
                 try:
                     cli_index = int(g["index"])
                 except (ValueError, TypeError):
-                    console.print(f"[red]{cli_wg_context}: --index must be an integer.[/]")
+                    console.print(
+                        f"[red]{cli_wg_context}: --index must be an integer.[/]"
+                    )
                     sys.exit(1)
 
-            cli_name = _normalize_group_name(
-                g.get("group_name"), cli_wg_context
-            )
+            cli_name = _normalize_group_name(g.get("group_name"), cli_wg_context)
             if cli_name and cli_name in seen_cli_group_names:
-                console.print(f"[red]{cli_wg_context}: duplicate --group-name '{cli_name}' in CLI worker groups.[/]")
+                console.print(
+                    f"[red]{cli_wg_context}: duplicate --group-name '{cli_name}' in CLI"
+                    " worker groups.[/]"
+                )
                 sys.exit(1)
             if cli_name:
                 seen_cli_group_names.add(cli_name)
@@ -1368,8 +1443,9 @@ def create(
                 if target_spec is not None:
                     if target_idx in merged_indices:
                         console.print(
-                            f"[red]{cli_wg_context}: worker group at index {target_idx} already targeted by "
-                            "another CLI -wg block. Each file group can only be merged once.[/]"
+                            f"[red]{cli_wg_context}: worker group at index"
+                            f" {target_idx} already targeted by another CLI -wg block."
+                            " Each file group can only be merged once.[/]"
                         )
                         sys.exit(1)
                     else:
