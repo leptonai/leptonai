@@ -31,8 +31,21 @@ from ..api.v1.types.raycluster import (
     RayClusterCommonGroupSpec,
 )
 from ..api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
-from ..api.v1.types.deployment import LeptonContainer
+from ..api.v1.types.deployment import LeptonContainer, ReservationConfig
 from ..api.v1.types.job import LeptonJobSegmentConfig
+
+
+def _normalize_group_name(raw: str | None, context: str) -> str | None:
+    if raw is None:
+        return None
+    name = str(raw).strip()
+    if name == "":
+        console.print(
+            f"[red]{context}: group_name cannot be empty or whitespace-only.[/]"
+        )
+        sys.exit(1)
+    return name
+
 
 DEFAULT_RAY_IMAGE = "ray:2.49.2-py312-gpu"
 DEFAULT_RAY_IMAGES = {
@@ -136,6 +149,7 @@ class WorkerGroupCommand(click.Command):
 
     _WG_MARKERS = ("-wg", "--worker-group")
     _GROUP_FLAGS = {
+        "--index": "index",
         "--group-name": "group_name",
         "--image": "image",
         "--command": "command",
@@ -156,6 +170,7 @@ class WorkerGroupCommand(click.Command):
         "--mount": "mount",
     }
     _LIST_FIELDS = {"env", "secret", "mount"}
+    _BOOLEAN_FLAGS = set()
 
     def parse_args(self, ctx, args):
         groups = []
@@ -166,6 +181,7 @@ class WorkerGroupCommand(click.Command):
             nonlocal current
             if current is None:
                 current = {
+                    "index": None,
                     "group_name": None,
                     "image": None,
                     "command": None,
@@ -178,6 +194,7 @@ class WorkerGroupCommand(click.Command):
                     "allowed_nodes": None,
                     "reservation": None,
                     "allow_burst": None,
+                    "privileged": None,
                     "env": [],
                     "secret": [],
                     "mount": [],
@@ -211,6 +228,14 @@ class WorkerGroupCommand(click.Command):
                     raise click.UsageError(
                         f'"{flag}" must follow a "-wg/--worker-group" marker.'
                     )
+                key = self._GROUP_FLAGS[flag]
+
+                # Handle boolean flags (presence = True, absence = None)
+                if key in self._BOOLEAN_FLAGS:
+                    current[key] = True
+                    i += 1
+                    continue
+
                 # If value not provided inline, consume next token
                 if value is None:
                     # NOTE: values may legitimately start with '-' (e.g. negative numbers),
@@ -228,7 +253,6 @@ class WorkerGroupCommand(click.Command):
                     value = args[i + 1]
                     i += 1
 
-                key = self._GROUP_FLAGS[flag]
                 if key in self._LIST_FIELDS:
                     # accumulate, support comma-separated lists, split later
                     getattr_list = current.get(key)
@@ -263,15 +287,41 @@ class WorkerGroupCommand(click.Command):
                 lep raycluster create -n myrc -wg --group-name g1 --resource-shape A100:1 --node-group ng-a \\
                   --min-replicas 2 --env FOO=bar -wg --group-name g2 --resource-shape A100:2 --node-group ng-b
 
+              When using a spec file (-f), you can merge/override or add worker groups:
+
+                Targeting behavior (with -f spec.json):
+                  --index N                       Modify group at index N (0-based). Errors if out of range.
+                  --index N --group-name X        Modify group at index N; errors if its name != X.
+                  --group-name X (exists in file) Modify the group named X.
+                  --group-name X (not in file)    Add NEW group named X. Requires --resource-shape, --node-group.
+                  Neither --index nor --group-name Add NEW unnamed group. Requires --resource-shape, --node-group.
+
+                Without a spec file (CLI-only):
+                  --index N                       Error: --index requires -f with worker groups.
+                  --group-name X                  Add NEW group named X. Requires --resource-shape, --node-group.
+                  Neither                         Add NEW unnamed group. Requires --resource-shape, --node-group.
+
+                Examples:
+                  # Override existing group at index 0:
+                  lep raycluster create -n myrc -f spec.json -wg --index 0 --min-replicas 4
+                  # Override existing group by name:
+                  lep raycluster create -n myrc -f spec.json -wg --group-name gpu --min-replicas 4
+                  # Add a NEW worker group (name doesn't exist in file):
+                  lep raycluster create -n myrc -f spec.json -wg --group-name new-workers --resource-shape A100:1 --node-group ng-a
+
               Per-group flags:
+                --index INTEGER
+                    Index of the worker group to merge/override (0-based) when using -f.
+                    Use with or without --group-name for targeting file-provided groups.
                 --group-name TEXT
-                    Logical name for this worker group.
+                    Logical name for this worker group. When using -f, also serves as a
+                    key to find and merge into a matching file-provided group.
                 --image TEXT
                     Container image for this group's workers.
                 --command TEXT
                     Container command (as a single string; shlex-split).
                 --resource-shape TEXT
-                    REQUIRED. Resource shape identifier for nodes (e.g., GPU/CPU shape).
+                    REQUIRED (for new groups). Resource shape identifier for nodes (e.g., GPU/CPU shape).
                 --shared-memory-size INTEGER
                     Size of shared memory in MiB allocated to the container.
                 --min-replicas INTEGER
@@ -281,7 +331,7 @@ class WorkerGroupCommand(click.Command):
                 --segment-count INTEGER
                     Only when autoscaler is disabled; must be positive and evenly divide --min-replicas.
                 --node-group TEXT
-                    REQUIRED. Dedicated node group (affinity) for this worker group.
+                    REQUIRED (for new groups). Dedicated node group (affinity) for this worker group.
                 --allowed-nodes TEXT
                     Comma-separated node names within the chosen node group.
                 --reservation TEXT
@@ -289,7 +339,7 @@ class WorkerGroupCommand(click.Command):
                 --allow-burst BOOL
                     Allow bursting to other reservations when available (true/false).
                 --privileged BOOL
-                    Run containers in privileged mode (true/false).
+                    Enable (true) or disable (false) privileged mode for this worker group container.
                 --env, -e NAME=VALUE
                     Repeatable or comma-separated. Environment variables to set.
                 --secret, -s NAME=SECRET_NAME
@@ -381,7 +431,7 @@ def _build_group_spec(
 
     if shared_memory_size is not None:
         spec.shared_memory_size = shared_memory_size
-    _validate_shared_memory_non_negative(shared_memory_size, label)
+    _validate_shared_memory_non_negative(spec.shared_memory_size, label)
 
     spec.min_replicas = 1
     if min_replicas is not None:
@@ -427,11 +477,446 @@ def _build_group_spec(
     _set_allowed_nodes_in_affinity(spec, allowed_nodes_csv)
 
     # Security context (only set when requested; do not overwrite existing)
-    if privileged:
+    if privileged is not None:
         if getattr(spec, "user_security_context", None) is None:
             spec.user_security_context = LeptonUserSecurityContext()
-        spec.user_security_context.privileged = True
+        spec.user_security_context.privileged = bool(privileged)
     return spec
+
+
+def _flatten_csv_list(values):
+    """Flatten multiple occurrences into a single list, allowing comma-separated values."""
+    if not values:
+        return None
+    out = []
+    for v in values:
+        if v is None:
+            continue
+        parts = [x.strip() for x in str(v).split(",") if x.strip()]
+        out.extend(parts)
+    return out or None
+
+
+def _parse_bool(val, flag_name: str = "", context: str = "") -> bool | None:
+    """
+    Parse boolean-like string values strictly.
+    Returns None if val is None.
+    Exits with error for invalid boolean strings.
+    """
+    if val is None:
+        return None
+    s = str(val).strip().lower()
+    if s in {"1", "true", "yes", "y", "on"}:
+        return True
+    if s in {"0", "false", "no", "n", "off"}:
+        return False
+    # Invalid boolean string
+    ctx = f"{context}: " if context else ""
+    flag = f"{flag_name} " if flag_name else ""
+    console.print(
+        f"[red]{ctx}{flag}must be a boolean (true/false, yes/no, 1/0), got '{val}'.[/]"
+    )
+    sys.exit(1)
+
+
+def _find_worker_group_merge_target(
+    cli_index: int | None,
+    cli_name: str | None,
+    has_index: bool,
+    has_name: bool,
+    file_groups_by_index: list[RayWorkerGroupSpec],
+    file_groups_by_name: dict[str, tuple[int, RayWorkerGroupSpec]],
+    cli_wg_context: str,
+) -> tuple[RayWorkerGroupSpec | None, int]:
+    if has_index and has_name:
+        if cli_index is None or cli_index < 0 or cli_index >= len(file_groups_by_index):
+            console.print(
+                f"[red]{cli_wg_context}: --index {cli_index} out of range "
+                f"(file has {len(file_groups_by_index)} groups).[/]"
+            )
+            sys.exit(1)
+        target = file_groups_by_index[cli_index]
+        actual_name = target.group_name or ""
+        if actual_name != cli_name:
+            console.print(
+                f"[red]{cli_wg_context}: worker group at index {cli_index} has name "
+                f"'{actual_name}' but --group-name specified '{cli_name}'.[/]"
+            )
+            sys.exit(1)
+        return target, cli_index
+
+    elif has_index:
+        if cli_index is None or cli_index < 0 or cli_index >= len(file_groups_by_index):
+            console.print(
+                f"[red]{cli_wg_context}: --index {cli_index} out of range "
+                f"(file has {len(file_groups_by_index)} groups).[/]"
+            )
+            sys.exit(1)
+        return file_groups_by_index[cli_index], cli_index
+
+    elif has_name:
+        if cli_name not in file_groups_by_name:
+            # Name not found - return None to signal caller should create a new worker group
+            return None, -1
+        idx, spec = file_groups_by_name[cli_name]
+        return spec, idx
+
+    return None, -1
+
+
+def _merge_cli_into_worker_spec(
+    spec: RayWorkerGroupSpec,
+    cli_overrides: dict,
+    cli_idx: int,
+    enable_autoscaler: bool,
+    cli_wg_context: str,
+) -> RayWorkerGroupSpec:
+    if cli_overrides.get("resource_shape") is not None:
+        spec.resource_shape = cli_overrides["resource_shape"]
+
+    if cli_overrides.get("shared_memory_size") is not None:
+        try:
+            spec.shared_memory_size = int(cli_overrides["shared_memory_size"])
+        except (ValueError, TypeError):
+            console.print(
+                f"[red]{cli_wg_context}: --shared-memory-size must be an integer.[/]"
+            )
+            sys.exit(1)
+
+    if cli_overrides.get("min_replicas") is not None:
+        try:
+            spec.min_replicas = int(cli_overrides["min_replicas"])
+        except (ValueError, TypeError):
+            console.print(
+                f"[red]{cli_wg_context}: --min-replicas must be an integer.[/]"
+            )
+            sys.exit(1)
+
+    if cli_overrides.get("max_replicas") is not None:
+        try:
+            spec.max_replicas = int(cli_overrides["max_replicas"])
+        except (ValueError, TypeError):
+            console.print(
+                f"[red]{cli_wg_context}: --max-replicas must be an integer.[/]"
+            )
+            sys.exit(1)
+
+    if cli_overrides.get("image") is not None:
+        if spec.container is None:
+            spec.container = LeptonContainer()
+        spec.container.image = cli_overrides["image"]
+    if cli_overrides.get("command") is not None:
+        if spec.container is None:
+            spec.container = LeptonContainer()
+        try:
+            spec.container.command = shlex.split(cli_overrides["command"])
+        except ValueError as e:
+            console.print(f"[red]{cli_wg_context}: invalid --command quoting: {e}[/]")
+            sys.exit(1)
+
+    env_list = _flatten_csv_list(cli_overrides.get("env"))
+    secret_list = _flatten_csv_list(cli_overrides.get("secret"))
+    if env_list or secret_list:
+        spec.envs = make_env_vars_from_strings(env_list or [], secret_list or [])
+
+    mount_list = _flatten_csv_list(cli_overrides.get("mount"))
+    if mount_list:
+        spec.mounts = make_mounts_from_strings(mount_list)
+
+    node_group_val = cli_overrides.get("node_group")
+    reservation_val = cli_overrides.get("reservation")
+    allow_burst_val = cli_overrides.get("allow_burst")
+
+    if node_group_val:
+        node_groups_list = (
+            list(node_group_val)
+            if isinstance(node_group_val, (list, tuple))
+            else [node_group_val]
+        )
+        allow_burst_bool = _parse_bool(allow_burst_val, "--allow-burst", cli_wg_context)
+        _apply_affinity_and_reservation(
+            spec=spec,
+            node_groups=node_groups_list,
+            reservation=reservation_val,
+            allow_burst=allow_burst_bool,
+        )
+        if allow_burst_val is not None and allow_burst_bool is not None:
+            if spec.reservation_config is None:
+                spec.reservation_config = ReservationConfig()
+            spec.reservation_config.allow_burst_to_other_reservations = allow_burst_bool
+    elif reservation_val is not None or allow_burst_val is not None:
+        if not spec.affinity or not spec.affinity.allowed_dedicated_node_groups:
+            console.print(
+                f"[red]{cli_wg_context}: --reservation and --allow-burst require either"
+                " --node-group or existing node group in file spec.[/]"
+            )
+            sys.exit(1)
+
+        allow_burst_bool = _parse_bool(allow_burst_val, "--allow-burst", cli_wg_context)
+
+        if spec.reservation_config is None:
+            spec.reservation_config = ReservationConfig()
+
+        if reservation_val is not None:
+            spec.reservation_config.reservation_id = reservation_val
+
+        if allow_burst_bool is not None:
+            spec.reservation_config.allow_burst_to_other_reservations = allow_burst_bool
+
+    if cli_overrides.get("allowed_nodes") is not None:
+        _set_allowed_nodes_in_affinity(spec, cli_overrides.get("allowed_nodes"))
+
+    if cli_overrides.get("segment_count") is not None:
+        try:
+            seg_cnt = int(cli_overrides["segment_count"])
+            if enable_autoscaler:
+                console.print(
+                    f"[red]{cli_wg_context}: --segment-count is not supported when"
+                    " autoscaler is enabled.[/]"
+                )
+                sys.exit(1)
+            elif seg_cnt <= 0:
+                console.print(
+                    f"[red]{cli_wg_context}: --segment-count must be a positive"
+                    " integer.[/]"
+                )
+                sys.exit(1)
+            else:
+                spec.segment_config = LeptonJobSegmentConfig(count_per_segment=seg_cnt)
+        except (ValueError, TypeError):
+            console.print(
+                f"[red]{cli_wg_context}: --segment-count must be a positive integer.[/]"
+            )
+            sys.exit(1)
+
+    if "privileged" in cli_overrides:
+        priv_val = cli_overrides["privileged"]
+        if isinstance(priv_val, str):
+            priv_val = priv_val.lower() == "true"
+        if getattr(spec, "user_security_context", None) is None:
+            spec.user_security_context = LeptonUserSecurityContext(privileged=priv_val)
+        else:
+            spec.user_security_context.privileged = priv_val
+
+    return spec
+
+
+def _validate_final_raycluster_spec(
+    spec: LeptonRayClusterUserSpec,
+    enable_autoscaler: bool,
+) -> None:
+    if not spec.worker_group_specs or len(spec.worker_group_specs) == 0:
+        console.print(
+            "[red]At least one worker group is required (via CLI or spec file).[/]"
+        )
+        sys.exit(1)
+
+    name_to_indices: dict[str, list[int]] = {}
+    for idx, ws in enumerate(spec.worker_group_specs):
+        if ws.group_name:
+            name = ws.group_name.strip()
+            if name:
+                if name not in name_to_indices:
+                    name_to_indices[name] = []
+                name_to_indices[name].append(idx)
+
+    for name, indices in name_to_indices.items():
+        if len(indices) > 1:
+            console.print(
+                f"[red]Duplicate worker group name '{name}' found at indices"
+                f" {indices}.[/]"
+            )
+            sys.exit(1)
+
+    for idx, ws in enumerate(spec.worker_group_specs):
+        ctx = f"Worker group {idx}"
+        if ws.group_name:
+            ctx = f"Worker group '{ws.group_name}' (index {idx})"
+
+        if not ws.resource_shape:
+            console.print(f"[red]{ctx}: resource_shape is required.[/]")
+            sys.exit(1)
+
+        if not ws.affinity or not ws.affinity.allowed_dedicated_node_groups:
+            console.print(f"[red]{ctx}: at least one --node-group is required.[/]")
+            sys.exit(1)
+
+        if ws.min_replicas is not None and ws.min_replicas < 0:
+            console.print(f"[red]{ctx}: min_replicas cannot be negative.[/]")
+            sys.exit(1)
+        if ws.max_replicas is not None and ws.max_replicas < 0:
+            console.print(f"[red]{ctx}: max_replicas cannot be negative.[/]")
+            sys.exit(1)
+        if ws.min_replicas is not None and ws.max_replicas is not None:
+            if ws.min_replicas > ws.max_replicas:
+                console.print(
+                    f"[red]{ctx}: min_replicas ({ws.min_replicas}) cannot exceed"
+                    f" max_replicas ({ws.max_replicas}).[/]"
+                )
+                sys.exit(1)
+
+        if ws.shared_memory_size is not None and ws.shared_memory_size < 0:
+            console.print(f"[red]{ctx}: shared_memory_size cannot be negative.[/]")
+            sys.exit(1)
+
+        if ws.segment_config is not None:
+            if enable_autoscaler:
+                console.print(
+                    f"[red]{ctx}: segment_config is not supported when autoscaler is"
+                    " enabled.[/]"
+                )
+                sys.exit(1)
+            seg_count = getattr(ws.segment_config, "count_per_segment", None)
+            if seg_count is not None:
+                if seg_count <= 0:
+                    console.print(f"[red]{ctx}: segment_count must be positive.[/]")
+                    sys.exit(1)
+                elif ws.min_replicas is not None and ws.min_replicas % seg_count != 0:
+                    console.print(
+                        f"[red]{ctx}: min_replicas ({ws.min_replicas}) must be"
+                        f" divisible by segment_count ({seg_count}).[/]"
+                    )
+                    sys.exit(1)
+
+        if enable_autoscaler:
+            if ws.max_replicas is None or ws.max_replicas <= (ws.min_replicas or 0):
+                console.print(
+                    f"[red]{ctx}: max_replicas must be set and greater than"
+                    " min_replicas when autoscaler is enabled.[/]"
+                )
+                sys.exit(1)
+        else:
+            if ws.max_replicas is not None:
+                console.print(
+                    f"[red]{ctx}: max_replicas is only supported when autoscaler is"
+                    " enabled.[/]"
+                )
+                sys.exit(1)
+
+
+def _build_worker_spec_from_cli(
+    g: dict,
+    idx: int,
+    enable_autoscaler: bool,
+    cli_wg_context: str,
+) -> RayWorkerGroupSpec:
+    ws = RayWorkerGroupSpec()
+    ws.min_replicas = 1
+
+    if g.get("group_name"):
+        ws.group_name = _normalize_group_name(g.get("group_name"), cli_wg_context)
+
+    ws.resource_shape = g.get("resource_shape")
+
+    if g.get("shared_memory_size") is not None:
+        try:
+            ws.shared_memory_size = int(g["shared_memory_size"])
+        except (ValueError, TypeError):
+            console.print(
+                f"[red]{cli_wg_context}: --shared-memory-size must be an integer.[/]"
+            )
+            sys.exit(1)
+
+    if g.get("min_replicas") is not None:
+        try:
+            ws.min_replicas = int(g["min_replicas"])
+        except (ValueError, TypeError):
+            console.print(
+                f"[red]{cli_wg_context}: --min-replicas must be an integer.[/]"
+            )
+            sys.exit(1)
+
+    if g.get("max_replicas") is not None:
+        try:
+            ws.max_replicas = int(g["max_replicas"])
+        except (ValueError, TypeError):
+            console.print(
+                f"[red]{cli_wg_context}: --max-replicas must be an integer.[/]"
+            )
+            sys.exit(1)
+
+    if g.get("segment_count") is not None:
+        try:
+            seg_cnt = int(g["segment_count"])
+            if seg_cnt <= 0:
+                console.print(
+                    f"[red]{cli_wg_context}: --segment-count must be a positive"
+                    " integer.[/]"
+                )
+                sys.exit(1)
+            elif enable_autoscaler:
+                console.print(
+                    f"[red]{cli_wg_context}: --segment-count is not supported when"
+                    " autoscaler is enabled.[/]"
+                )
+                sys.exit(1)
+            else:
+                ws.segment_config = LeptonJobSegmentConfig(count_per_segment=seg_cnt)
+        except (ValueError, TypeError):
+            console.print(
+                f"[red]{cli_wg_context}: --segment-count must be a positive integer.[/]"
+            )
+            sys.exit(1)
+
+    wimg_val = g.get("image")
+    wcmd_val = g.get("command")
+    if wimg_val or wcmd_val:
+        ws.container = LeptonContainer()
+        if wimg_val:
+            ws.container.image = wimg_val
+        if wcmd_val:
+            try:
+                ws.container.command = shlex.split(wcmd_val)
+            except ValueError as e:
+                console.print(
+                    f"[red]{cli_wg_context}: invalid --command quoting: {e}[/]"
+                )
+                sys.exit(1)
+
+    envs_list = _flatten_csv_list(g.get("env"))
+    secrets_list = _flatten_csv_list(g.get("secret"))
+    if envs_list or secrets_list:
+        ws.envs = make_env_vars_from_strings(envs_list or [], secrets_list or [])
+
+    mounts_list = _flatten_csv_list(g.get("mount"))
+    if mounts_list:
+        ws.mounts = make_mounts_from_strings(mounts_list)
+
+    node_group_val = g.get("node_group")
+    allowed_nodes_csv = g.get("allowed_nodes")
+    reservation_val = g.get("reservation")
+    allow_burst_val = g.get("allow_burst")
+    allow_burst_bool = _parse_bool(allow_burst_val, "--allow-burst", cli_wg_context)
+
+    if node_group_val:
+        node_groups_list = (
+            [node_group_val]
+            if isinstance(node_group_val, str)
+            else list(node_group_val)
+        )
+        _apply_affinity_and_reservation(
+            spec=ws,
+            node_groups=node_groups_list,
+            reservation=reservation_val,
+            allow_burst=allow_burst_bool,
+        )
+        if allow_burst_val is not None and allow_burst_bool is not None:
+            if ws.reservation_config is None:
+                ws.reservation_config = ReservationConfig()
+            ws.reservation_config.allow_burst_to_other_reservations = allow_burst_bool
+
+    if allowed_nodes_csv:
+        _set_allowed_nodes_in_affinity(ws, allowed_nodes_csv)
+
+    if "privileged" in g:
+        privileged_value = g["privileged"]
+        if isinstance(privileged_value, str):
+            privileged_value = privileged_value.lower() == "true"
+        ws.user_security_context = LeptonUserSecurityContext(
+            privileged=privileged_value
+        )
+
+    return ws
 
 
 @click_group()
@@ -719,8 +1204,10 @@ def list_command(name):
 @click.option(
     "--head-privileged",
     type=click.BOOL,
-    default=False,
-    help="Run the head group container in privileged mode.",
+    default=None,
+    help=(
+        "Enable (true) or disable (false) privileged mode for the head group container."
+    ),
 )
 @click.option(
     "--enable-autoscaler",
@@ -794,24 +1281,50 @@ def create(
     if spec.head_group_spec.container is None:
         spec.head_group_spec.container = LeptonContainer()
 
-    # Resolve head image precedence: --head-image > default
-    resolved_head_image = head_image if head_image else DEFAULT_RAY_IMAGE
-    spec.head_group_spec.container.image = resolved_head_image
+    # Resolve head image precedence: CLI --head-image > file-provided image > default
+    if head_image:
+        # CLI provided - use it (override file)
+        spec.head_group_spec.container.image = head_image
+    elif not spec.head_group_spec.container or not spec.head_group_spec.container.image:
+        # Neither CLI nor file provided - use default
+        if spec.head_group_spec.container is None:
+            spec.head_group_spec.container = LeptonContainer()
+        spec.head_group_spec.container.image = DEFAULT_RAY_IMAGE
+    # else: file provided image, keep it (don't override)
+
+    # Get resolved image for ray_version lookup
+    resolved_head_image = spec.head_group_spec.container.image
 
     if image_pull_secrets:
         spec.image_pull_secrets = list(image_pull_secrets)
 
-    if ray_version is not None and resolved_head_image in DEFAULT_RAY_IMAGES:
-        console.print(
-            "[red]Cannot specify ray version for default image:"
-            f" {resolved_head_image}.[/]"
-        )
-        sys.exit(1)
-    spec.ray_version = DEFAULT_RAY_IMAGES.get(resolved_head_image, ray_version)
+    # Determine ray version with proper precedence:
+    # 1. Default image lookup (required for default images)
+    # 2. CLI --ray-version
+    # 3. File-provided spec.ray_version (already loaded)
+    if resolved_head_image in DEFAULT_RAY_IMAGES:
+        if ray_version is not None:
+            console.print(
+                "[red]Cannot specify ray version for default image:"
+                f" {resolved_head_image}.[/]"
+            )
+            sys.exit(1)
+        spec.ray_version = DEFAULT_RAY_IMAGES[resolved_head_image]
+    elif ray_version is not None:
+        spec.ray_version = ray_version
+    # else: keep spec.ray_version from file (if any)
 
     if spec.ray_version is None or spec.ray_version == "":
         console.print("[red]Ray version is required.[/]")
         sys.exit(1)
+
+    head_command_parsed = None
+    if head_command:
+        try:
+            head_command_parsed = shlex.split(head_command)
+        except ValueError as e:
+            console.print(f"[red]Head group: invalid --head-command quoting: {e}[/]")
+            sys.exit(1)
 
     _build_group_spec(
         spec=spec.head_group_spec,
@@ -824,7 +1337,7 @@ def create(
         secret_kvs=list(head_secret or []),
         mounts=list(head_mount or []),
         container_image=resolved_head_image,
-        container_command=(shlex.split(head_command) if head_command else None),
+        container_command=head_command_parsed,
         node_groups=list(head_node_group),
         allowed_nodes_csv=head_allowed_nodes,
         reservation=head_reservation,
@@ -832,175 +1345,138 @@ def create(
         privileged=head_privileged,
     )
 
-    if worker_groups is None or len(worker_groups) == 0:
-        console.print(
-            "[red]At least one --worker-group is required. Legacy single-worker flags"
-            " are not supported.[/]"
-        )
-        sys.exit(1)
-
-    # Worker groups: build from custom-parsed worker_groups (list of dicts)
-    num_groups = len(worker_groups)
     built_specs: list[RayWorkerGroupSpec] = []
-    seen_worker_group_names: set[str] = set()
-    for idx in range(num_groups):
-        ws = RayWorkerGroupSpec()
-        g = worker_groups[idx] or {}
-        # per-group fields
-        if g.get("group_name"):
-            ws.group_name = g.get("group_name")
-            if isinstance(ws.group_name, str):
-                ws.group_name = ws.group_name.strip()
-            if ws.group_name in seen_worker_group_names:
-                console.print(
-                    f"[red]Duplicate worker group name '{ws.group_name}' detected. "
-                    "Each worker group must have a unique --group-name.[/]"
-                )
-                sys.exit(1)
-            seen_worker_group_names.add(ws.group_name)
-        rs_val = g.get("resource_shape")
-        sms_val = (
-            int(g["shared_memory_size"])
-            if g.get("shared_memory_size") is not None
-            else None
-        )
-        min_val = int(g["min_replicas"]) if g.get("min_replicas") is not None else None
-        max_val = int(g["max_replicas"]) if g.get("max_replicas") is not None else None
-        # segment count (only for workers)
-        seg_cnt = None
-        if g.get("segment_count") is not None:
-            try:
-                seg_cnt = int(g.get("segment_count"))
-            except Exception:
-                console.print(
-                    "[red]--segment-count must be a positive integer (worker group"
-                    f" {idx + 1}).[/]"
-                )
-                sys.exit(1)
-            if enable_autoscaler:
-                console.print(
-                    "[red]--segment-count is not supported when autoscaler is"
-                    " enabled.[/]"
-                )
-                sys.exit(1)
-            if seg_cnt <= 0:
-                console.print(
-                    "[red]--segment-count must be a positive integer (worker group"
-                    f" {idx + 1}).[/]"
-                )
-                sys.exit(1)
-            if min_val is None:
-                console.print(
-                    "[red]--min-replicas is required when --segment-count is set"
-                    f" (worker group {idx + 1}).[/]"
-                )
-                sys.exit(1)
-            if min_val % seg_cnt != 0:
-                console.print(
-                    f"[red]--segment-count ({seg_cnt}) must evenly divide"
-                    f" --min-replicas ({min_val}) (worker group {idx + 1}).[/]"
-                )
-                sys.exit(1)
-        wimg_val = g.get("image")
-        wcmd_val = g.get("command")
-        wcmd_tokens = shlex.split(wcmd_val) if wcmd_val else None
 
-        # flatten multiple occurrences, allowing comma-separated lists in each
-        def _flatten_csv_list(values):
-            if not values:
-                return None
-            out = []
-            for v in values:
-                if v is None:
+    file_groups_by_name: dict[str, tuple[int, RayWorkerGroupSpec]] = {}
+    file_groups_by_index: list[RayWorkerGroupSpec] = (
+        list(spec.worker_group_specs) if spec.worker_group_specs else []
+    )
+
+    for idx, ws in enumerate(file_groups_by_index):
+        ws.group_name = _normalize_group_name(
+            ws.group_name, f"File worker group at index {idx}"
+        )
+        if ws.group_name:
+            if ws.group_name in file_groups_by_name:
+                prev_idx, _ = file_groups_by_name[ws.group_name]
+                console.print(
+                    f"[red]Duplicate worker group name '{ws.group_name}' in file at"
+                    f" indices {prev_idx} and {idx}.[/]"
+                )
+                sys.exit(1)
+            file_groups_by_name[ws.group_name] = (idx, ws)
+
+    autoscaler_enabled = enable_autoscaler or (spec.autoscaler is not None)
+
+    if worker_groups is None or len(worker_groups) == 0:
+        if file_groups_by_index:
+            built_specs = file_groups_by_index
+        else:
+            console.print(
+                "[red]At least one --worker-group is required (via CLI or spec file). "
+                "Legacy single-worker flags are not supported.[/]"
+            )
+            sys.exit(1)
+    else:
+        built_specs = list(file_groups_by_index)
+        merged_indices: set[int] = set()
+        seen_cli_group_names: set[str] = set()
+
+        for cli_idx, cli_group in enumerate(worker_groups):
+            g = cli_group or {}
+            cli_wg_context = f"CLI worker group {cli_idx + 1}"
+
+            has_index = g.get("index") is not None
+            has_name = g.get("group_name") is not None
+
+            # Error if --index is used but there are no file worker groups to index into
+            if has_index and not file_groups_by_index:
+                console.print(
+                    f"[red]{cli_wg_context}: --index can only be used when the spec"
+                    " file (-f) provides worker groups.[/]"
+                )
+                sys.exit(1)
+
+            # Error if --group-name is used for merge but file has no worker groups
+            # (only applies when a file was provided; in CLI-only mode, --group-name just names the new group)
+            if has_name and file and not file_groups_by_index:
+                cli_name_for_error = _normalize_group_name(
+                    g.get("group_name"), cli_wg_context
+                )
+                console.print(
+                    f"[red]{cli_wg_context}: no worker group named"
+                    f" '{cli_name_for_error}' found in spec file (file has no worker"
+                    " groups).[/]"
+                )
+                sys.exit(1)
+
+            cli_index: int | None = None
+            if has_index:
+                try:
+                    cli_index = int(g["index"])
+                except (ValueError, TypeError):
+                    console.print(
+                        f"[red]{cli_wg_context}: --index must be an integer.[/]"
+                    )
+                    sys.exit(1)
+
+            cli_name = _normalize_group_name(g.get("group_name"), cli_wg_context)
+            if cli_name and cli_name in seen_cli_group_names:
+                console.print(
+                    f"[red]{cli_wg_context}: duplicate --group-name '{cli_name}' in CLI"
+                    " worker groups.[/]"
+                )
+                sys.exit(1)
+            if cli_name:
+                seen_cli_group_names.add(cli_name)
+
+            if file_groups_by_index and (has_index or has_name):
+                target_spec, target_idx = _find_worker_group_merge_target(
+                    cli_index,
+                    cli_name,
+                    has_index,
+                    has_name,
+                    file_groups_by_index,
+                    file_groups_by_name,
+                    cli_wg_context,
+                )
+                if target_spec is not None:
+                    if target_idx in merged_indices:
+                        console.print(
+                            f"[red]{cli_wg_context}: worker group at index"
+                            f" {target_idx} already targeted by another CLI -wg block."
+                            " Each file group can only be merged once.[/]"
+                        )
+                        sys.exit(1)
+                    else:
+                        built_specs[target_idx] = _merge_cli_into_worker_spec(
+                            target_spec, g, cli_idx, autoscaler_enabled, cli_wg_context
+                        )
+                        merged_indices.add(target_idx)
                     continue
-                parts = [x.strip() for x in str(v).split(",") if x.strip()]
-                out.extend(parts)
-            return out or None
 
-        envs_list = _flatten_csv_list(g.get("env"))
-        secrets_list = _flatten_csv_list(g.get("secret"))
-        mounts_list = _flatten_csv_list(g.get("mount"))
-
-        # Build the common parts
-        if rs_val is None:
-            console.print(
-                f"[red]--resource-shape is required for worker group {idx + 1}.[/]"
+            new_spec = _build_worker_spec_from_cli(
+                g, cli_idx, autoscaler_enabled, cli_wg_context
             )
-            sys.exit(1)
-        node_group_val = g.get("node_group")
-        allowed_nodes_csv = g.get("allowed_nodes")
-        reservation_val = g.get("reservation")
-        allow_burst_val = g.get("allow_burst")
-        allow_burst_bool = (
-            str(allow_burst_val).strip().lower() in {"1", "true", "yes", "y", "on"}
-            if allow_burst_val is not None
-            else None
-        )
-        privileged_val = g.get("privileged")
-        privileged_bool = (
-            str(privileged_val).strip().lower() in {"1", "true", "yes", "y", "on"}
-            if privileged_val is not None
-            else None
-        )
-        node_groups_list = [node_group_val] if node_group_val else None
-        if not node_group_val:
-            console.print(
-                f"[red]--node-group is required for worker group {idx + 1}.[/]"
-            )
-            sys.exit(1)
-        _build_group_spec(
-            spec=ws,
-            label="Each worker",
-            resource_shape=rs_val,
-            shared_memory_size=sms_val,
-            min_replicas=min_val,
-            max_replicas=max_val,
-            env_kvs=envs_list,
-            secret_kvs=secrets_list,
-            mounts=mounts_list,
-            container_image=wimg_val,
-            container_command=wcmd_tokens,
-            node_groups=node_groups_list,
-            allowed_nodes_csv=allowed_nodes_csv,
-            reservation=reservation_val,
-            allow_burst=allow_burst_bool,
-            privileged=privileged_bool,
-        )
-        if seg_cnt is not None:
-            ws.segment_config = LeptonJobSegmentConfig(count_per_segment=seg_cnt)
+            built_specs.append(new_spec)
 
-        built_specs.append(ws)
+    spec.worker_group_specs = built_specs
 
-        spec.worker_group_specs = built_specs
-
-    # Autoscaler validations across groups
     if enable_autoscaler:
         if (
             autoscaler_worker_idle_timeout is None
             or autoscaler_worker_idle_timeout < 60
         ):
             console.print(
-                "[red]Autoscaler worker idle timeout is required and must be greater"
-                " than or equal to 60 seconds.[/]"
+                "[red]Autoscaler worker idle timeout is required and must be greater "
+                "than or equal to 60 seconds.[/]"
             )
             sys.exit(1)
-        for ws in built_specs:
-            if ws.max_replicas is None or ws.max_replicas <= (ws.min_replicas or 0):
-                console.print(
-                    "[red]Each worker must set max_replicas > min_replicas when "
-                    "autoscaler is enabled.[/]"
-                )
-                sys.exit(1)
         spec.autoscaler = RayAutoscaler(
-            ray_worker_idle_timeout=autoscaler_worker_idle_timeout,
+            ray_worker_idle_timeout=autoscaler_worker_idle_timeout or 60,
         )
-    else:
-        for ws in built_specs:
-            if ws.max_replicas is not None:
-                console.print(
-                    "[red]max_replicas is only supported when autoscaler is enabled.[/]"
-                )
-                sys.exit(1)
+
+    _validate_final_raycluster_spec(spec, autoscaler_enabled)
 
     try:
         lepton_raycluster = LeptonRayCluster(
