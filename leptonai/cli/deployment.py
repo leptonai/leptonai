@@ -82,7 +82,7 @@ def _parse_container_port_and_protocol(
             protocol=protocol or embedded_protocol,
         )
     except Exception as e:
-        raise ValueError(str(e))
+        raise ValueError(str(e)) from e
 
 
 from leptonai.config import (
