@@ -895,12 +895,14 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     help="Load balancing strategy: least-request | sticky-routing",
 )
 @click.option(
-    "--enable-header-based-routing",
-    is_flag=True,
-    default=False,
+    "--header-based-routing",
+    is_flag=False,
+    flag_value="true",
+    default=None,
     help=(
-        "Enable header-based replica routing. When enabled, you can route"
-        " requests to a specific replica by setting the"
+        "Enable or disable header-based replica routing. Use --header-based-routing"
+        " to enable, or --header-based-routing false to disable. When enabled,"
+        " you can route requests to a specific replica by setting the"
         " 'X-Lepton-Replica-Target: YOUR_REPLICA_ID' header. Each replica"
         " has a unique ID exposed via the LEPTON_REPLICA_ID env var, which"
         " can be returned by your service to the caller for subsequent"
@@ -951,7 +953,7 @@ def create(
     replica_spread,
     ingress_timeout_seconds,
     load_balance,
-    enable_header_based_routing,
+    header_based_routing,
 ):
     """
     Creates an endpoint from either a photon or container image.
@@ -1337,9 +1339,11 @@ def create(
                     maglev=MaglevLoadBalancer()
                 )
 
-        if enable_header_based_routing:
+        if header_based_routing is not None:
             spec.routing_policy = LeptonRoutingPolicy(
-                enable_header_based_replica_routing=True
+                enable_header_based_replica_routing=(
+                    header_based_routing.lower() == "true"
+                )
             )
 
         if privileged:
@@ -1834,12 +1838,14 @@ def log(name, replica):
     help="Load balancing strategy: least-request | sticky-routing",
 )
 @click.option(
-    "--enable-header-based-routing",
-    is_flag=True,
-    default=False,
+    "--header-based-routing",
+    is_flag=False,
+    flag_value="true",
+    default=None,
     help=(
-        "Enable header-based replica routing. When enabled, you can route"
-        " requests to a specific replica by setting the"
+        "Enable or disable header-based replica routing. Use --header-based-routing"
+        " to enable, or --header-based-routing false to disable. When enabled,"
+        " you can route requests to a specific replica by setting the"
         " 'X-Lepton-Replica-Target: YOUR_REPLICA_ID' header. Each replica"
         " has a unique ID exposed via the LEPTON_REPLICA_ID env var, which"
         " can be returned by your service to the caller for subsequent"
@@ -1879,7 +1885,7 @@ def update(
     replica_spread,
     ingress_timeout_seconds,
     load_balance,
-    enable_header_based_routing,
+    header_based_routing,
     cserve,
     cserve_options,
 ):
@@ -2095,9 +2101,11 @@ def update(
                 "maglev": {"useHostnameForHashing": None},
             }
 
-    if enable_header_based_routing:
+    if header_based_routing is not None:
         lepton_deployment_spec.routing_policy = {
-            "enable_header_based_replica_routing": True,
+            "enable_header_based_replica_routing": (
+                header_based_routing.lower() == "true"
+            ),
         }
 
     # Set IP access control in auth_config (independent of tokens)
