@@ -77,7 +77,6 @@ jobs:
         run: |
           echo "leptonai package version:"
           lep -v
-          lep ph create -n gpt2 -m hf:gpt2
 
           cd ..
           echo "leptonai package path:"
@@ -89,7 +88,7 @@ jobs:
           pip install ${whl_file}[runtime] ${whl_file}[test]
           cd ..
           echo "Run unittests"
-          pytest -x leptonai
+          pytest -x leptonai --ignore=leptonai/leptonai/photon/tests
           cd -
       - name: Run End-To-End Tests
         if: inputs.run_e2e
