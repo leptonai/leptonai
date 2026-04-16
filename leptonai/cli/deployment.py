@@ -896,13 +896,11 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
 )
 @click.option(
     "--header-based-routing",
-    is_flag=False,
-    flag_value="true",
+    type=click.BOOL,
     default=None,
     help=(
-        "Enable or disable header-based replica routing. Use --header-based-routing"
-        " to enable, or --header-based-routing false to disable. When enabled,"
-        " you can route requests to a specific replica by setting the"
+        "Enable or disable header-based replica routing (true/false). When"
+        " enabled, you can route requests to a specific replica by setting the"
         " 'X-Lepton-Replica-Target: YOUR_REPLICA_ID' header. Each replica"
         " has a unique ID exposed via the LEPTON_REPLICA_ID env var, which"
         " can be returned by your service to the caller for subsequent"
@@ -1341,9 +1339,7 @@ def create(
 
         if header_based_routing is not None:
             spec.routing_policy = LeptonRoutingPolicy(
-                enable_header_based_replica_routing=(
-                    header_based_routing.lower() == "true"
-                )
+                enable_header_based_replica_routing=header_based_routing
             )
 
         if privileged:
@@ -1839,13 +1835,11 @@ def log(name, replica):
 )
 @click.option(
     "--header-based-routing",
-    is_flag=False,
-    flag_value="true",
+    type=click.BOOL,
     default=None,
     help=(
-        "Enable or disable header-based replica routing. Use --header-based-routing"
-        " to enable, or --header-based-routing false to disable. When enabled,"
-        " you can route requests to a specific replica by setting the"
+        "Enable or disable header-based replica routing (true/false). When"
+        " enabled, you can route requests to a specific replica by setting the"
         " 'X-Lepton-Replica-Target: YOUR_REPLICA_ID' header. Each replica"
         " has a unique ID exposed via the LEPTON_REPLICA_ID env var, which"
         " can be returned by your service to the caller for subsequent"
@@ -2103,9 +2097,7 @@ def update(
 
     if header_based_routing is not None:
         lepton_deployment_spec.routing_policy = {
-            "enable_header_based_replica_routing": (
-                header_based_routing.lower() == "true"
-            ),
+            "enable_header_based_replica_routing": header_based_routing,
         }
 
     # Set IP access control in auth_config (independent of tokens)
