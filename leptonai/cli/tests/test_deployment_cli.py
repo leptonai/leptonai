@@ -76,7 +76,7 @@ class TestDeploymentCliLocal(unittest.TestCase):
         self.assertEqual(created.spec.container.ports[0].container_port, 8080)
         self.assertEqual(created.spec.container.ports[0].protocol, "TCP")
 
-    def test_deployment_create_accepts_separate_protocol(self):
+    def test_deployment_create_port_only_leaves_protocol_unset(self):
         runner = CliRunner()
 
         with patch("leptonai.cli.deployment.APIClient", _FakeAPIClient):
@@ -93,8 +93,6 @@ class TestDeploymentCliLocal(unittest.TestCase):
                     "python -m http.server 8080",
                     "--container-port",
                     "8080",
-                    "--protocol",
-                    "udp",
                     "--resource-shape",
                     config.DEFAULT_RESOURCE_SHAPE,
                     "--public",
@@ -105,35 +103,7 @@ class TestDeploymentCliLocal(unittest.TestCase):
         created = _FakeAPIClient.last_instance.deployment.created_spec
         self.assertIsNotNone(created)
         self.assertEqual(created.spec.container.ports[0].container_port, 8080)
-        self.assertEqual(created.spec.container.ports[0].protocol, "UDP")
-
-    def test_deployment_create_rejects_conflicting_protocol(self):
-        runner = CliRunner()
-
-        with patch("leptonai.cli.deployment.APIClient", _FakeAPIClient):
-            result = runner.invoke(
-                cli,
-                [
-                    "deployment",
-                    "create",
-                    "--name",
-                    "test-endpoint",
-                    "--container-image",
-                    "nginx:latest",
-                    "--container-command",
-                    "python -m http.server 8080",
-                    "--container-port",
-                    "8080:tcp",
-                    "--protocol",
-                    "udp",
-                    "--resource-shape",
-                    config.DEFAULT_RESOURCE_SHAPE,
-                    "--public",
-                ],
-            )
-
-        self.assertNotEqual(result.exit_code, 0)
-        self.assertIn("Conflicting protocol values", result.output)
+        self.assertIsNone(created.spec.container.ports[0].protocol)
 
 
 if __name__ == "__main__":

@@ -37,11 +37,7 @@ def _validate_cserve_options_flag_requires_value(ctx, param, value):
     return value
 
 
-def _parse_container_port_and_protocol(
-    container_port: Optional[str], protocol: Optional[str]
-) -> Optional["ContainerPort"]:
-    if protocol is not None and container_port is None:
-        raise ValueError("--protocol requires --container-port.")
+def _parse_container_port(container_port: Optional[str]) -> Optional["ContainerPort"]:
     if container_port is None:
         return None
 
@@ -58,16 +54,6 @@ def _parse_container_port_and_protocol(
     port_str = parts[0]
     embedded_protocol = parts[1] if len(parts) == 2 else None
 
-    if (
-        protocol is not None
-        and embedded_protocol is not None
-        and protocol.lower() != embedded_protocol.lower()
-    ):
-        raise ValueError(
-            "Conflicting protocol values: --container-port specifies"
-            f" '{embedded_protocol}', but --protocol specifies '{protocol}'."
-        )
-
     try:
         port_num = int(port_str)
     except ValueError:
@@ -79,7 +65,7 @@ def _parse_container_port_and_protocol(
     try:
         return ContainerPort(
             container_port=port_num,
-            protocol=protocol or embedded_protocol,
+            protocol=embedded_protocol,
         )
     except Exception as e:
         raise ValueError(str(e)) from e
@@ -569,16 +555,8 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--container-port",
     type=str,
     help=(
-        "Guest OS port to listen to in the container. If not specified, default to"
-        " 40000. Accepts <port> or <port>:<protocol>."
-    ),
-)
-@click.option(
-    "--protocol",
-    type=click.Choice(["tcp", "udp", "sctp"], case_sensitive=False),
-    help=(
-        "Protocol for --container-port. If --container-port also embeds a protocol,"
-        " the two values must match."
+        "Guest OS port and protocol to listen to in the container. If not specified, default to"
+        " 40000 and tcp protocol. In the format <portnumber> or <portnumber>:<protocol(tcp/udp/sctp)>."
     ),
 )
 @click.option(
@@ -956,7 +934,6 @@ def create(
     photon_id,
     container_image,
     container_port,
-    protocol,
     container_command,
     cserve,
     cserve_options,
@@ -1118,18 +1095,16 @@ def create(
     if spec.container is not None:
         deployment_template = PhotonDeploymentTemplate()
 
-    if (container_port is not None or protocol is not None) and spec.container is None:
+    if container_port is not None and spec.container is None:
         console.print(
-            "[red]Error[/]: --container-port and --protocol can only be used with"
-            " container-based deployments."
+            "[red]Error[/]: --container-port can only be used with container-based"
+            " deployments."
         )
         sys.exit(1)
 
-    if spec.container is not None and (
-        container_port is not None or protocol is not None
-    ):
+    if spec.container is not None and container_port is not None:
         try:
-            parsed_port = _parse_container_port_and_protocol(container_port, protocol)
+            parsed_port = _parse_container_port(container_port)
         except ValueError as e:
             console.print(f"[red]Error[/]: {e}")
             sys.exit(1)
