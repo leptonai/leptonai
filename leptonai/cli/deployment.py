@@ -555,8 +555,9 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--container-port",
     type=str,
     help=(
-        "Guest OS port and protocol to listen to in the container. If not specified, default to"
-        " 40000 and tcp protocol. In the format <portnumber> or <portnumber>:<protocol(tcp/udp/sctp)>."
+        "Guest OS port and protocol to listen to in the container. If not specified,"
+        " default to 40000 and tcp protocol. In the format <portnumber> or"
+        " <portnumber>:<protocol(tcp/udp/sctp)>."
     ),
 )
 @click.option(
