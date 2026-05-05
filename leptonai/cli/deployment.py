@@ -573,7 +573,10 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--mount",
     help=(
         "Persistent storage to be mounted to the endpoint, in the format"
-        " `STORAGE_PATH:MOUNT_PATH:MOUNT_FROM`."
+        " `STORAGE_PATH:MOUNT_PATH:MOUNT_FROM`, where `STORAGE_PATH` is the path"
+        " inside the volume, `MOUNT_PATH` is the container mount point, and"
+        " `MOUNT_FROM` is `<type>:<storage_name>` (e.g. `node-nfs:my-nfs`) or"
+        " `node-local` for node-local storage."
     ),
     multiple=True,
 )

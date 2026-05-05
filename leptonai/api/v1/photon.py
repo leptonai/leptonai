@@ -40,7 +40,9 @@ def make_mounts_from_strings(
         else:
             raise ValueError(
                 f"Invalid mount definition: {mount_str} (expected format:"
-                " STORAGE_PATH:MOUNT_PATH:MOUNT_FROM)"
+                " STORAGE_PATH:MOUNT_PATH:MOUNT_FROM, where MOUNT_FROM is"
+                " <type>:<storage_name> e.g. node-nfs:my-nfs, or node-local"
+                " for node-local storage)"
             )
     return mount_list
 
