@@ -37,6 +37,40 @@ def _validate_cserve_options_flag_requires_value(ctx, param, value):
     return value
 
 
+def _parse_container_port(container_port: Optional[str]) -> Optional["ContainerPort"]:
+    if container_port is None:
+        return None
+
+    parts = [p.strip() for p in str(container_port).split(":")]
+    if "" in parts:
+        raise ValueError(
+            "Invalid --container-port value. Empty segments are not allowed."
+        )
+    if len(parts) > 2:
+        raise ValueError(
+            "Invalid --container-port value. Expected <port> or <port>:<protocol>."
+        )
+
+    port_str = parts[0]
+    embedded_protocol = parts[1] if len(parts) == 2 else None
+
+    try:
+        port_num = int(port_str)
+    except ValueError:
+        raise ValueError(
+            f"Invalid --container-port value '{container_port}'. Port must be an"
+            " integer."
+        )
+
+    try:
+        return ContainerPort(
+            container_port=port_num,
+            protocol=embedded_protocol,
+        )
+    except Exception as e:
+        raise ValueError(str(e)) from e
+
+
 from leptonai.config import (
     VALID_SHAPES,
     DEFAULT_TIMEOUT,
@@ -520,10 +554,11 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
 @click.option("--container-image", type=str, help="Container image to run.")
 @click.option(
     "--container-port",
-    type=int,
+    type=str,
     help=(
-        "Guest OS port to listen to in the container. If not specified, default to"
-        " 40000."
+        "Guest OS port and protocol to listen to in the container. If not specified,"
+        " default to 40000 and tcp protocol. In the format <portnumber> or"
+        " <portnumber>:<protocol(tcp/udp/sctp)>."
     ),
 )
 @click.option(
@@ -1064,8 +1099,6 @@ def create(
             image=container_image,
             command=wrapped_cmd,
         )
-        if container_port:
-            spec.container.ports = [ContainerPort(container_port=container_port)]
         # container based deployment won't have the deployment template as photons do.
         # So we will simply create an empty one.
     elif spec.photon_id is None and spec.container is None:
@@ -1082,6 +1115,22 @@ def create(
 
     if spec.container is not None:
         deployment_template = PhotonDeploymentTemplate()
+
+    if container_port is not None and spec.container is None:
+        console.print(
+            "[red]Error[/]: --container-port can only be used with container-based"
+            " deployments."
+        )
+        sys.exit(1)
+
+    if spec.container is not None and container_port is not None:
+        try:
+            parsed_port = _parse_container_port(container_port)
+        except ValueError as e:
+            console.print(f"[red]Error[/]: {e}")
+            sys.exit(1)
+        if parsed_port is not None:
+            spec.container.ports = [parsed_port]
 
     # Detect if the loaded spec already contains autoscaler settings
     spec_has_autoscale = spec.auto_scaler is not None and (
