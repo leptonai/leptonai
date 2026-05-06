@@ -346,6 +346,8 @@ class WorkerGroupCommand(click.Command):
                     Repeatable or comma-separated. Inject secret as env var NAME from secret SECRET_NAME.
                 --mount STORAGE_PATH:MOUNT_PATH:MOUNT_FROM
                     Repeatable or comma-separated. Persistent storage mount specification.
+                    `MOUNT_FROM` is `<type>:<storage_name>` (e.g. `node-nfs:my-nfs`)
+                    or `node-local` for node-local storage.
             """).rstrip()
         return f"{base_help}\n\n{group_help}"
 
@@ -1144,7 +1146,10 @@ def list_command(name):
     "--head-mount",
     help=(
         "Persistent storage to be mounted to the head group, in the format "
-        "`STORAGE_PATH:MOUNT_PATH:MOUNT_FROM`."
+        "`STORAGE_PATH:MOUNT_PATH:MOUNT_FROM`, where `STORAGE_PATH` is the path"
+        " inside the volume, `MOUNT_PATH` is the container mount point, and"
+        " `MOUNT_FROM` is `<type>:<storage_name>` (e.g. `node-nfs:my-nfs`) or"
+        " `node-local` for node-local storage."
     ),
     multiple=True,
 )

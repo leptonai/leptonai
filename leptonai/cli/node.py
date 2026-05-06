@@ -453,7 +453,8 @@ def storage_command(node_group=None):
     console.print(
         "[dim]Note:[/dim] Mount syntax: "
         "`--mount STORAGE_PATH:MOUNT_PATH:MOUNT_FROM`\n"
-        "[dim]Where `MOUNT_FROM` = `<type>:<storage_name>`.[/dim]"
+        "[dim]Where `MOUNT_FROM` = `<type>:<storage_name>` "
+        "(e.g. `node-nfs:my-nfs`), or `node-local` for node-local storage.[/dim]"
     )
 
 
