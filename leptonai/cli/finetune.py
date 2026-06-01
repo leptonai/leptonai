@@ -509,10 +509,16 @@ def list_trainers_command():
     multiple=True,
     help=(
         "[job] Persistent storage to be mounted to the job, in the format"
-        " `STORAGE_PATH:MOUNT_PATH:MOUNT_FROM`, where `STORAGE_PATH` is the path"
-        " inside the volume, `MOUNT_PATH` is the container mount point, and"
-        " `MOUNT_FROM` is `<type>:<storage_name>` (e.g. `node-nfs:my-nfs`) or"
-        " `node-local` for node-local storage."
+        " `STORAGE_PATH:MOUNT_PATH:MOUNT_FROM`. The value is split on the first"
+        " two colons only, so it always has exactly three fields: `STORAGE_PATH`"
+        " (the path inside the volume), `MOUNT_PATH` (the mount point inside the"
+        " container), and `MOUNT_FROM` (everything after the second colon)."
+        " `MOUNT_FROM` is `node-local` for node-local storage, or"
+        " `node-<type>:<storage_name>` for a named volume — this whole part is a"
+        " single field, so e.g. an NFS volume named `my-nfs` is `node-nfs:my-nfs`"
+        " (the value then has three colons in total). Examples:"
+        " `/data:/mnt/data:node-local` or"
+        " `/hf-cache:/root/.cache/huggingface:node-nfs:my-nfs`."
     ),
 )
 @click.option(
