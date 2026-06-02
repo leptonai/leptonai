@@ -7,7 +7,7 @@
 <a href="https://docs.nvidia.com/dgx-cloud/lepton">Homepage</a> •
 <a href="https://github.com/leptonai/examples">Examples</a> •
 <a href="https://docs.nvidia.com/dgx-cloud/lepton">Documentation</a> •
-<a href="https://docs.nvidia.com/dgx-cloud/lepton/reference/cli">CLI References</a>
+<a href="https://docs.nvidia.com/dgx-cloud/lepton/reference/cli/get-started/">CLI References</a>
 
 The LeptonAI Python library allows you to build an AI service from Python code with ease. Key features include:
 
@@ -17,6 +17,7 @@ The LeptonAI Python library allows you to build an AI service from Python code w
 - AI tailored batteries included such as autobatching, background jobs, etc.
 - A client to automatically call your service like native Python functions.
 - Pythonic configuration specs to be readily shipped in a cloud environment.
+- Skills enable agents to interact with Lepton platform itself.
 
 ## Getting started with one-liner
 Install the library with:
@@ -116,6 +117,34 @@ c.echo(inputs="hello world")
 ```
 
 For more details, checkout the [documentation](https://docs.nvidia.com/dgx-cloud/lepton) and the [examples](https://github.com/leptonai/examples).
+
+## Skills: Operating Lepton from Claude Code or Codex
+
+This repo ships an [agent skill](.claude/skills/lepton-cli/SKILL.md) that lets [Claude Code](https://claude.com/claude-code) (or Codex) drive the `lep` CLI for you — listing endpoints, inspecting jobs and dev pods, checking workspace status, and managing workloads, all from natural language. It uses the same `lep` CLI installed above, so make sure it is authenticated to your workspace.
+
+**Claude Code** — install in one line, nothing to clone:
+
+```text
+/plugin marketplace add leptonai/leptonai
+/plugin install lepton-cli@leptonai
+```
+
+Start a new session, then ask something like *"List the endpoints in my Lepton workspace."* The skill asks for explicit confirmation before any command that modifies or deletes a workload.
+
+<details>
+<summary><b>Codex, or Claude Code without plugins</b></summary>
+
+Clone this repo, then copy the skill into your agent's skills directory:
+
+```bash
+# Codex
+cp -R .claude/skills/lepton-cli "${CODEX_HOME:-$HOME/.codex}/skills/lepton-cli"
+# Claude Code (personal skill)
+cp -R .claude/skills/lepton-cli "$HOME/.claude/skills/lepton-cli"
+```
+
+Restart the agent afterward.
+</details>
 
 ## Contributing
 
