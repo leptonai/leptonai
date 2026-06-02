@@ -7,7 +7,7 @@
 <a href="https://docs.nvidia.com/dgx-cloud/lepton">Homepage</a> •
 <a href="https://github.com/leptonai/examples">Examples</a> •
 <a href="https://docs.nvidia.com/dgx-cloud/lepton">Documentation</a> •
-<a href="https://docs.nvidia.com/dgx-cloud/lepton/reference/cli">CLI References</a>
+<a href="https://docs.nvidia.com/dgx-cloud/lepton/reference/cli/get-started/">CLI References</a>
 
 The LeptonAI Python library allows you to build an AI service from Python code with ease. Key features include:
 
