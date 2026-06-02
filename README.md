@@ -17,6 +17,7 @@ The LeptonAI Python library allows you to build an AI service from Python code w
 - AI tailored batteries included such as autobatching, background jobs, etc.
 - A client to automatically call your service like native Python functions.
 - Pythonic configuration specs to be readily shipped in a cloud environment.
+- Skills enable agents to interact with Lepton platform itself.
 
 ## Getting started with one-liner
 Install the library with:
