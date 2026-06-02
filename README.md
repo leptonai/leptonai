@@ -125,7 +125,7 @@ This repo ships an [agent skill](.claude/skills/lepton-cli/SKILL.md) that lets [
 **Claude Code** — install in one line, nothing to clone:
 
 ```text
-/plugin marketplace add leptonai/leptonai
+/plugin marketplace add https://github.com/leptonai/leptonai.git
 /plugin install lepton-cli@leptonai
 ```
 
