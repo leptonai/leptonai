@@ -117,7 +117,7 @@ c.echo(inputs="hello world")
 
 For more details, checkout the [documentation](https://docs.nvidia.com/dgx-cloud/lepton) and the [examples](https://github.com/leptonai/examples).
 
-## Operating Lepton from Claude Code or Codex
+## Skills: Operating Lepton from Claude Code or Codex
 
 This repo ships an [agent skill](.claude/skills/lepton-cli/SKILL.md) that lets [Claude Code](https://claude.com/claude-code) (or Codex) drive the `lep` CLI for you — listing endpoints, inspecting jobs and dev pods, checking workspace status, and managing workloads, all from natural language. It uses the same `lep` CLI installed above, so make sure it is authenticated to your workspace.
 
