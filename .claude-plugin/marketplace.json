@@ -1,0 +1,15 @@
+{
+  "name": "leptonai",
+  "description": "Agent skills for operating NVIDIA DGX Cloud Lepton through the `lep` CLI.",
+  "owner": {
+    "name": "Lepton AI"
+  },
+  "plugins": [
+    {
+      "name": "lepton-cli",
+      "source": "./.claude",
+      "description": "Operate NVIDIA DGX Cloud Lepton through the globally installed `lep` CLI.",
+      "version": "0.1.0"
+    }
+  ]
+}
