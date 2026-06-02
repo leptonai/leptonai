@@ -11,6 +11,7 @@ from click.testing import CliRunner
 from loguru import logger
 
 from leptonai import config, __version__
+from leptonai.api.v1.photon import make_mounts_from_strings
 from leptonai.cli import lep as cli
 from leptonai.cli.photon import _sequentialize_pip_commands
 
@@ -37,6 +38,20 @@ class TestLepCli(unittest.TestCase):
         result = runner.invoke(cli, ["queue", "create", "--name", ""])  # type: ignore
         self.assertNotEqual(result.exit_code, 0)
         self.assertIn("empty", (result.output or "") + (result.stderr or ""))
+
+    def test_make_mounts_rejects_named_volume_without_storage_name(self):
+        with self.assertRaisesRegex(ValueError, "missing storage_name"):
+            make_mounts_from_strings(["/hf-cache:/root/.cache/huggingface:node-nfs"])
+
+    def test_make_mounts_accepts_named_volume_with_storage_name(self):
+        mounts = make_mounts_from_strings(
+            ["/hf-cache:/root/.cache/huggingface:node-nfs:my-nfs"]
+        )
+
+        self.assertIsNotNone(mounts)
+        self.assertEqual(mounts[0].path, "/hf-cache")  # type: ignore[index]
+        self.assertEqual(mounts[0].mount_path, "/root/.cache/huggingface")  # type: ignore[index]
+        self.assertEqual(mounts[0].from_, "node-nfs:my-nfs")  # type: ignore[index]
 
 
 class TestPipSequences(unittest.TestCase):

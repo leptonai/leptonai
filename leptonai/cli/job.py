@@ -723,7 +723,11 @@ def create(
 
     # Configure mounts
     if mount:
-        job_spec.mounts = make_mounts_from_strings(mount)  # type: ignore
+        try:
+            job_spec.mounts = make_mounts_from_strings(mount)  # type: ignore
+        except ValueError as e:
+            console.print(f"[red]Error parsing --mount[/]: {e}")
+            sys.exit(1)
 
     # Set image pull secrets
     if image_pull_secrets:

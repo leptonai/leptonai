@@ -400,7 +400,11 @@ def create(
         )
 
     if mount:
-        deployment_user_spec.mounts = make_mounts_from_strings(mount)
+        try:
+            deployment_user_spec.mounts = make_mounts_from_strings(mount)
+        except ValueError as e:
+            console.print(f"[red]Error parsing --mount[/]: {e}")
+            sys.exit(1)
 
     if image_pull_secrets:
         deployment_user_spec.image_pull_secrets = image_pull_secrets

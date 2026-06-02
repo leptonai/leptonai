@@ -105,6 +105,38 @@ class TestDeploymentCliLocal(unittest.TestCase):
         self.assertEqual(created.spec.container.ports[0].container_port, 8080)
         self.assertIsNone(created.spec.container.ports[0].protocol)
 
+    def test_endpoint_create_rejects_named_mount_without_storage_name(self):
+        runner = CliRunner()
+        _FakeAPIClient.last_instance = None
+
+        with patch("leptonai.cli.deployment.APIClient", _FakeAPIClient):
+            result = runner.invoke(
+                cli,
+                [
+                    "endpoint",
+                    "create",
+                    "--name",
+                    "test-endpoint",
+                    "--container-image",
+                    "nginx:latest",
+                    "--container-command",
+                    "python -m http.server 8080",
+                    "--resource-shape",
+                    config.DEFAULT_RESOURCE_SHAPE,
+                    "--public",
+                    "--mount",
+                    "/hf-cache:/root/.cache/huggingface:node-nfs",
+                ],
+            )
+
+        self.assertEqual(result.exit_code, 1, result.output)
+        output = " ".join(((result.output or "") + (result.stderr or "")).split())
+        self.assertIn("Error parsing --mount", output)
+        self.assertIn("missing storage_name", output)
+        self.assertIn("node-nfs:my-nfs", output)
+        self.assertIsNotNone(_FakeAPIClient.last_instance)
+        self.assertIsNone(_FakeAPIClient.last_instance.deployment.created_spec)
+
 
 if __name__ == "__main__":
     unittest.main()

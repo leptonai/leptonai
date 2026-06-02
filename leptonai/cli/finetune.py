@@ -728,7 +728,7 @@ def create_command(
     if mount:
         try:
             spec.mounts = make_mounts_from_strings(mount)  # type: ignore
-        except Exception as e:
+        except ValueError as e:
             console.print(f"[red]Error parsing --mount[/]: {e}")
             sys.exit(1)
     fixed_secrets: List[str] = []

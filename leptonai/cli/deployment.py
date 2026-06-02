@@ -1284,7 +1284,11 @@ def create(
 
         if mount_list or not file:
             # CLI args provided or no file loaded - use CLI args
-            spec.mounts = make_mounts_from_strings(mount_list)
+            try:
+                spec.mounts = make_mounts_from_strings(mount_list)
+            except ValueError as e:
+                console.print(f"[red]Error parsing --mount[/]: {e}")
+                sys.exit(1)
         # else: preserve existing spec.mounts from loaded file
 
         if tokens or not file:
