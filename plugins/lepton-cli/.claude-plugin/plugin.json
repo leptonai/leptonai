@@ -1,0 +1,21 @@
+{
+  "name": "lepton-cli",
+  "version": "0.1.0",
+  "description": "Operate NVIDIA DGX Cloud Lepton through the globally installed `lep` CLI.",
+  "author": {
+    "name": "Lepton AI",
+    "url": "https://github.com/leptonai/leptonai"
+  },
+  "homepage": "https://docs.nvidia.com/dgx-cloud/lepton",
+  "repository": "https://github.com/leptonai/leptonai",
+  "license": "Apache-2.0",
+  "keywords": [
+    "lepton",
+    "nvidia",
+    "dgx-cloud",
+    "lep",
+    "cli",
+    "workspace",
+    "deployment"
+  ]
+}

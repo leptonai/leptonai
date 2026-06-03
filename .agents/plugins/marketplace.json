@@ -1,0 +1,20 @@
+{
+  "name": "lepton-skills",
+  "interface": {
+    "displayName": "Lepton"
+  },
+  "plugins": [
+    {
+      "name": "lepton-cli",
+      "source": {
+        "source": "local",
+        "path": "./plugins/lepton-cli"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}
