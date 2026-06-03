@@ -120,13 +120,24 @@ For more details, checkout the [documentation](https://docs.nvidia.com/dgx-cloud
 
 ## Skills: Operating Lepton from Claude Code or Codex
 
-This repo ships an [agent skill](.claude/skills/lepton-cli/SKILL.md) that lets [Claude Code](https://claude.com/claude-code) (or Codex) drive the `lep` CLI for you — listing endpoints, inspecting jobs and dev pods, checking workspace status, and managing workloads, all from natural language. It uses the same `lep` CLI installed above, so make sure it is authenticated to your workspace.
+This repo ships an [agent skill](plugins/lepton-cli/skills/lepton-cli/SKILL.md) that lets [Claude Code](https://claude.com/claude-code) (or Codex) drive the `lep` CLI for you — listing endpoints, inspecting jobs and dev pods, checking workspace status, and managing workloads, all from natural language. It uses the same `lep` CLI installed above, so make sure it is authenticated to your workspace.
 
-**Claude Code** — install in one line, nothing to clone:
+The plugin lives under [plugins/lepton-cli](plugins/lepton-cli) with per-agent manifests for Claude Code, Codex, and Cursor (`.claude-plugin/`, `.codex-plugin/`, `.cursor-plugin/`), all sharing the one skill at [skills/lepton-cli](plugins/lepton-cli/skills/lepton-cli). It is listed in two marketplaces in this repo: [.claude-plugin/marketplace.json](.claude-plugin/marketplace.json) for Claude Code and [.agents/plugins/marketplace.json](.agents/plugins/marketplace.json) for Codex.
+
+**Codex** — add this repo as a marketplace, then install the plugin:
+
+```text
+codex plugin marketplace add leptonai/leptonai
+codex plugin add lepton-cli@lepton-skills
+```
+
+Or browse interactively: run `/plugins` in the Codex CLI (or open **Plugins** in the Codex app), find **Lepton CLI**, and install.
+
+**Claude Code** — install from the Lepton marketplace in one line, nothing to clone:
 
 ```text
 /plugin marketplace add leptonai/leptonai
-/plugin install lepton-cli@leptonai
+/plugin install lepton-cli@lepton-skills
 ```
 
 Start a new session, then ask something like *"List the endpoints in my Lepton workspace."* The skill asks for explicit confirmation before any command that modifies or deletes a workload.
@@ -138,9 +149,9 @@ Clone this repo, then copy the skill into your agent's skills directory:
 
 ```bash
 # Codex
-cp -R .claude/skills/lepton-cli "${CODEX_HOME:-$HOME/.codex}/skills/lepton-cli"
+cp -R plugins/lepton-cli/skills/lepton-cli "${CODEX_HOME:-$HOME/.codex}/skills/lepton-cli"
 # Claude Code (personal skill)
-cp -R .claude/skills/lepton-cli "$HOME/.claude/skills/lepton-cli"
+cp -R plugins/lepton-cli/skills/lepton-cli "$HOME/.claude/skills/lepton-cli"
 ```
 
 Restart the agent afterward.

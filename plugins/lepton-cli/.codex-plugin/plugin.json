@@ -1,0 +1,44 @@
+{
+  "name": "lepton-cli",
+  "version": "0.1.0",
+  "description": "Operate NVIDIA DGX Cloud Lepton through the globally installed `lep` CLI.",
+  "author": {
+    "name": "Lepton AI",
+    "url": "https://github.com/leptonai/leptonai"
+  },
+  "homepage": "https://docs.nvidia.com/dgx-cloud/lepton",
+  "repository": "https://github.com/leptonai/leptonai",
+  "license": "Apache-2.0",
+  "keywords": [
+    "lepton",
+    "nvidia",
+    "dgx-cloud",
+    "lep",
+    "cli",
+    "workspace",
+    "deployment"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Lepton CLI",
+    "shortDescription": "Operate DGX Cloud Lepton from Codex.",
+    "longDescription": "Use the globally installed lep CLI to inspect and manage NVIDIA DGX Cloud Lepton workspaces, endpoints, jobs, pods, storage, secrets, queues, nodes, ingress, templates, logs, authentication, and workspace status.",
+    "developerName": "Lepton AI",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Use the Lepton CLI skill to list endpoints in my workspace.",
+      "Use the Lepton CLI skill to inspect my running jobs.",
+      "Use the Lepton CLI skill to check workspace status."
+    ],
+    "brandColor": "#2F80ED",
+    "composerIcon": "./assets/logo.svg",
+    "logo": "./assets/logo.svg",
+    "websiteURL": "https://docs.nvidia.com/dgx-cloud/lepton",
+    "privacyPolicyURL": "https://www.nvidia.com/en-us/about-nvidia/privacy-policy/",
+    "termsOfServiceURL": "https://www.nvidia.com/en-us/about-nvidia/terms-of-service/"
+  }
+}
