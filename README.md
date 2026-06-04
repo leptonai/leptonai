@@ -2,121 +2,78 @@
 
 # Lepton AI
 
-**A Pythonic framework to simplify AI service building**
+**The Python library and `lep` CLI for NVIDIA DGX Cloud Lepton**
 
 <a href="https://docs.nvidia.com/dgx-cloud/lepton">Homepage</a> •
 <a href="https://github.com/leptonai/examples">Examples</a> •
 <a href="https://docs.nvidia.com/dgx-cloud/lepton">Documentation</a> •
 <a href="https://docs.nvidia.com/dgx-cloud/lepton/reference/cli/get-started/">CLI References</a>
 
-The LeptonAI Python library allows you to build an AI service from Python code with ease. Key features include:
+The LeptonAI Python library lets you operate the [NVIDIA DGX Cloud Lepton](https://docs.nvidia.com/dgx-cloud/lepton) platform from Python and the command line. Key features include:
 
-- A Pythonic abstraction `Photon`, allowing you to convert research and modeling code into a service with a few lines of code.
-- Simple abstractions to launch models like those on [HuggingFace](https://huggingface.co) in few lines of code.
-- Prebuilt examples for common models such as Llama, SDXL, Whisper, and others.
-- AI tailored batteries included such as autobatching, background jobs, etc.
-- A client to automatically call your service like native Python functions.
-- Pythonic configuration specs to be readily shipped in a cloud environment.
-- Skills enable agents to interact with Lepton platform itself.
+- A `lep` command-line tool to create and manage endpoints, batch jobs, dev pods, Ray and Slurm clusters, fine-tuning jobs, storage, secrets, and more.
+- A `Client` to call your deployed endpoints like native Python functions.
+- Building blocks — `KV`, `Queue`, and object storage — to back your services with managed state.
+- Pythonic configuration specs that are readily shipped to the cloud.
+- Skills that let agents operate the Lepton platform for you.
 
-## Getting started with one-liner
-Install the library with:
+## Getting started
+
+Install the library, which also installs the `lep` command-line tool:
 
 ```shell
 pip install -U leptonai
 ```
-This installs the `leptonai` Python library, as well as the commandline interface `lep`. You can then launch a HuggingFace model, say `gpt2`, in one line of code:
 
-```python
-lep photon runlocal --name gpt2 --model hf:gpt2
+Log in to your workspace (this opens a browser to fetch credentials if you don't pass them in):
+
+```shell
+lep login
 ```
 
-If you have access to the Llama2 model ([apply for access here](https://huggingface.co/meta-llama/Llama-2-7b)) and you have a reasonably sized GPU, you can launch it with:
+Deploy a container image as an endpoint, then inspect it:
 
-```python
-# hint: you can also write `-n` and `-m` for short
-lep photon runlocal -n llama2 -m hf:meta-llama/Llama-2-7b-chat-hf
+```shell
+lep endpoint create -n my-endpoint --container-image my-registry/my-app:latest
+lep endpoint list
+lep endpoint status -n my-endpoint
 ```
 
-(Be sure to use the `-hf` version for Llama2, which is compatible with huggingface pipelines.)
+Batch jobs and dev pods work the same way:
 
-You can then access the service with:
+```shell
+# Run a batch job
+lep job create -n my-job --container-image my-registry/my-trainer:latest --command "python train.py"
+
+# Launch an interactive dev pod
+lep pod create -n my-pod --resource-shape gpu.a10
+```
+
+Run `lep --help`, or `lep <command> --help` for any subcommand, to explore everything. See the [CLI references](https://docs.nvidia.com/dgx-cloud/lepton/reference/cli/get-started/) for the full guide.
+
+## Calling an endpoint from Python
+
+Once an endpoint is running, call it from Python with the `Client`. It reads the endpoint's OpenAPI schema and exposes each path as a method:
 
 ```python
 from leptonai.client import Client, local
-c = Client(local(port=8080))
-# Use the following to print the doc
-print(c.run.__doc__)
-print(c.run(inputs="I enjoy walking with my cute dog"))
-```
 
-Not all HuggingFace models are supported, as many of them contain custom code and are not standard pipelines. If you find a popular model you would like to support, please [open an issue or a PR](https://github.com/leptonai/leptonai/issues/new).
+# Connect to a workspace endpoint...
+c = Client("my-workspace", "my-endpoint", token="MY_TOKEN")
+# ...or to something running locally:
+c = Client(local(port=8080))
+
+# Discover the available paths and their docs
+print(c.paths())
+print(c.run.__doc__)
+
+# Call the endpoint as if it were a local function
+print(c.run(inputs="hello world"))
+```
 
 ## Checking out more examples
 
-You can find out more examples from the [examples repository](https://github.com/leptonai/examples). For example, launch the Stable Diffusion XL model with:
-
-```shell
-git clone git@github.com:leptonai/examples.git
-cd examples
-```
-
-```python
-lep photon runlocal -n sdxl -m advanced/sdxl/sdxl.py
-```
-
-Once the service is running, you can access it with:
-
-```python
-from leptonai.client import Client, local
-
-c = Client(local(port=8080))
-
-img_content = c.run(prompt="a cat launching rocket", seed=1234)
-with open("cat.png", "wb") as fid:
-    fid.write(img_content)
-```
-
-or access the mounted Gradio UI at [http://localhost:8080/ui](http://localhost:8080/ui). Check the [README file](https://github.com/leptonai/examples/blob/main/advanced/sdxl/README.md) for more details.
-
-## Writing your own photons
-
-Writing your own photon is simple: write a Python Photon class and decorate functions with `@Photon.handler`. As long as your input and output are JSON serializable, you are good to go. For example, the following code launches a simple echo service:
-
-```python
-# my_photon.py
-from leptonai.photon import Photon
-
-class Echo(Photon):
-    @Photon.handler
-    def echo(self, inputs: str) -> str:
-        """
-        A simple example to return the original input.
-        """
-        return inputs
-```
-
-You can then launch the service with:
-
-```shell
-lep photon runlocal -n echo -m my_photon.py
-```
-
-Then, you can use your service as follows:
-```python
-from leptonai.client import Client, local
-
-c = Client(local(port=8080))
-
-# will print available paths
-print(c.paths())
-# will print the doc for c.echo. You can also use `c.echo?` in Jupyter.
-print(c.echo.__doc__)
-# will actually call echo.
-c.echo(inputs="hello world")
-```
-
-For more details, checkout the [documentation](https://docs.nvidia.com/dgx-cloud/lepton) and the [examples](https://github.com/leptonai/examples).
+You can find more examples in the [examples repository](https://github.com/leptonai/examples), and full guides in the [documentation](https://docs.nvidia.com/dgx-cloud/lepton).
 
 ## Skills: Operating Lepton from Claude Code or Codex
 

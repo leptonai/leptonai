@@ -4,7 +4,6 @@ Overall configurations and constants for the Lepton AI python library.
 
 import os
 from pathlib import Path
-import sys
 import warnings
 
 import pydantic
@@ -206,29 +205,8 @@ def _to_bool(s: str) -> bool:
         )
 
 
-def _is_rocm() -> bool:
-    """
-    Detects if we are using rocm.
-
-    If the user specified LEPTON_BASE_IMAGE_FORCE_ROCM to any true values, then
-    _is_rocm() returns True. If it is not specified, we rely on cuda to see if
-    we are building rocm. This function is only intended to be used to determine
-    the base image type, and you should directly use torch.version.hip in your
-    user code.
-    """
-    return _to_bool(os.environ.get("LEPTON_BASE_IMAGE_FORCE_ROCM", "false"))
-
-
-# Lepton's base image and image repository location.
-BASE_IMAGE_VERSION = "0.27.3"
-BASE_IMAGE_REGISTRY = "default"
-BASE_IMAGE_REPO = f"{BASE_IMAGE_REGISTRY}/lepton"
-BASE_IMAGE = f"{BASE_IMAGE_REPO}:photon{'-rocm' if _is_rocm() else ''}-py{sys.version_info.major}.{sys.version_info.minor}-runner-{BASE_IMAGE_VERSION}"  # noqa: E501
-
+# Default base image for batch jobs.
 JOB_BASE_IMAGE = "nvcr.io/nvidia/pytorch:25.08-py3"
-BASE_IMAGE_ARGS = ["--shm-size=1g"]
-
-BASE_IMAGE_CMD = None
 
 # Default shape used by the Lepton deployments.
 if os.environ.get("LEPTON_DEFAULT_RESOURCE_SHAPE"):

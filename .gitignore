@@ -184,8 +184,5 @@ dist-ssr
 _obj
 _test
 
-# Lepton photon compiled file
-obj.pkl
-
 # Lepton version
 leptonai/_version.py
