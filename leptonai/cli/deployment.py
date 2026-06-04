@@ -75,7 +75,6 @@ from leptonai.config import (
     VALID_SHAPES,
     DEFAULT_TIMEOUT,
     DEFAULT_RESOURCE_SHAPE,
-    ENV_VAR_REQUIRED,
 )
 from ..api.v2.client import APIClient
 from ..api.v1.deployment import make_token_vars_from_config
@@ -1010,8 +1009,6 @@ def create(
             """)
         sys.exit(1)
 
-    deployment_template = None
-
     if container_port is not None and spec.container is None:
         console.print(
             "[red]Error[/]: --container-port can only be used with container-based"
@@ -1089,20 +1086,15 @@ def create(
     # Ensure existing resource_requirement is preserved when loading from file.
     if spec.resource_requirement is None:
         spec.resource_requirement = ResourceRequirement(
-            resource_shape=resource_shape
-            or (deployment_template.resource_shape if deployment_template else None)
-            or DEFAULT_RESOURCE_SHAPE,
+            resource_shape=resource_shape or DEFAULT_RESOURCE_SHAPE,
             min_replicas=min_replicas,
             max_replicas=max_replicas,
         )
     else:
         # Only update fields that are explicitly overridden via CLI
-        if resource_shape or (
-            deployment_template.resource_shape if deployment_template else None
-        ):
+        if resource_shape:
             spec.resource_requirement.resource_shape = (
                 resource_shape
-                or (deployment_template.resource_shape if deployment_template else None)
                 or spec.resource_requirement.resource_shape
                 or DEFAULT_RESOURCE_SHAPE
             )
@@ -1141,31 +1133,9 @@ def create(
             ]
 
     try:
-        logger.trace(f"deployment_template:\n{deployment_template}")
-        template_envs = deployment_template.env or {}
         env_list = list(env) or []
         secret_list = list(secret) or []
         mount_list = list(mount) or []
-        for k, v in template_envs.items():
-            if v == ENV_VAR_REQUIRED:
-                if not any(s.startswith(k + "=") for s in (env or [])):
-                    console.print(
-                        f"This deployment requires env var {k}, but it's missing."
-                        f" Please specify it with --env {k}=YOUR_VALUE. Otherwise,"
-                        " the deployment may fail."
-                    )
-            else:
-                if not any(s.startswith(k + "=") for s in env_list):
-                    # Adding default env variable if not specified.
-                    env_list.append(f"{k}={v}")
-        template_secrets = deployment_template.secret or []
-        for k in template_secrets:
-            if k not in secret_list:
-                console.print(
-                    f"This deployment requires secret {k}, but it's missing. Please"
-                    f" set the secret, and specify it with --secret {k}. Otherwise,"
-                    " the deployment may fail."
-                )
 
         if env_list or secret_list or not file:
             # CLI args provided or no file loaded - use CLI args
