@@ -344,11 +344,10 @@ class WorkerGroupCommand(click.Command):
                     Repeatable or comma-separated. Environment variables to set.
                 --secret, -s NAME=SECRET_NAME
                     Repeatable or comma-separated. Inject secret as env var NAME from secret SECRET_NAME.
-                --mount STORAGE_PATH:MOUNT_PATH:MOUNT_FROM
+                --mount FROM_PATH:MOUNT_PATH:VOLUME
                     Repeatable or comma-separated. Persistent storage to mount,
-                    split on the first two colons (so `MOUNT_FROM` may itself
-                    contain a colon). These map to the console's `From path`,
-                    `Mount path`, and `Volume`. `MOUNT_FROM` is `node-local`, or
+                    split on the first two colons (so `VOLUME` may itself
+                    contain a colon). `VOLUME` is `node-local`, or
                     `node-<type>:<storage_name>` for a named volume (e.g.
                     `node-nfs:my-nfs`). Examples: `/data:/mnt/data:node-local` or
                     `/hf-cache:/root/.cache/huggingface:node-nfs:my-nfs`.
@@ -1163,10 +1162,9 @@ def list_command(name):
     "--head-mount",
     help=(
         "Persistent storage to mount to the head group, as"
-        " `STORAGE_PATH:MOUNT_PATH:MOUNT_FROM` (split on the first two colons, so"
-        " `MOUNT_FROM` may itself contain a colon). These map to the console's"
-        " `From path`, `Mount path`, and `Volume`. `MOUNT_FROM` is `node-local`,"
-        " or `node-<type>:<storage_name>` for a named volume (e.g."
+        " `FROM_PATH:MOUNT_PATH:VOLUME` (split on the first two colons, so"
+        " `VOLUME` may itself contain a colon). `VOLUME` is `node-local`, or"
+        " `node-<type>:<storage_name>` for a named volume (e.g."
         " `node-nfs:my-nfs`). Examples: `/data:/mnt/data:node-local` or"
         " `/hf-cache:/root/.cache/huggingface:node-nfs:my-nfs`."
     ),

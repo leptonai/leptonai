@@ -452,11 +452,10 @@ def storage_command(node_group=None):
 
     console.print(
         "[dim]Note:[/dim] Mount syntax: "
-        "`--mount STORAGE_PATH:MOUNT_PATH:MOUNT_FROM` "
-        "(split on the first two colons, so `MOUNT_FROM` may itself contain a "
-        "colon). These map to the console's `From path`, `Mount path`, and "
-        "`Volume`.\n"
-        "[dim]`MOUNT_FROM` is `node-local`, or `node-<type>:<storage_name>` for "
+        "`--mount FROM_PATH:MOUNT_PATH:VOLUME` "
+        "(split on the first two colons, so `VOLUME` may itself contain a "
+        "colon).\n"
+        "[dim]`VOLUME` is `node-local`, or `node-<type>:<storage_name>` for "
         "a named volume (e.g. `node-nfs:my-nfs`). Example: "
         "`/hf-cache:/root/.cache/huggingface:node-nfs:my-nfs`.[/dim]"
     )

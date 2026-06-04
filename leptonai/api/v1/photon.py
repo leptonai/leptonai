@@ -20,14 +20,14 @@ from .types.deployment import LeptonDeployment
 def _mount_definition_error(mount_str: str, detail: str) -> ValueError:
     return ValueError(
         f"Invalid mount definition: {mount_str} ({detail}; expected"
-        " STORAGE_PATH:MOUNT_PATH:MOUNT_FROM, where MOUNT_FROM is `node-local`"
+        " FROM_PATH:MOUNT_PATH:VOLUME, where VOLUME is `node-local`"
         " or `node-<type>:<storage_name>`, e.g. node-nfs:my-nfs)"
     )
 
 
 def _validate_mount_from(mount_str: str, mount_from: str) -> str:
     if not mount_from:
-        raise _mount_definition_error(mount_str, "MOUNT_FROM cannot be empty")
+        raise _mount_definition_error(mount_str, "VOLUME cannot be empty")
 
     if mount_from == "node-local":
         return mount_from
@@ -39,12 +39,12 @@ def _validate_mount_from(mount_str: str, mount_from: str) -> str:
     if len(mount_from_parts) == 1:
         raise _mount_definition_error(
             mount_str,
-            f"missing storage_name in MOUNT_FROM `{mount_from}`",
+            f"missing storage_name in VOLUME `{mount_from}`",
         )
     if len(mount_from_parts) != 2:
         raise _mount_definition_error(
             mount_str,
-            f"MOUNT_FROM `{mount_from}` must contain exactly one colon after"
+            f"VOLUME `{mount_from}` must contain exactly one colon after"
             " `node-<type>`",
         )
 
@@ -53,12 +53,12 @@ def _validate_mount_from(mount_str: str, mount_from: str) -> str:
     if not storage_type:
         raise _mount_definition_error(
             mount_str,
-            f"missing storage type in MOUNT_FROM `{mount_from}`",
+            f"missing storage type in VOLUME `{mount_from}`",
         )
     if not storage_name:
         raise _mount_definition_error(
             mount_str,
-            f"missing storage_name in MOUNT_FROM `{mount_from}`",
+            f"missing storage_name in VOLUME `{mount_from}`",
         )
 
     return mount_from
@@ -88,7 +88,7 @@ def make_mounts_from_strings(
         else:
             raise _mount_definition_error(
                 mount_str,
-                "expected STORAGE_PATH:MOUNT_PATH:MOUNT_FROM split on the first"
+                "expected FROM_PATH:MOUNT_PATH:VOLUME split on the first"
                 " two colons",
             )
     return mount_list
