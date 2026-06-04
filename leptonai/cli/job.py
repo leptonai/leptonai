@@ -29,7 +29,7 @@ from .util import (
 
 from .util import make_container_port_from_string  # noqa: F401
 
-from leptonai.api.v1.deployment import (
+from leptonai.api.v1.spec_utils import (
     make_mounts_from_strings,
     make_env_vars_from_strings,
 )

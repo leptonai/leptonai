@@ -78,11 +78,8 @@ from leptonai.config import (
     ENV_VAR_REQUIRED,
 )
 from ..api.v2.client import APIClient
-from ..api.v1.deployment import (
-    make_token_vars_from_config,
-    make_mounts_from_strings,
-    make_env_vars_from_strings,
-)
+from ..api.v1.deployment import make_token_vars_from_config
+from ..api.v1.spec_utils import make_mounts_from_strings, make_env_vars_from_strings
 from ..api.v2.workspace_record import WorkspaceRecord
 from ..api.v1.types.common import Metadata, LeptonVisibility, LeptonUserSecurityContext
 from ..api.v1.types.deployment import (
