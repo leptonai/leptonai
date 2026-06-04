@@ -44,8 +44,7 @@ def _validate_mount_from(mount_str: str, mount_from: str) -> str:
     if len(mount_from_parts) != 2:
         raise _mount_definition_error(
             mount_str,
-            f"VOLUME `{mount_from}` must contain exactly one colon after"
-            " `node-<type>`",
+            f"VOLUME `{mount_from}` must contain exactly one colon after `node-<type>`",
         )
 
     storage_type = mount_from_parts[0][len("node-") :].strip()
@@ -88,8 +87,7 @@ def make_mounts_from_strings(
         else:
             raise _mount_definition_error(
                 mount_str,
-                "expected FROM_PATH:MOUNT_PATH:VOLUME split on the first"
-                " two colons",
+                "expected FROM_PATH:MOUNT_PATH:VOLUME split on the first two colons",
             )
     return mount_list
 
