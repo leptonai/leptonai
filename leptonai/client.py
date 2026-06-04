@@ -588,8 +588,8 @@ class Client(object):
             print(
                 "\n\nOverall, if you are the producer of the deployment, please make"
                 " sure that:\n - the deployment has an openapi specification at"
-                " '/openapi.json'. This is usually guaranteed if you are using"
-                " standard OpenAPI tooling.\n - Also kindly ensure that every endpoint is"
+                " '/openapi.json'. This is usually guaranteed if you are using standard"
+                " OpenAPI tooling.\n - Also kindly ensure that every endpoint is"
                 " uniquely named (note that we will try to convert '-' and '/' in URL"
                 " strings to underscores).\n\nIf you are the consumer of the"
                 " deployment, and do not have control over the endpoint design, a"
