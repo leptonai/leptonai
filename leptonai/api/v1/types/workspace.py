@@ -21,7 +21,6 @@ class WorkspaceState(str, Enum):
 
 
 class Workloads(BaseModel):
-    num_photons: int
     num_deployments: int
     num_jobs: int
     num_pods: int

@@ -39,7 +39,7 @@ from .util import (
 )
 from .util import make_container_ports_from_str_list
 from ..api.v2.client import APIClient
-from ..api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
+from ..api.v1.deployment import make_mounts_from_strings, make_env_vars_from_strings
 from ..api.v1.types.deployment import (
     LeptonDeploymentState,
     ResourceRequirement,
@@ -431,7 +431,7 @@ def create(
         sys.exit(1)
 
     logger.trace(json.dumps(deployment_spec.model_dump(), indent=2))
-    client.photon.run(deployment_spec)
+    client.pod.create(deployment_spec)
 
     console.print(f"Pod launched as [green]{name}[/]")
 

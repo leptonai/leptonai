@@ -176,7 +176,7 @@ def _get_positional_argument_error_message(
     openapi: Dict, path_name: str, args: Tuple
 ) -> str:
     POSITIONAL_ARGUMENT_ERROR_MESSAGE = (
-        "Photon methods do not support positional arguments. If your client is named"
+        "Client methods do not support positional arguments. If your client is named"
         f" `c`, Use `help(c.{path_name[1:]})` to see the function signature."
     )
     if openapi:

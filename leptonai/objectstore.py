@@ -13,7 +13,7 @@ from leptonai.api.v0 import objectstore as oss_api
 from leptonai.api.v0.connection import Connection
 from leptonai.api.v0 import workspace as workspace_api
 
-from leptonai.photon.types.file import File
+from leptonai.types import File
 
 
 class ObjectStoreClientBase(ABC):

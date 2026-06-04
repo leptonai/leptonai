@@ -1,8 +1,10 @@
 import warnings
 from typing import Union, List, Iterator, Optional
 
+from leptonai.config import LEPTON_RESERVED_ENV_NAMES
+
 from .api_resource import APIResourse
-from .types.deployment import LeptonDeployment, TokenVar
+from .types.deployment import LeptonDeployment, TokenVar, Mount, EnvVar, EnvValue
 from .types.events import LeptonEvent
 from .types.readiness import ReadinessIssue
 from .types.termination import DeploymentTerminations
@@ -26,6 +28,72 @@ def make_token_vars_from_config(
     if tokens:
         final_tokens.extend([TokenVar(value=token) for token in tokens])
     return final_tokens
+
+
+def make_mounts_from_strings(
+    mounts: Optional[List[str]],
+) -> Optional[List[Mount]]:
+    """
+    Parses a list of mount strings into a list of Mount objects.
+    """
+    if not mounts:
+        return None
+    mount_list = []
+    for mount_str in mounts:
+        parts = mount_str.split(":", 2)
+        if len(parts) == 3:
+            # TODO: Sanity check that this exists
+            mount_list.append(
+                Mount(
+                    path=parts[0].strip(),
+                    mount_path=parts[1].strip(),
+                    **{"from": parts[2].strip()},
+                ),
+            )
+        else:
+            raise ValueError(
+                f"Invalid mount definition: {mount_str} (expected format:"
+                " STORAGE_PATH:MOUNT_PATH:MOUNT_FROM, where MOUNT_FROM is"
+                " <type>:<storage_name> e.g. node-nfs:my-nfs, or node-local"
+                " for node-local storage)"
+            )
+    return mount_list
+
+
+def make_env_vars_from_strings(
+    env: Optional[List[str]], secret: Optional[List[str]]
+) -> Optional[List[EnvVar]]:
+    if not env and not secret:
+        return None
+    env_list = []
+    for s in env if env else []:
+        try:
+            k, v = s.split("=", 1)
+        except ValueError:
+            raise ValueError(f"Invalid environment definition: [red]{s}[/]")
+        if k in LEPTON_RESERVED_ENV_NAMES:
+            raise ValueError(
+                "You have used a reserved environment variable name that is "
+                "used by Lepton internally: {k}. Please use a different name. "
+                "Here is a list of all reserved environment variable names:\n"
+                f"{LEPTON_RESERVED_ENV_NAMES}"
+            )
+        env_list.append(EnvVar(name=k, value=v))
+    for s in secret if secret else []:
+        # We provide the user a shorcut: instead of having to specify
+        # SECRET_NAME=SECRET_NAME, they can just specify SECRET_NAME
+        # if the local env name and the secret name are the same.
+        k, v = s.split("=", 1) if "=" in s else (s, s)
+        if k in LEPTON_RESERVED_ENV_NAMES:
+            raise ValueError(
+                "You have used a reserved secret name that is "
+                "used by Lepton internally: {k}. Please use a different name. "
+                "Here is a list of all reserved environment variable names:\n"
+                f"{LEPTON_RESERVED_ENV_NAMES}"
+            )
+        # TODO: sanity check if these secrets exist.
+        env_list.append(EnvVar(name=k, value_from=EnvValue(secret_name_ref=v)))
+    return env_list
 
 
 class DeploymentAPI(APIResourse):

@@ -80,7 +80,7 @@ class JobAPI(APIResourse):
 
     def create(self, spec: LeptonJob) -> LeptonJob:
         """
-        Run a photon with the given job spec.
+        Create a job with the given job spec.
         """
         response = self._post("/jobs", json=self.safe_json(spec))
         return self.ensure_type(response, LeptonJob)

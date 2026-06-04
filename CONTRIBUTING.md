@@ -38,7 +38,7 @@ pytest
 If you only want to run specific test case, append the corresponding test file and test case name in the pytest command, e.g.:
 
 ```
-pytest leptonai/photon/tests/test_photon.py::TestPhoton::test_batch_handler
+pytest leptonai/cli/tests/test_cli.py::TestLepCli::test_version
 ```
 
 ## Coding Standards

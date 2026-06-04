@@ -19,7 +19,6 @@ from ..v1.types.workspace import WorkspaceInfo
 # not import workspace to avoid circular imports.
 from ..v1.api_resource import APIResourse
 from .dedicated_node_groups import DedicatedNodeGroupAPI
-from ..v1.photon import PhotonAPI
 from ..v1.deployment import DeploymentAPI
 from ..v1.job import JobAPI
 from ..v1.secret import SecretAPI
@@ -216,7 +215,6 @@ class APIClient(object):
 
         # Add individual APIs
         self.nodegroup = DedicatedNodeGroupAPI(self)
-        self.photon = PhotonAPI(self)
         self.deployment = DeploymentAPI(self)
         self.job = JobAPI(self)
         self.pod = PodAPI(self)

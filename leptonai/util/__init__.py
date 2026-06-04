@@ -6,7 +6,6 @@ General utilities for LeptonAI
 from .util import (
     create_cached_dir_if_needed,
     switch_cwd,
-    check_photon_name,
     patch,
     asyncfy,
     asyncfy_with_semaphore,

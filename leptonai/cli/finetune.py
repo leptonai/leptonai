@@ -20,7 +20,10 @@ from .util import (
 from ..api.v2.client import APIClient
 from leptonai.api.v1.types.job import LeptonJobQueryMode, LeptonJobSegmentConfig
 from leptonai.api.v1.types.common import Metadata, LeptonVisibility
-from leptonai.api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
+from leptonai.api.v1.deployment import (
+    make_mounts_from_strings,
+    make_env_vars_from_strings,
+)
 from leptonai.config import VALID_SHAPES
 from leptonai.api.v2.types.finetune import (
     LeptonFineTuneJob,

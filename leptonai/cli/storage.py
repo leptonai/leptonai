@@ -62,8 +62,8 @@ def storage():
 
     Lepton AI provides a file storage service that allows you to store files and
     directories on the cloud. The storage is persistent and is associated with
-    your workspace. You can mount the storage when you launch a photon and
-    access the files and directories from your photon code as if they were on
+    your workspace. You can mount the storage when you launch a deployment and
+    access the files and directories from your code as if they were on
     a standard POSIX filesystem.
 
     The file commands allow you to list, upload, download, and delete files

@@ -228,7 +228,6 @@ BASE_IMAGE = f"{BASE_IMAGE_REPO}:photon{'-rocm' if _is_rocm() else ''}-py{sys.ve
 JOB_BASE_IMAGE = "nvcr.io/nvidia/pytorch:25.08-py3"
 BASE_IMAGE_ARGS = ["--shm-size=1g"]
 
-# By default, platform runs lep ph run -f ${photon_file_path}
 BASE_IMAGE_CMD = None
 
 # Default shape used by the Lepton deployments.
@@ -261,15 +260,6 @@ DEFAULT_TIMEOUT_GRACEFUL_SHUTDOWN = (
     else None
 )
 
-# For some advanced users as well as debugging use, the users might hard-code a different
-# pydantic and cloudpickle version in the created photons. This environment variable is used
-# to force photon's prepare() function to install the pydantic and cloudrun version specified
-# in the photon. Note that this leads to untested compatibility issues - since cloudpickle and
-# pydantic are known in not being forward or backward compatible. Use at your own risk.
-FORCE_PIP_INSTALL_PYDANTIC_AND_CLOUDPICKLE = _to_bool(
-    os.environ.get("LEPTON_FORCE_PIP_INSTALL_PYDANTIC_AND_CLOUDPICKLE", "false")
-)
-
 # During some deployment environments, the server might run behind a load balancer, and during
 # the shutdown time, the load balancer will send a SIGTERM to uvicorn to shut down the server.
 # The default behavior of uvicorn is to immediately stop receiving new traffic, and it is problematic
@@ -295,8 +285,8 @@ _LOCAL_DEPLOYMENT_TOKEN = None
 def set_local_deployment_token(token: str):
     """
     Sets the local token used by Lepton deployments. If the token is empty, we will not
-    set the token in the deployment. If the token is set, all local endpoints defined
-    by Photon.handler are protected by the token.
+    set the token in the deployment. If the token is set, all local endpoints
+    are protected by the token.
 
     Note that on the Lepton platform, the token is managed by the platform, so we
     will ignore the local deployment token.
@@ -327,7 +317,7 @@ def get_local_deployment_token() -> str:
         return _LOCAL_DEPLOYMENT_TOKEN
 
 
-# In the photon's deployment template, this means you will need to specify env variables.
+# In a deployment template, this means you will need to specify env variables.
 ENV_VAR_REQUIRED = "PLEASE_ENTER_YOUR_ENV_VARIABLE_HERE_(LEPTON_ENV_VAR_REQUIRED)"
 
 # Valid resource shapes
@@ -387,8 +377,6 @@ else:
 # This may be restored in the future if we implement a more flexible URL handling mechanism
 
 # Dashboard URL related environment variables/configs are deprecated and removed.
-
-PHOTON_FORBIDDEN_PARAMETER_NAMES = {"request", "cancel_on_connect_interval", "callback"}
 
 SSH_PORT = 2222
 TCP_PORT = 18888

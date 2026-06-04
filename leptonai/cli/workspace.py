@@ -20,7 +20,7 @@ def workspace():
     """
     Manage workspace access to the DGX Cloud Lepton.
 
-    Workspace is the place you perform daily operation with photons, deployments,
+    Workspace is the place you perform daily operation with deployments,
     storage, and other resources.
 
     The workspace commands allow you to log in and out of multiple workspaces,
@@ -345,7 +345,6 @@ def status():
     console.print(f"build time:  {info.build_time}")
     console.print(f"version:     {info.git_commit}")
     console.print(f"disk usage:  {sizeof_fmt(info.workspace_disk_usage_bytes)}")
-    console.print(f"photons:     {info.workloads.num_photons}")
     console.print(f"deployments: {info.workloads.num_deployments}")
     console.print(f"jobs:        {info.workloads.num_jobs}")
     console.print(f"pods:        {info.workloads.num_pods}")

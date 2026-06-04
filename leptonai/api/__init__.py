@@ -13,12 +13,12 @@ to a specific functionality of the Lepton AI web API. For example, the
 Lepton AI web API to manage deployments.
 
 Lepton AI web APIs usually return two types of responses:
-- For web apis that return contents, such as listing photons and deployments,
+- For web apis that return contents, such as listing deployments,
   the response is json if successful, and an error message if unsuccessful. The
   python api then converts it to: a json object if successful, and an APIError
   object if the response is not successful.
 - For apis that does not return contents but use HTTP status codes to indicate
-  success or failure, such as pushing a photon or removing a deployment, the
+  success or failure, such as removing a deployment, the
   python api simply returns the response itself.
 """
 

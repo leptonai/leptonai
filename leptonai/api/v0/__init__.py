@@ -10,7 +10,6 @@ from . import job
 from . import kv
 from . import nodegroup
 from . import objectstore
-from . import photon
 from . import queue
 from . import secret
 from . import storage

@@ -3,13 +3,11 @@
 The Lepton AI python library.
 """
 
-# Photon, Client and Remote are the main classes that we want to expose.
-from .cloudrun import Remote
+# Client is the main class that we want to expose.
 from .client import Client
-from .photon import Photon
 from ._version import __version__
 
-# Components that one can use to build applications around Photons.
+# Components that one can use to build applications.
 from .kv import KV
 from .queue import Queue
 from .objectstore import PrivateObjectStore, PublicObjectStore, ObjectStore

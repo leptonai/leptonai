@@ -17,7 +17,7 @@ class FileParam(BaseModel):
     def __init__(self, content: bytes):
         warnings.warn(
             "FileParam is deprecated and may be removed in a future version. Instead,"
-            " use lepton.photon.types.File, by passing it a bytes, a file-like object,"
+            " use leptonai.types.File, by passing it a bytes, a file-like object,"
             " a string representing a URL. File can be a drop-in replacement for"
             " FileParam.",
             DeprecationWarning,
