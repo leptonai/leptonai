@@ -345,17 +345,12 @@ class WorkerGroupCommand(click.Command):
                 --secret, -s NAME=SECRET_NAME
                     Repeatable or comma-separated. Inject secret as env var NAME from secret SECRET_NAME.
                 --mount STORAGE_PATH:MOUNT_PATH:MOUNT_FROM
-                    Repeatable or comma-separated. Persistent storage mount specification.
-                    The value is split on the first two colons only, so it always has
-                    exactly three fields: `STORAGE_PATH` (the `From path` field in the
-                    web console), `MOUNT_PATH` (the `Mount path` field), and `MOUNT_FROM`
-                    (everything after the second colon — the `Volume` field; note the
-                    console orders them Volume, From path, Mount path). `MOUNT_FROM` is
-                    `node-local` for node-local storage, or
-                    `node-<type>:<storage_name>` for a named volume — this whole part
-                    is a single field, so e.g. an NFS volume named `my-nfs` is
-                    `node-nfs:my-nfs` (the value then has three colons in total).
-                    Examples: `/data:/mnt/data:node-local` or
+                    Repeatable or comma-separated. Persistent storage to mount,
+                    split on the first two colons (so `MOUNT_FROM` may itself
+                    contain a colon). These map to the console's `From path`,
+                    `Mount path`, and `Volume`. `MOUNT_FROM` is `node-local`, or
+                    `node-<type>:<storage_name>` for a named volume (e.g.
+                    `node-nfs:my-nfs`). Examples: `/data:/mnt/data:node-local` or
                     `/hf-cache:/root/.cache/huggingface:node-nfs:my-nfs`.
             """).rstrip()
         return f"{base_help}\n\n{group_help}"
@@ -1167,20 +1162,12 @@ def list_command(name):
 @click.option(
     "--head-mount",
     help=(
-        "Persistent storage to be mounted to the head group, in the format"
-        " `STORAGE_PATH:MOUNT_PATH:MOUNT_FROM`. The value is split on the first"
-        " two colons only, so it always has exactly three fields: `STORAGE_PATH`"
-        " (the path inside the volume — the `From path` field in the web"
-        " console), `MOUNT_PATH` (the mount point inside the container — the"
-        " `Mount path` field), and `MOUNT_FROM` (everything after the second"
-        " colon — the storage volume to mount from, the `Volume` field). Note"
-        " that the console lists these as Volume, From path, Mount path, a"
-        " different order from the CLI."
-        " `MOUNT_FROM` is `node-local` for node-local storage, or"
-        " `node-<type>:<storage_name>` for a named volume — this whole part is a"
-        " single field, so e.g. an NFS volume named `my-nfs` is `node-nfs:my-nfs`"
-        " (the value then has three colons in total). Examples:"
-        " `/data:/mnt/data:node-local` or"
+        "Persistent storage to mount to the head group, as"
+        " `STORAGE_PATH:MOUNT_PATH:MOUNT_FROM` (split on the first two colons, so"
+        " `MOUNT_FROM` may itself contain a colon). These map to the console's"
+        " `From path`, `Mount path`, and `Volume`. `MOUNT_FROM` is `node-local`,"
+        " or `node-<type>:<storage_name>` for a named volume (e.g."
+        " `node-nfs:my-nfs`). Examples: `/data:/mnt/data:node-local` or"
         " `/hf-cache:/root/.cache/huggingface:node-nfs:my-nfs`."
     ),
     multiple=True,
