@@ -60,21 +60,6 @@ else:
             f" Using default value of {DEFAULT_TIMEOUT} seconds."
         )
 
-# In cloudrun, the default timeout is also set to 1 hour. However, even if we set
-# LEPTON_DEFAULT_TIMEOUT to false, we still want to set the default timeout inside
-# cloudrun, because it was expected to be in-process.
-try:
-    CLOUDRUN_DEFAULT_TIMEOUT = int(
-        os.environ.get("LEPTON_CLOUDRUN_DEFAULT_TIMEOUT", "3600")
-    )
-except ValueError:
-    CLOUDRUN_DEFAULT_TIMEOUT = 3600  # 1 hour
-    print(
-        "You have set an invalid value for LEPTON_CLOUDRUN_DEFAULT_TIMEOUT"
-        f" {os.environ.get('LEPTON_CLOUDRUN_DEFAULT_TIMEOUT')}. Using default value"
-        f" of {CLOUDRUN_DEFAULT_TIMEOUT} seconds."
-    )
-
 ################################################################################
 # Automatically generated constants. You do not need to change these.
 ################################################################################
