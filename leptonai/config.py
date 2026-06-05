@@ -4,7 +4,6 @@ Overall configurations and constants for the Lepton AI python library.
 
 import os
 from pathlib import Path
-import sys
 import warnings
 
 import pydantic
@@ -60,21 +59,6 @@ else:
             f"You have set an invalid value for LEPTON_DEFAULT_TIMEOUT {timeout_str}."
             f" Using default value of {DEFAULT_TIMEOUT} seconds."
         )
-
-# In cloudrun, the default timeout is also set to 1 hour. However, even if we set
-# LEPTON_DEFAULT_TIMEOUT to false, we still want to set the default timeout inside
-# cloudrun, because it was expected to be in-process.
-try:
-    CLOUDRUN_DEFAULT_TIMEOUT = int(
-        os.environ.get("LEPTON_CLOUDRUN_DEFAULT_TIMEOUT", "3600")
-    )
-except ValueError:
-    CLOUDRUN_DEFAULT_TIMEOUT = 3600  # 1 hour
-    print(
-        "You have set an invalid value for LEPTON_CLOUDRUN_DEFAULT_TIMEOUT"
-        f" {os.environ.get('LEPTON_CLOUDRUN_DEFAULT_TIMEOUT')}. Using default value"
-        f" of {CLOUDRUN_DEFAULT_TIMEOUT} seconds."
-    )
 
 ################################################################################
 # Automatically generated constants. You do not need to change these.
@@ -206,30 +190,8 @@ def _to_bool(s: str) -> bool:
         )
 
 
-def _is_rocm() -> bool:
-    """
-    Detects if we are using rocm.
-
-    If the user specified LEPTON_BASE_IMAGE_FORCE_ROCM to any true values, then
-    _is_rocm() returns True. If it is not specified, we rely on cuda to see if
-    we are building rocm. This function is only intended to be used to determine
-    the base image type, and you should directly use torch.version.hip in your
-    user code.
-    """
-    return _to_bool(os.environ.get("LEPTON_BASE_IMAGE_FORCE_ROCM", "false"))
-
-
-# Lepton's base image and image repository location.
-BASE_IMAGE_VERSION = "0.27.3"
-BASE_IMAGE_REGISTRY = "default"
-BASE_IMAGE_REPO = f"{BASE_IMAGE_REGISTRY}/lepton"
-BASE_IMAGE = f"{BASE_IMAGE_REPO}:photon{'-rocm' if _is_rocm() else ''}-py{sys.version_info.major}.{sys.version_info.minor}-runner-{BASE_IMAGE_VERSION}"  # noqa: E501
-
+# Default base image for batch jobs.
 JOB_BASE_IMAGE = "nvcr.io/nvidia/pytorch:25.08-py3"
-BASE_IMAGE_ARGS = ["--shm-size=1g"]
-
-# By default, platform runs lep ph run -f ${photon_file_path}
-BASE_IMAGE_CMD = None
 
 # Default shape used by the Lepton deployments.
 if os.environ.get("LEPTON_DEFAULT_RESOURCE_SHAPE"):
@@ -261,15 +223,6 @@ DEFAULT_TIMEOUT_GRACEFUL_SHUTDOWN = (
     else None
 )
 
-# For some advanced users as well as debugging use, the users might hard-code a different
-# pydantic and cloudpickle version in the created photons. This environment variable is used
-# to force photon's prepare() function to install the pydantic and cloudrun version specified
-# in the photon. Note that this leads to untested compatibility issues - since cloudpickle and
-# pydantic are known in not being forward or backward compatible. Use at your own risk.
-FORCE_PIP_INSTALL_PYDANTIC_AND_CLOUDPICKLE = _to_bool(
-    os.environ.get("LEPTON_FORCE_PIP_INSTALL_PYDANTIC_AND_CLOUDPICKLE", "false")
-)
-
 # During some deployment environments, the server might run behind a load balancer, and during
 # the shutdown time, the load balancer will send a SIGTERM to uvicorn to shut down the server.
 # The default behavior of uvicorn is to immediately stop receiving new traffic, and it is problematic
@@ -295,8 +248,8 @@ _LOCAL_DEPLOYMENT_TOKEN = None
 def set_local_deployment_token(token: str):
     """
     Sets the local token used by Lepton deployments. If the token is empty, we will not
-    set the token in the deployment. If the token is set, all local endpoints defined
-    by Photon.handler are protected by the token.
+    set the token in the deployment. If the token is set, all local endpoints
+    are protected by the token.
 
     Note that on the Lepton platform, the token is managed by the platform, so we
     will ignore the local deployment token.
@@ -327,7 +280,7 @@ def get_local_deployment_token() -> str:
         return _LOCAL_DEPLOYMENT_TOKEN
 
 
-# In the photon's deployment template, this means you will need to specify env variables.
+# In a deployment template, this means you will need to specify env variables.
 ENV_VAR_REQUIRED = "PLEASE_ENTER_YOUR_ENV_VARIABLE_HERE_(LEPTON_ENV_VAR_REQUIRED)"
 
 # Valid resource shapes
@@ -370,8 +323,6 @@ DGXC_WORKSPACE_URL_RESOLVER_API = (
 LEPTON_RESERVED_ENV_NAMES = {
     "LEPTON_WORKSPACE_ID",
     "LEPTON_DEPLOYMENT_NAME",
-    "LEPTON_PHOTON_NAME",
-    "LEPTON_PHOTON_ID",
     "LEPTON_RESOURCE_ACCELERATOR_TYPE",
     "LEPTON_WORKSPACE_ORIGIN_URL",
     "LEPTON_CLASSIC",
@@ -387,8 +338,6 @@ else:
 # This may be restored in the future if we implement a more flexible URL handling mechanism
 
 # Dashboard URL related environment variables/configs are deprecated and removed.
-
-PHOTON_FORBIDDEN_PARAMETER_NAMES = {"request", "cancel_on_connect_interval", "callback"}
 
 SSH_PORT = 2222
 TCP_PORT = 18888

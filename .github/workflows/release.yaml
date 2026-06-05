@@ -82,19 +82,14 @@ jobs:
           echo "leptonai package path:"
           python -c "import leptonai; print(leptonai)"
           cd -
-      - name: Run Runtime Tests
+      - name: Run Unit Tests
         run: |
           whl_file=(leptonai*.whl)
-          pip install ${whl_file}[runtime] ${whl_file}[test]
+          pip install ${whl_file}[test]
           cd ..
           echo "Run unittests"
-          pytest -x leptonai --ignore=leptonai/leptonai/photon/tests
+          pytest -x leptonai
           cd -
-      - name: Run End-To-End Tests
-        if: inputs.run_e2e
-        env:
-          LEPTON_RELEASE_CREDENTIALS: ${{ secrets.LEPTON_STAGING_WORKSPACE_CREDENTIALS }}
-        run: bash release_scripts/e2e_sdk_cli_test.sh
 
   publish-pypi:
     if: inputs.publish_pypi

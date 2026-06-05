@@ -21,7 +21,6 @@ from . import deployment, node
 from . import job
 from . import kv
 from . import objectstore
-from . import photon
 from . import pod
 from . import queue
 from . import secret
@@ -56,7 +55,7 @@ LOGIN_LOGO = """
 def lep():
     """
     Lep is the main entry point for the DGX Cloud Lepton commandline interface. It provides
-    a set of commands to create and develop photons locally, and deploy them to the
+    a set of commands to create and manage deployments, jobs, and pods on the
     DGX Cloud Lepton. It also provides a set of commands to manage resources on the
     cloud, such as workspaces, deployments, secrets, and storage. To install it, run
 
@@ -73,7 +72,6 @@ deployment.add_command(lep)
 job.add_command(lep)
 kv.add_command(lep)
 objectstore.add_command(lep)
-photon.add_command(lep)
 pod.add_command(lep)
 queue.add_command(lep)
 secret.add_command(lep)

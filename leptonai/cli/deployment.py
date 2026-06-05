@@ -2,7 +2,7 @@ import json
 from datetime import datetime
 import re
 import sys
-from typing import List, Optional, Union
+from typing import List, Optional
 
 import click
 from loguru import logger
@@ -75,11 +75,10 @@ from leptonai.config import (
     VALID_SHAPES,
     DEFAULT_TIMEOUT,
     DEFAULT_RESOURCE_SHAPE,
-    ENV_VAR_REQUIRED,
 )
 from ..api.v2.client import APIClient
 from ..api.v1.deployment import make_token_vars_from_config
-from ..api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
+from ..api.v1.spec_utils import make_mounts_from_strings, make_env_vars_from_strings
 from ..api.v2.workspace_record import WorkspaceRecord
 from ..api.v1.types.common import Metadata, LeptonVisibility, LeptonUserSecurityContext
 from ..api.v1.types.deployment import (
@@ -99,7 +98,6 @@ from ..api.v1.types.deployment import (
     SchedulingToggle,
     LeptonRoutingPolicy,
 )
-from ..api.v1.types.photon import PhotonDeploymentTemplate
 from ..api.v1.types.ingress import (
     AuthConfig,
     LoadBalanceConfig,
@@ -465,32 +463,6 @@ def _timeout_must_be_larger_than_60(unused_ctx, unused_param, x):
         raise click.BadParameter("Timeout value must be larger than 60 seconds.")
 
 
-def _get_ordered_photon_ids_or_none(
-    name: str, public_photon: bool
-) -> Union[List[str], None]:
-    """Returns a list of photon ids for a given name, in the order newest to
-    oldest. If no photon of such name exists, returns None.
-    """
-
-    client = APIClient()
-
-    photons = client.photon.list_all(public_photon=public_photon)
-
-    target_photons = [p for p in photons if p.name == name]  # type: ignore
-    if len(target_photons) == 0:
-        return None
-    target_photons.sort(key=lambda p: p.created_at, reverse=True)  # type: ignore
-    return [p.id_ for p in target_photons]  # type: ignore
-
-
-def _get_most_recent_photon_id_or_none(name: str, public_photon: bool) -> Optional[str]:
-    """Returns the most recent photon id for a given name. If no photon of such
-    name exists, returns None.
-    """
-    photon_ids = _get_ordered_photon_ids_or_none(name, public_photon)
-    return photon_ids[0] if photon_ids else None
-
-
 def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     """
     Adds the workspace token as a secret environment variable.
@@ -538,18 +510,6 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
         " <download_path>`."
     ),
     required=False,
-)
-@click.option(
-    "--photon", "-p", "photon_name", type=str, help="Name of the photon to run."
-)
-@click.option(
-    "--photon-id",
-    "-i",
-    type=str,
-    help=(
-        "Specific version id of the photon to run. If not specified, we will run the"
-        " most recent version of the photon."
-    ),
 )
 @click.option("--container-image", type=str, help="Container image to run.")
 @click.option(
@@ -695,7 +655,7 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     type=int,
     help=(
         "If specified, the endpoint will allow the specified amount of seconds for"
-        " the photon to initialize before it starts the service. Usually you should"
+        " the container to initialize before it starts the service. Usually you should"
         " not need this. If you have a endpoint that takes a long time to initialize,"
         " set it to a longer value."
     ),
@@ -706,10 +666,10 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     is_flag=True,
     hidden=True,
     help=(
-        "If specified, the workspace token will be included as an environment"
-        " variable. This is used when the photon code uses Lepton SDK capabilities such"
-        " as queue, KV, objectstore etc. Note that you should trust the code in the"
-        " photon, as it will have access to the workspace token."
+        "If specified, the workspace token will be included as an environment variable."
+        " This is used when the deployment code uses Lepton SDK capabilities such as"
+        " queue, KV, objectstore etc. Note that you should trust the code in the"
+        " deployment, as it will have access to the workspace token."
     ),
     default=False,
 )
@@ -718,18 +678,9 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     is_flag=True,
     help=(
         "If specified, shutdown the endpoint of the same endpoint name and"
-        " rerun it. Note that this may cause downtime of the photon if it is for"
+        " rerun it. Note that this may cause downtime of the endpoint if it is for"
         " production use, so use with caution. In a production environment, you"
-        " should do photon create, push, and `lep endpoint update` instead."
-    ),
-    default=False,
-)
-@click.option(
-    "--public-photon",
-    is_flag=True,
-    help=(
-        "If specified, get the photon from the public photon registry. This is only"
-        " supported for remote execution."
+        " should use `lep endpoint update` instead."
     ),
     default=False,
 )
@@ -951,8 +902,6 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
 def create(
     name,
     file,
-    photon_name,
-    photon_id,
     container_image,
     container_port,
     container_command,
@@ -972,7 +921,6 @@ def create(
     initial_delay_seconds,
     include_workspace_token,
     rerun,
-    public_photon,
     image_pull_secrets,
     node_groups,
     visibility,
@@ -995,7 +943,7 @@ def create(
     header_based_routing,
 ):
     """
-    Creates an endpoint from either a photon or container image.
+    Creates an endpoint from a container image.
     """
     client = APIClient()
 
@@ -1034,58 +982,8 @@ def create(
             )
             sys.exit(1)
 
-    if (
-        file
-        and spec.container is not None
-        and (photon_name is not None or photon_id is not None)
-    ):
-        console.print(
-            "[red]Error[/]: Container details are already present in the spec file; you"
-            " cannot additionally specify --photon or --photon-id."
-        )
-        sys.exit(1)
-
-    if (
-        file
-        and spec.photon_id is not None
-        and (container_image is not None or container_command is not None)
-    ):
-        console.print(
-            "[red]Error[/]: The spec file already references a photon; you cannot also"
-            " provide --container-image or --container-command."
-        )
-        sys.exit(1)
-
-    # First, check whether the input is photon or container. We will prioritize using
-    # photon if both are specified.
-    if photon_name is not None or photon_id is not None:
-        # We will use photon.
-        if container_image is not None or container_command is not None:
-            console.print(
-                "Warning: both photon and container image are specified. We will use"
-                " the photon."
-            )
-        if photon_id is None:
-            # look for the latest photon with the given name.
-            photon_id = _get_most_recent_photon_id_or_none(photon_name, public_photon)
-            if not photon_id:
-                console.print(
-                    f"Photon [red]{name}[/] does not exist in the workspace. Did"
-                    " you forget to push the photon?",
-                )
-                sys.exit(1)
-            console.print(
-                f"Running the most recent version of [green]{name}[/]: {photon_id}"
-            )
-        else:
-            console.print(f"Running the specified version: [green]{photon_id}[/]")
-        spec.photon_id = photon_id
-        spec.photon_namespace = "public" if public_photon else "private"
-
-        # get deployment template
-        photon = client.photon.get(photon_id, public_photon=public_photon)  # type: ignore
-        deployment_template = photon.deployment_template
-    elif container_image is not None or container_command is not None:
+    # Determine the container details for the deployment.
+    if container_image is not None or container_command is not None:
         # We will use container.
         if container_image is None:
             console.print(
@@ -1100,22 +998,16 @@ def create(
             image=container_image,
             command=wrapped_cmd,
         )
-        # container based deployment won't have the deployment template as photons do.
-        # So we will simply create an empty one.
-    elif spec.photon_id is None and spec.container is None:
-        # No photon_id, photon_name, container_image, or container_command
+    elif spec.container is None:
+        # No container_image or container_command provided, and the spec file (if
+        # any) does not define a container either.
         console.print("""
-            You have not provided a photon_name, photon_id, or container image.
-            Please use one of the following options:
-            -p <photon_name>
-            -i <photon_id>
+            You have not provided a container image.
+            Please use the following options:
             --container-image <container_image> and --container-command <container_command>
-            to specify a photon or container image.
+            to specify a container image.
             """)
         sys.exit(1)
-
-    if spec.container is not None:
-        deployment_template = PhotonDeploymentTemplate()
 
     if container_port is not None and spec.container is None:
         console.print(
@@ -1194,20 +1086,15 @@ def create(
     # Ensure existing resource_requirement is preserved when loading from file.
     if spec.resource_requirement is None:
         spec.resource_requirement = ResourceRequirement(
-            resource_shape=resource_shape
-            or (deployment_template.resource_shape if deployment_template else None)
-            or DEFAULT_RESOURCE_SHAPE,
+            resource_shape=resource_shape or DEFAULT_RESOURCE_SHAPE,
             min_replicas=min_replicas,
             max_replicas=max_replicas,
         )
     else:
         # Only update fields that are explicitly overridden via CLI
-        if resource_shape or (
-            deployment_template.resource_shape if deployment_template else None
-        ):
+        if resource_shape:
             spec.resource_requirement.resource_shape = (
                 resource_shape
-                or (deployment_template.resource_shape if deployment_template else None)
                 or spec.resource_requirement.resource_shape
                 or DEFAULT_RESOURCE_SHAPE
             )
@@ -1238,7 +1125,7 @@ def create(
     # include workspace token
     secret = list(secret)  # to convert secret from tuple to list
     if include_workspace_token:
-        console.print("Including the workspace token for the photon execution.")
+        console.print("Including the workspace token for the deployment execution.")
         _create_workspace_token_secret_var_if_not_existing(client)
         if "LEPTON_WORKSPACE_TOKEN" not in secret:
             secret += [
@@ -1246,31 +1133,9 @@ def create(
             ]
 
     try:
-        logger.trace(f"deployment_template:\n{deployment_template}")
-        template_envs = deployment_template.env or {}
         env_list = list(env) or []
         secret_list = list(secret) or []
         mount_list = list(mount) or []
-        for k, v in template_envs.items():
-            if v == ENV_VAR_REQUIRED:
-                if not any(s.startswith(k + "=") for s in (env or [])):
-                    console.print(
-                        f"This deployment requires env var {k}, but it's missing."
-                        f" Please specify it with --env {k}=YOUR_VALUE. Otherwise,"
-                        " the deployment may fail."
-                    )
-            else:
-                if not any(s.startswith(k + "=") for s in env_list):
-                    # Adding default env variable if not specified.
-                    env_list.append(f"{k}={v}")
-        template_secrets = deployment_template.secret or []
-        for k in template_secrets:
-            if k not in secret_list:
-                console.print(
-                    f"This deployment requires secret {k}, but it's missing. Please"
-                    f" set the secret, and specify it with --secret {k}. Otherwise,"
-                    " the deployment may fail."
-                )
 
         if env_list or secret_list or not file:
             # CLI args provided or no file loaded - use CLI args
@@ -1425,7 +1290,6 @@ def create(
         )
         console.print("Failed to launch endpoint.")
         sys.exit(1)
-    name = name if name else (photon_name or photon_id)
     lepton_deployment = LeptonDeployment(
         metadata=Metadata(
             id=name,
@@ -1535,19 +1399,16 @@ def status(name, show_tokens, detail):
     console.print(f"Time now:   {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     console.print(f"Created at: {creation_time}")
 
-    if dep_info.spec.photon_id is not None:
-        photon_id = dep_info.spec.photon_id
-    else:
-        photon_id = (
-            (dep_info.spec.container.image or "unknow")
-            if dep_info.spec.container
-            else "unknow"
-        )
+    container_image = (
+        (dep_info.spec.container.image or "unknown")
+        if dep_info.spec.container
+        else "unknown"
+    )
 
     if dep_info.metadata.semantic_version:
         console.print("Version:   ", dep_info.metadata.semantic_version)
 
-    console.print("Photon ID: ", photon_id)
+    console.print("Image:     ", container_image)
 
     console.print(f"State:      {state}")
 
@@ -1696,19 +1557,10 @@ def log(name, replica):
 @deployment.command()
 @click.option("--name", "-n", help="The endpoint name to update.", required=True)
 @click.option(
-    "--id",
-    "-i",
-    help="The new photon id to update to. Use `latest` for the latest id.",
-    default=None,
-)
-@click.option(
     "--container-image",
     type=str,
     default=None,
-    help=(
-        "Update the container image for a container-based endpoint. "
-        "Not supported for photon-based endpoints."
-    ),
+    help="Update the container image for a container-based endpoint.",
 )
 @click.option(
     "--min-replicas",
@@ -1924,7 +1776,6 @@ def log(name, replica):
 )
 def update(
     name,
-    id,
     container_image,
     min_replicas,
     resource_shape,
@@ -1971,50 +1822,6 @@ def update(
         )
         sys.exit(1)
 
-    if id == "latest":
-        current_photon_id = lepton_deployment.spec.photon_id
-
-        public_photon = (
-            lepton_deployment.spec.photon_namespace or "private"
-        ) == "public"
-
-        photons = client.photon.list_all(public_photon)
-
-        for photon in photons:
-            if photon.id_ == current_photon_id:
-                current_photon_name = photon.name
-                break
-        else:
-            console.print(
-                f"Cannot find current photon ([red]{current_photon_id}[/]) in workspace"
-                f" [red]{WorkspaceRecord.get_current_workspace_id()}[/]."
-            )
-            sys.exit(1)
-        records = [
-            (photon.name, photon.model, photon.id_, photon.created_at)
-            for photon in photons
-            if photon.name == current_photon_name
-        ]
-        id = sorted(records, key=lambda x: x[3])[-1][2]  # type: ignore
-        console.print(f"Updating to latest photon id [green]{id}[/].")
-
-    # Validate container-image update constraints
-    if container_image is not None:
-        if id is not None:
-            console.print(
-                "[red]Error[/]: Cannot specify both --id (photon update) and "
-                "--container-image."
-            )
-            sys.exit(1)
-
-        current_spec = lepton_deployment.spec
-        if current_spec and current_spec.photon_id is not None:
-            console.print(
-                "[red]Error[/]: --container-image is only supported for container-"
-                "based endpoints. The current endpoint is photon-based. "
-                "Use `lep endpoint create --rerun --container-image ...` to switch."
-            )
-            sys.exit(1)
     # Enforce cserve options must be used with --cserve
     if cserve_options is not None and not cserve:
         console.print(
@@ -2090,7 +1897,6 @@ def update(
         api_tokens_payload = make_token_vars_from_config(is_public=None, tokens=tokens)
 
     lepton_deployment_spec = LeptonDeploymentUserSpec(
-        photon_id=id,
         resource_requirement=(
             ResourceRequirement(
                 min_replicas=min_replicas,

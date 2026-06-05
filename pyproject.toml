@@ -8,22 +8,16 @@ requires-python = ">=3.9,<3.14"
 dependencies = [
     "anyio>=3.7.0,<=4.9.0", # we use exceptiongroup
     "click",
-    "cloudpickle==3.0.0",
     "contextlib2", # backports async support in nullcontext
     "exceptiongroup",
     "fastapi",
     "httpx[http2]==0.27.2",
-    "prometheus-fastapi-instrumentator==7.0.0",
     "rich",
     "typing-extensions",
-    "uvicorn>=0.22.0", # needed by timeout_graceful_shutdown
     "loguru",
     "requests",
     "pydantic!=2.1.0", # 2.1.0 has a bug (pydantic #6862) that breaks fastapi.
-    "python-multipart",
-    "pillow",
     "pyyaml",
-    "huggingface_hub",
     "ledoc-ui",
     "ray[default]",
 ]
@@ -45,14 +39,6 @@ test = [
     "responses",
     "respx",
 ]
-runtime = [
-    "accelerate", # needed by low_cpu_mem_usage
-    "huggingface_hub",
-    "diffusers>=0.27.0",
-    "sentence-transformers>=2.3.0",
-    "torch",
-    "transformers==4.46.3",
-]
 
 [build-system]
 requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2,<=7.1.0"]
@@ -72,9 +58,6 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 exclude = ["*tests*", "leptoninternal*", "release_scripts*", "*dockerfiles*"]
-
-[tool.setuptools.package-data]
-leptonai = ["photon/favicon.ico"]
 
 [tool.black]
 preview = true

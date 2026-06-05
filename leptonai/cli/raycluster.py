@@ -30,7 +30,7 @@ from ..api.v1.types.raycluster import (
     RayAutoscaler,
     RayClusterCommonGroupSpec,
 )
-from ..api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
+from ..api.v1.spec_utils import make_mounts_from_strings, make_env_vars_from_strings
 from ..api.v1.types.deployment import LeptonContainer, ReservationConfig
 from ..api.v1.types.job import LeptonJobSegmentConfig
 

@@ -29,7 +29,10 @@ from .util import (
 
 from .util import make_container_port_from_string  # noqa: F401
 
-from leptonai.api.v1.photon import make_mounts_from_strings, make_env_vars_from_strings
+from leptonai.api.v1.spec_utils import (
+    make_mounts_from_strings,
+    make_env_vars_from_strings,
+)
 from leptonai.config import VALID_SHAPES
 from leptonai.config import JOB_BASE_IMAGE as BASE_IMAGE
 

@@ -26,12 +26,6 @@ class PodAPI(APIResourse):
             return None
         if not spec.is_pod:
             raise ValueError("The spec is not a pod spec.")
-        if spec.photon_namespace or spec.photon_id:
-            warnings.warn(
-                "Photon fields do not take effect in pod spec.", RuntimeWarning
-            )
-            spec.photon_id = None
-            spec.photon_namespace = None
         if spec.container and (spec.container.ports or spec.container.command):
             warnings.warn(
                 "Container port and command fields do not take effect in pod spec.",

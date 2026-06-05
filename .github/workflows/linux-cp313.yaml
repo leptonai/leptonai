@@ -31,7 +31,7 @@ jobs:
           echo "leptonai package version:"
           lep -v
 
-          pip install .[runtime] .[test]
+          pip install .[test]
           cd ..
-          pytest -x leptonai --ignore=leptonai/leptonai/photon/tests
+          pytest -x leptonai
           cd -

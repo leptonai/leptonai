@@ -133,8 +133,6 @@ def make_token_vars_from_config(
 def update_deployment(
     conn: Connection,
     name: str,
-    photon_id: Optional[str] = None,
-    photon_namespace: Optional[str] = None,
     min_replicas: Optional[int] = None,
     resource_shape: Optional[str] = None,
     is_public: Optional[bool] = None,
@@ -144,12 +142,10 @@ def update_deployment(
     """
     Update a deployment in a workspace.
 
-    Currently only supports updating the photon id, the min replicas, and the api tokens.
+    Currently only supports updating the min replicas and the api tokens.
     For any more complex changes, consider re-run the deployment.
     """
     deployment_user_spec = types.DeploymentUserSpec(
-        photon_id=photon_id,
-        photon_namespace=photon_namespace,
         resource_requirement=types.ResourceRequirement(
             resource_shape=resource_shape,
             min_replicas=min_replicas,

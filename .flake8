@@ -1,6 +1,6 @@
 [flake8]
 # E402: module level import not at top of file
-# This is needed to allow lazy imports in photon code.
+# This is needed for modules that set up environment/config before their imports.
 # E501: line too long
 # W503: line break before binary operator
 # We will use black to format the code, and will not need to worry about the above two.

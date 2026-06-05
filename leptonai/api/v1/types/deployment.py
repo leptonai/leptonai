@@ -276,8 +276,6 @@ class DeploymentSchedulingPolicy(BaseModel):
 
 
 class LeptonDeploymentUserSpec(BaseModel):
-    photon_namespace: Optional[str] = None
-    photon_id: Optional[str] = None
     container: Optional[LeptonContainer] = None
     resource_requirement: Optional[ResourceRequirement] = None
     auto_scaler: Optional[AutoScaler] = None
@@ -350,7 +348,6 @@ class LeptonDeploymentStatus(BaseModel):
     endpoint: DeploymentEndpoint
     container_port_status: Optional[List[ContainerPortStatus]] = None
     autoscaler_status: Optional[AutoScalerStatus] = None
-    with_system_photon: Optional[bool] = None
     is_system: Optional[bool] = None
 
 

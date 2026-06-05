@@ -16,7 +16,7 @@ from leptonai.api.v1.utils import (
     _get_full_workspace_api_url,
 )
 from leptonai.config import DEFAULT_PORT, build_endpoint_url
-from leptonai.photon import FileParam  # noqa
+from leptonai.types import FileParam  # noqa
 from leptonai.util import is_valid_url
 from .api.v0 import deployment
 from .api.v0.util import APIError
@@ -251,7 +251,7 @@ class Client(object):
         client = Client("my-workspace", "my-deployment", token=MY_TOKEN)
     or if you are running locally,
         client = Client(local())
-    or via a full URL if you are managing Lepton photons yourself:
+    or via a full URL if you are managing Lepton deployments yourself:
         client = Client("https://my-custom-lepton-deployment.com/")
 
     To cope with explicit urls that might have supaths, we assume that the url you
@@ -438,8 +438,8 @@ class Client(object):
 
     # Normal usages will go through then `__getattr__` path (which triggers
     # `_post_path` and `_post`). Directly using `_post` and `_get` is
-    # discouraged, only when accessing endpoints that are not defined via
-    # Photon.
+    # discouraged, only when accessing endpoints that are not defined in the
+    # deployment's OpenAPI schema.
     def _get(self, path: str, *args, **kwargs) -> httpx.Response:
         if self.stream:
             return self._session.stream(
@@ -588,8 +588,8 @@ class Client(object):
             print(
                 "\n\nOverall, if you are the producer of the deployment, please make"
                 " sure that:\n - the deployment has an openapi specification at"
-                " '/openapi.json'. This is usually guaranteed if you are using the"
-                " standard Photon class.\n - Also kindly ensure that every endpoint is"
+                " '/openapi.json'. This is usually guaranteed if you are using standard"
+                " OpenAPI tooling.\n - Also kindly ensure that every endpoint is"
                 " uniquely named (note that we will try to convert '-' and '/' in URL"
                 " strings to underscores).\n\nIf you are the consumer of the"
                 " deployment, and do not have control over the endpoint design, a"

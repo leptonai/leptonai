@@ -14,7 +14,6 @@ from . import job
 from . import kv
 from . import object_storage
 from . import secret
-from . import photon
 from . import quota
 from . import readiness
 from . import replica

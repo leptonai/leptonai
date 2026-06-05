@@ -14,7 +14,7 @@ The Lepton CLI supports canary-style deployments through ingress endpoint manage
 
 ```bash
 # 1. Deploy new version (canary)
-lep endpoint create -n canary-endpoint --photon-id my-photon-v2
+lep endpoint create -n canary-endpoint --container-image my-registry/my-app:v2
 
 # 2. Add canary to existing ingress with 10% traffic
 #    Assuming stable-endpoint already exists with weight 100
