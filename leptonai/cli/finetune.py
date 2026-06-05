@@ -508,11 +508,12 @@ def list_trainers_command():
     "--mount",
     multiple=True,
     help=(
-        "[job] Persistent storage to be mounted to the job, in the format"
-        " `STORAGE_PATH:MOUNT_PATH:MOUNT_FROM`, where `STORAGE_PATH` is the path"
-        " inside the volume, `MOUNT_PATH` is the container mount point, and"
-        " `MOUNT_FROM` is `<type>:<storage_name>` (e.g. `node-nfs:my-nfs`) or"
-        " `node-local` for node-local storage."
+        "[job] Persistent storage to mount to the job, as"
+        " `FROM_PATH:MOUNT_PATH:VOLUME` (split on the first two colons, so"
+        " `VOLUME` may itself contain a colon). `VOLUME` is `node-local`, or"
+        " `node-<type>:<storage_name>` for a named volume (e.g."
+        " `node-nfs:my-nfs`). Examples: `/data:/mnt/data:node-local` or"
+        " `/hf-cache:/root/.cache/huggingface:node-nfs:my-nfs`."
     ),
 )
 @click.option(
@@ -722,7 +723,7 @@ def create_command(
     if mount:
         try:
             spec.mounts = make_mounts_from_strings(mount)  # type: ignore
-        except Exception as e:
+        except ValueError as e:
             console.print(f"[red]Error parsing --mount[/]: {e}")
             sys.exit(1)
     fixed_secrets: List[str] = []

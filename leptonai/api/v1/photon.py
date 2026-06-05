@@ -17,6 +17,52 @@ from .types.photon import Photon as Photon
 from .types.deployment import LeptonDeployment
 
 
+def _mount_definition_error(mount_str: str, detail: str) -> ValueError:
+    return ValueError(
+        f"Invalid mount definition: {mount_str} ({detail}; expected"
+        " FROM_PATH:MOUNT_PATH:VOLUME, where VOLUME is `node-local`"
+        " or `node-<type>:<storage_name>`, e.g. node-nfs:my-nfs)"
+    )
+
+
+def _validate_mount_from(mount_str: str, mount_from: str) -> str:
+    if not mount_from:
+        raise _mount_definition_error(mount_str, "VOLUME cannot be empty")
+
+    if mount_from == "node-local":
+        return mount_from
+
+    if not mount_from.startswith("node-"):
+        return mount_from
+
+    mount_from_parts = mount_from.split(":")
+    if len(mount_from_parts) == 1:
+        raise _mount_definition_error(
+            mount_str,
+            f"missing storage_name in VOLUME `{mount_from}`",
+        )
+    if len(mount_from_parts) != 2:
+        raise _mount_definition_error(
+            mount_str,
+            f"VOLUME `{mount_from}` must contain exactly one colon after `node-<type>`",
+        )
+
+    storage_type = mount_from_parts[0][len("node-") :].strip()
+    storage_name = mount_from_parts[1].strip()
+    if not storage_type:
+        raise _mount_definition_error(
+            mount_str,
+            f"missing storage type in VOLUME `{mount_from}`",
+        )
+    if not storage_name:
+        raise _mount_definition_error(
+            mount_str,
+            f"missing storage_name in VOLUME `{mount_from}`",
+        )
+
+    return mount_from
+
+
 def make_mounts_from_strings(
     mounts: Optional[List[str]],
 ) -> Optional[List[Mount]]:
@@ -29,20 +75,19 @@ def make_mounts_from_strings(
     for mount_str in mounts:
         parts = mount_str.split(":", 2)
         if len(parts) == 3:
+            mount_from = _validate_mount_from(mount_str, parts[2].strip())
             # TODO: Sanity check that this exists
             mount_list.append(
                 Mount(
                     path=parts[0].strip(),
                     mount_path=parts[1].strip(),
-                    **{"from": parts[2].strip()},
+                    **{"from": mount_from},
                 ),
             )
         else:
-            raise ValueError(
-                f"Invalid mount definition: {mount_str} (expected format:"
-                " STORAGE_PATH:MOUNT_PATH:MOUNT_FROM, where MOUNT_FROM is"
-                " <type>:<storage_name> e.g. node-nfs:my-nfs, or node-local"
-                " for node-local storage)"
+            raise _mount_definition_error(
+                mount_str,
+                "expected FROM_PATH:MOUNT_PATH:VOLUME split on the first two colons",
             )
     return mount_list
 

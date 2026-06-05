@@ -110,11 +110,12 @@ def pod():
 @click.option(
     "--mount",
     help=(
-        "Persistent storage to be mounted to the deployment, in the format"
-        " `STORAGE_PATH:MOUNT_PATH:MOUNT_FROM`, where `STORAGE_PATH` is the path"
-        " inside the volume, `MOUNT_PATH` is the container mount point, and"
-        " `MOUNT_FROM` is `<type>:<storage_name>` (e.g. `node-nfs:my-nfs`) or"
-        " `node-local` for node-local storage."
+        "Persistent storage to mount to the deployment, as"
+        " `FROM_PATH:MOUNT_PATH:VOLUME` (split on the first two colons, so"
+        " `VOLUME` may itself contain a colon). `VOLUME` is `node-local`, or"
+        " `node-<type>:<storage_name>` for a named volume (e.g."
+        " `node-nfs:my-nfs`). Examples: `/data:/mnt/data:node-local` or"
+        " `/hf-cache:/root/.cache/huggingface:node-nfs:my-nfs`."
     ),
     multiple=True,
 )
@@ -394,7 +395,11 @@ def create(
         )
 
     if mount:
-        deployment_user_spec.mounts = make_mounts_from_strings(mount)
+        try:
+            deployment_user_spec.mounts = make_mounts_from_strings(mount)
+        except ValueError as e:
+            console.print(f"[red]Error parsing --mount[/]: {e}")
+            sys.exit(1)
 
     if image_pull_secrets:
         deployment_user_spec.image_pull_secrets = image_pull_secrets

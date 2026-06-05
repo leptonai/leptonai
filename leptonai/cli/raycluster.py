@@ -344,10 +344,13 @@ class WorkerGroupCommand(click.Command):
                     Repeatable or comma-separated. Environment variables to set.
                 --secret, -s NAME=SECRET_NAME
                     Repeatable or comma-separated. Inject secret as env var NAME from secret SECRET_NAME.
-                --mount STORAGE_PATH:MOUNT_PATH:MOUNT_FROM
-                    Repeatable or comma-separated. Persistent storage mount specification.
-                    `MOUNT_FROM` is `<type>:<storage_name>` (e.g. `node-nfs:my-nfs`)
-                    or `node-local` for node-local storage.
+                --mount FROM_PATH:MOUNT_PATH:VOLUME
+                    Repeatable or comma-separated. Persistent storage to mount,
+                    split on the first two colons (so `VOLUME` may itself
+                    contain a colon). `VOLUME` is `node-local`, or
+                    `node-<type>:<storage_name>` for a named volume (e.g.
+                    `node-nfs:my-nfs`). Examples: `/data:/mnt/data:node-local` or
+                    `/hf-cache:/root/.cache/huggingface:node-nfs:my-nfs`.
             """).rstrip()
         return f"{base_help}\n\n{group_help}"
 
@@ -418,6 +421,7 @@ def _build_group_spec(
     env_kvs: list[str] | None,
     secret_kvs: list[str] | None,
     mounts: list[str] | None,
+    mount_option_name: str = "--mount",
     container_image: str | None = None,
     container_command: list[str] | None = None,
     node_groups: list[str] | None,
@@ -459,7 +463,11 @@ def _build_group_spec(
             list(env_kvs or []), list(secret_kvs or [])
         )
     if mounts:
-        spec.mounts = make_mounts_from_strings(list(mounts))
+        try:
+            spec.mounts = make_mounts_from_strings(list(mounts))
+        except ValueError as e:
+            console.print(f"[red]{label}: Error parsing {mount_option_name}[/]: {e}")
+            sys.exit(1)
 
     if spec.container is None:
         spec.container = LeptonContainer()
@@ -623,7 +631,11 @@ def _merge_cli_into_worker_spec(
 
     mount_list = _flatten_csv_list(cli_overrides.get("mount"))
     if mount_list:
-        spec.mounts = make_mounts_from_strings(mount_list)
+        try:
+            spec.mounts = make_mounts_from_strings(mount_list)
+        except ValueError as e:
+            console.print(f"[red]{cli_wg_context}: Error parsing --mount[/]: {e}")
+            sys.exit(1)
 
     node_group_val = cli_overrides.get("node_group")
     reservation_val = cli_overrides.get("reservation")
@@ -882,7 +894,11 @@ def _build_worker_spec_from_cli(
 
     mounts_list = _flatten_csv_list(g.get("mount"))
     if mounts_list:
-        ws.mounts = make_mounts_from_strings(mounts_list)
+        try:
+            ws.mounts = make_mounts_from_strings(mounts_list)
+        except ValueError as e:
+            console.print(f"[red]{cli_wg_context}: Error parsing --mount[/]: {e}")
+            sys.exit(1)
 
     node_group_val = g.get("node_group")
     allowed_nodes_csv = g.get("allowed_nodes")
@@ -1145,11 +1161,12 @@ def list_command(name):
 @click.option(
     "--head-mount",
     help=(
-        "Persistent storage to be mounted to the head group, in the format "
-        "`STORAGE_PATH:MOUNT_PATH:MOUNT_FROM`, where `STORAGE_PATH` is the path"
-        " inside the volume, `MOUNT_PATH` is the container mount point, and"
-        " `MOUNT_FROM` is `<type>:<storage_name>` (e.g. `node-nfs:my-nfs`) or"
-        " `node-local` for node-local storage."
+        "Persistent storage to mount to the head group, as"
+        " `FROM_PATH:MOUNT_PATH:VOLUME` (split on the first two colons, so"
+        " `VOLUME` may itself contain a colon). `VOLUME` is `node-local`, or"
+        " `node-<type>:<storage_name>` for a named volume (e.g."
+        " `node-nfs:my-nfs`). Examples: `/data:/mnt/data:node-local` or"
+        " `/hf-cache:/root/.cache/huggingface:node-nfs:my-nfs`."
     ),
     multiple=True,
 )
@@ -1341,6 +1358,7 @@ def create(
         env_kvs=list(head_env or []),
         secret_kvs=list(head_secret or []),
         mounts=list(head_mount or []),
+        mount_option_name="--head-mount",
         container_image=resolved_head_image,
         container_command=head_command_parsed,
         node_groups=list(head_node_group),
