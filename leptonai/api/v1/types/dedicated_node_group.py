@@ -84,6 +84,7 @@ class DedicatedNodeGroupSpec(BaseModel):
     infini_band_enabled: Optional[bool] = None
     scheduling_policy: Optional[SchedulingPolicy] = None
     owner: Optional[str] = None
+    node_mode: Optional[str] = None
     networking: Optional[NetworkConfigurations] = None
     alert_notification_config: Optional[AlertNotificationConfig] = None
 
@@ -124,8 +125,8 @@ class NodeResourceGPU(BaseModel):
 
 
 class NodeResourceDisk(BaseModel):
-    # TODO: get the current disk usage and total
-    pass
+    total_bytes: Optional[int] = None
+    used_bytes: Optional[int] = None
 
 
 class NodeResourceSystem(BaseModel):
@@ -157,6 +158,8 @@ class NodeResource(BaseModel):
 class NodeSpec(BaseModel):
     dedicated_node_group: Optional[str] = None
     public_op: Optional[str] = None
+    provider: Optional[str] = None
+    provider_region: Optional[str] = None
     resource: Optional[NodeResource] = None
     unschedulable: bool
 
