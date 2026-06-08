@@ -4,6 +4,7 @@ from typing import List, Union
 from .api_resource import APIResourse
 
 from .types.dedicated_node_group import DedicatedNodeGroup, Node
+from .types.node_reservation import NodeReservation
 
 
 class DedicatedNodeGroupAPI(APIResourse):
@@ -25,5 +26,13 @@ class DedicatedNodeGroupAPI(APIResourse):
             f"/dedicated-node-groups/{self._to_name(name_or_ng)}/nodes"
         )
         return self.ensure_list(response, Node)
+
+    def list_reservations(
+        self, name_or_ng: Union[str, DedicatedNodeGroup]
+    ) -> List[NodeReservation]:
+        response = self._get(
+            f"/dedicated-node-groups/{self._to_name(name_or_ng)}/reservations"
+        )
+        return self.ensure_list(response, NodeReservation)
 
     # todo: implement more node management and monitoring APIs

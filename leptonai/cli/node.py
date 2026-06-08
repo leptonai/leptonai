@@ -5,6 +5,7 @@ from rich.table import Table
 from .util import (
     console,
     click_group,
+    format_timestamp_ms,
     get_client,
     make_name_id_cell,
     resolve_node_groups,
@@ -418,6 +419,168 @@ def list_nodes_command(name):
                 _format_memory_cell(resource.memory if resource else None),
                 _format_disk_cell(resource.disk if resource else None),
             )
+
+        console.print(table)
+
+
+def _colorize_reservation_phase(phase):
+    """Colorize a reservation phase for visualization.
+
+    Mirrors the backend phase semantics: 'Reserved' is the usable end state,
+    'Reserving'/'WaitingEffective' are in-progress, 'PendingApproval' is waiting
+    on an admin, and 'Rejected'/'Expired' are dead.
+    """
+    text = (getattr(phase, "value", phase) if phase is not None else None) or "-"
+    if text == "Reserved":
+        return f"[green]{text}[/green]"
+    if text in ("Reserving", "WaitingEffective"):
+        return f"[cyan]{text}[/cyan]"
+    if text == "PendingApproval":
+        return f"[yellow]{text}[/yellow]"
+    if text in ("Rejected", "Expired"):
+        return f"[red]{text}[/red]"
+    return f"[dim]{text}[/dim]"
+
+
+def _format_reservation_gpu_cell(reserved_nodes, node_gpu_by_id):
+    """Aggregate GPU used/total across a reservation's reserved nodes.
+
+    The reservation payload carries no GPU data, so we cross-reference the
+    reserved node IDs against the node group's node list (node_gpu_by_id maps a
+    node id to its NodeResourceGPU). 'avail' is the idle GPU on those nodes.
+    """
+    used = 0.0
+    total = 0.0
+    products = set()
+    matched = 0
+    for node_id in reserved_nodes or []:
+        gpu = node_gpu_by_id.get(node_id)
+        if not gpu or gpu.total is None:
+            continue
+        matched += 1
+        total += gpu.total or 0
+        used += gpu.allocated or 0
+        if gpu.product:
+            products.add(gpu.product)
+    if matched == 0:
+        return "[dim]-[/dim]"
+    product = products.pop() if len(products) == 1 else "GPU"
+    avail = total - used
+    avail_color = "green" if avail > 0 else "dim"
+    return (
+        f"{product}\n[{avail_color}]{_trim_num(avail)} avail[/{avail_color}]"
+        f" · {_format_used_total(used, total)} used"
+    )
+
+
+def _format_reservation_row(reservation, node_gpu_by_id):
+    """Build a single 'lep node list-reservations' table row from a NodeReservation."""
+    meta = reservation.metadata
+    spec = reservation.spec
+    status = reservation.status
+
+    # Reservation: display name on metadata.name (spec.display_name as fallback) / id.
+    display_name = meta.name or (getattr(spec, "display_name", None) if spec else None)
+    name_id = make_name_id_cell(display_name, meta.id_)
+
+    status_cell = _colorize_reservation_phase(status.phase if status else None)
+
+    # Nodes: desired / approved / reserved, with reserved node ids listed below.
+    desired = spec.desired_nodes if spec else None
+    approved = spec.approved_nodes if spec else None
+    reserved = status.reserved_count if status else 0
+    reserved_nodes = (status.reserved_nodes if status else None) or []
+    desired_str = _trim_num(desired) if desired is not None else "[dim]-[/dim]"
+    approved_str = _trim_num(approved) if approved is not None else "[dim]-[/dim]"
+    reserved_color = "green" if reserved else "dim"
+    nodes_lines = [
+        f"{desired_str} / {approved_str} /"
+        f" [{reserved_color}]{_trim_num(reserved)}[/{reserved_color}]"
+    ]
+    for node_id in reserved_nodes:
+        nodes_lines.append(f"[dim]{node_id}[/dim]")
+    nodes_cell = "\n".join(nodes_lines)
+
+    gpu_cell = _format_reservation_gpu_cell(reserved_nodes, node_gpu_by_id)
+
+    users = (spec.users if spec else None) or []
+    users_cell = "\n".join(users) if users else "[dim]-[/dim]"
+
+    # Created: created_by plus created_at, which is in MILLISECONDS.
+    created_by = (spec.created_by if spec else None) or "-"
+    created_cell = f"[dim]{created_by}[/dim]\n{format_timestamp_ms(meta.created_at)}"
+
+    return (
+        name_id,
+        status_cell,
+        nodes_cell,
+        gpu_cell,
+        users_cell,
+        created_cell,
+    )
+
+
+@node.command(name="list-reservations")
+@click.argument("name", type=str)
+def list_reservations_command(name):
+    """
+    List node reservations under a node group.
+
+    NAME is the node group name or ID (partial match supported, e.g. 'h100').
+    For each reservation it shows the status, the desired/approved/reserved node
+    counts (with the reserved node IDs), the GPU usage on the reserved nodes, the
+    authorized users, and who created it and when.
+    """
+    node_groups = resolve_node_groups([name], is_exact_match=False)
+    if not node_groups:
+        return
+
+    client = get_client()
+
+    for node_group in node_groups:
+        ng_name = node_group.metadata.name
+        ng_id = node_group.metadata.id_
+
+        try:
+            reservations = client.nodegroup.list_reservations(node_group)
+        except Exception as e:
+            console.print(
+                f"[red]Failed to fetch reservations for {ng_name} ({ng_id}):[/red] {e}"
+            )
+            continue
+
+        if not reservations:
+            console.print(
+                f"[yellow]No reservations found in node group {ng_name}"
+                f" ({ng_id}).[/yellow]"
+            )
+            continue
+
+        # Reservations carry only node IDs; fetch the nodes once to resolve the
+        # GPU usage of each reservation's reserved nodes.
+        node_gpu_by_id = {}
+        try:
+            for node in client.nodegroup.list_nodes(node_group):
+                resource = node.spec.resource if node.spec else None
+                gpu = resource.gpu if resource else None
+                if gpu is not None:
+                    node_gpu_by_id[node.metadata.id_] = gpu
+        except Exception as e:
+            console.print(
+                f"[dim]Warning:[/dim] Failed to fetch nodes for GPU usage in"
+                f" {ng_name} ({ng_id}): {e}"
+            )
+
+        table = Table(title=f"Reservations in {ng_name} ({ng_id})", show_lines=True)
+        table.add_column("Reservation")
+        table.add_column("Status")
+        table.add_column("Nodes\n[dim](desired / approved / reserved)[/dim]")
+        table.add_column("GPU Usage\n[dim](avail · used/total)[/dim]")
+        table.add_column("Users")
+        table.add_column("Created")
+
+        for reservation in reservations:
+            table.add_row(*_format_reservation_row(reservation, node_gpu_by_id))
 
         console.print(table)
 
