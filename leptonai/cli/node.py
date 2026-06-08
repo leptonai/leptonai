@@ -26,7 +26,9 @@ def _is_node_usable(node):
     status = (node.status.status if node.status else None) or []
     spec = getattr(node, "spec", None)
     return bool(spec) and (
-        not getattr(spec, "unschedulable", True) and "Ready" in status and "Unhealthy" not in status
+        not getattr(spec, "unschedulable", True)
+        and "Ready" in status
+        and "Unhealthy" not in status
     )
 
 
@@ -568,7 +570,7 @@ def list_reservations_command(name):
                     node_gpu_by_id[node.metadata.id_] = gpu
         except Exception as e:
             console.print(
-                f"[dim]Warning:[/dim] Failed to fetch nodes for GPU usage in"
+                "[dim]Warning:[/dim] Failed to fetch nodes for GPU usage in"
                 f" {ng_name} ({ng_id}): {e}"
             )
 
