@@ -24,8 +24,9 @@ def node():
 def _is_node_usable(node):
     """A node is usable when it is ready, healthy, and schedulable."""
     status = (node.status.status if node.status else None) or []
-    return (
-        not node.spec.unschedulable and "Ready" in status and "Unhealthy" not in status
+    spec = getattr(node, "spec", None)
+    return bool(spec) and (
+        not getattr(spec, "unschedulable", True) and "Ready" in status and "Unhealthy" not in status
     )
 
 
@@ -73,7 +74,7 @@ def _get_node_group_stats(nodes):
             stats["gpu_total"] += total
             stats["gpu_used"] += used
             if usable:
-                stats["gpu_avail"] += total - used
+                stats["gpu_avail"] += max(0, total - used)
         if resource.cpu:
             stats["cpu_used"] += resource.cpu.allocated or 0
             stats["cpu_total"] += resource.cpu.total or 0
@@ -324,7 +325,7 @@ def _format_gpu_cell(gpu, usable=True):
         return "[dim]-[/dim]"
     product = gpu.product or "GPU"
     allocated = gpu.allocated or 0
-    avail = (gpu.total - allocated) if usable else 0
+    avail = max(0, gpu.total - allocated) if usable else 0
     avail_color = "green" if avail > 0 else "dim"
     return (
         f"{product}\n[{avail_color}]{_trim_num(avail)} avail[/{avail_color}]"
