@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from ..v1.api_resource import APIResourse
 
 from ..v1.types.dedicated_node_group import DedicatedNodeGroup, Node
+from ..v1.types.node_reservation import NodeReservation
 
 
 class DedicatedNodeGroupAPI(APIResourse):
@@ -33,6 +34,14 @@ class DedicatedNodeGroupAPI(APIResourse):
             params={"idle": "true"},
         )
         return self.ensure_list(response, Node)
+
+    def list_reservations(
+        self, name_or_ng: Union[str, DedicatedNodeGroup]
+    ) -> List[NodeReservation]:
+        response = self._get(
+            f"/dedicated-node-groups/{self._to_name(name_or_ng)}/reservations"
+        )
+        return self.ensure_list(response, NodeReservation)
 
     # todo: implement more node management and monitoring APIs
 
