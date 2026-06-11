@@ -7,10 +7,7 @@ import warnings
 from . import connection
 from . import deployment
 from . import job
-from . import kv
 from . import nodegroup
-from . import objectstore
-from . import queue
 from . import secret
 from . import storage
 from . import types

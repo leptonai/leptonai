@@ -13,7 +13,6 @@ The LeptonAI Python library lets you operate the [NVIDIA DGX Cloud Lepton](https
 
 - A `lep` command-line tool to create and manage endpoints, batch jobs, dev pods, Ray and Slurm clusters, fine-tuning jobs, storage, secrets, and more.
 - A `Client` to call your deployed endpoints like native Python functions.
-- Building blocks — `KV`, `Queue`, and object storage — to back your services with managed state.
 - Pythonic configuration specs that are readily shipped to the cloud.
 - Skills that let agents operate the Lepton platform for you.
 
