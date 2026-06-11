@@ -4,7 +4,7 @@ from typing import Dict, Optional
 
 from loguru import logger
 
-from .quota import TotalResource, TotalService
+from .quota import TotalResource
 
 
 class WorkspaceState(str, Enum):
@@ -42,11 +42,6 @@ class ResourceQuota(BaseModel):
     used: TotalResource
 
 
-class ServiceQuota(BaseModel):
-    limit: TotalService
-    used: TotalService
-
-
 class WorkspaceInfo(BaseModel):
     # Implementation note: inlined version.Info in the go backend.
     build_time: str
@@ -61,5 +56,4 @@ class WorkspaceInfo(BaseModel):
     workspace_disk_usage_bytes: int
     workloads: Workloads
     resource_quota: ResourceQuota
-    service_quota: ServiceQuota
     dedicated_node_group_only: Optional[bool] = None

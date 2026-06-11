@@ -1,6 +1,6 @@
 ---
 name: lepton-cli
-description: "Operate NVIDIA DGX Cloud Lepton through the globally installed `lep` CLI. Use when the user asks to inspect or manage Lepton workspaces, endpoints/deployments, dev pods, batch jobs, fine-tuning jobs, Ray clusters, Slurm clusters, Dynamo endpoints, storage, secrets, queues, nodes, ingress, templates, logs, authentication, or workspace status — or any task that needs safe command-line access to Lepton resources. Skip when the user is operating a different cloud or a different `lep`/`lepton` tool that isn't NVIDIA DGX Cloud Lepton."
+description: "Operate NVIDIA DGX Cloud Lepton through the globally installed `lep` CLI. Use when the user asks to inspect or manage Lepton workspaces, endpoints/deployments, dev pods, batch jobs, fine-tuning jobs, Ray clusters, Slurm clusters, Dynamo endpoints, storage, secrets, nodes, ingress, templates, logs, authentication, or workspace status — or any task that needs safe command-line access to Lepton resources. Skip when the user is operating a different cloud or a different `lep`/`lepton` tool that isn't NVIDIA DGX Cloud Lepton."
 ---
 
 # Lepton CLI

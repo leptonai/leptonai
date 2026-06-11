@@ -667,8 +667,8 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     hidden=True,
     help=(
         "If specified, the workspace token will be included as an environment variable."
-        " This is used when the deployment code uses Lepton SDK capabilities such as"
-        " queue, KV, objectstore etc. Note that you should trust the code in the"
+        " This is used when the deployment code uses Lepton SDK capabilities that"
+        " require the workspace token. Note that you should trust the code in the"
         " deployment, as it will have access to the workspace token."
     ),
     default=False,

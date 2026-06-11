@@ -22,7 +22,7 @@
   "interface": {
     "displayName": "Lepton CLI",
     "shortDescription": "Operate DGX Cloud Lepton from Codex.",
-    "longDescription": "Use the globally installed lep CLI to inspect and manage NVIDIA DGX Cloud Lepton workspaces, endpoints, jobs, pods, storage, secrets, queues, nodes, ingress, templates, logs, authentication, and workspace status.",
+    "longDescription": "Use the globally installed lep CLI to inspect and manage NVIDIA DGX Cloud Lepton workspaces, endpoints, jobs, pods, storage, secrets, nodes, ingress, templates, logs, authentication, and workspace status.",
     "developerName": "Lepton AI",
     "category": "Developer Tools",
     "capabilities": [

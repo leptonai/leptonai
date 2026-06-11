@@ -33,8 +33,8 @@ class TestLepCli(unittest.TestCase):
     def test_reject_empty_string_option(self):
         runner = CliRunner()
         # Use a representative command that requires a string
-        # For example: `lep queue create --name ""` should fail
-        result = runner.invoke(cli, ["queue", "create", "--name", ""])  # type: ignore
+        # For example: `lep secret create --name ""` should fail
+        result = runner.invoke(cli, ["secret", "create", "--name", ""])  # type: ignore
         self.assertNotEqual(result.exit_code, 0)
         self.assertIn("empty", (result.output or "") + (result.stderr or ""))
 

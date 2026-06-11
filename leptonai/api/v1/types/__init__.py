@@ -11,8 +11,6 @@ from . import deployment
 from . import events
 from . import ingress
 from . import job
-from . import kv
-from . import object_storage
 from . import secret
 from . import quota
 from . import readiness
