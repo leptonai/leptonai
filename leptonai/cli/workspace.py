@@ -43,11 +43,6 @@ def workspace():
     default=None,
 )
 @click.option(
-    "--lepton-classic",
-    is_flag=True,
-    help="Login to the classic Lepton AI workspace.",
-)
-@click.option(
     "--workspace-origin-url",
     help=(
         "Internal option for setting the Origin header in API calls. Used for workspace"
@@ -60,7 +55,6 @@ def login(
     workspace_id: str,
     auth_token: Optional[str] = None,
     workspace_url: Optional[str] = None,
-    lepton_classic: bool = False,
     workspace_origin_url: Optional[str] = None,
 ):
     """
@@ -69,17 +63,17 @@ def login(
     if workspace_id is None:
         # If workspace_id is not given and current workspace is present, we will
         # simply print the info.
-        if auth_token or workspace_url or workspace_origin_url or lepton_classic:
+        if auth_token or workspace_url or workspace_origin_url:
             console.print(
                 "\n[bold red]Invalid usage:[/bold red] --auth-token,"
-                " --workspace-url,"
-                " --workspace-origin-url, and --lepton-classic must be used together"
+                " --workspace-url, and"
+                " --workspace-origin-url must be used together"
                 " with --workspace-id.\n[white]Either provide workspace id or remove"
                 " these options to avoid misconfiguring local"
                 " workspaces.[/white]\n[yellow]Example:[/yellow] [#76B900]lep workspace"
                 " login -i <workspace_id> [--auth-token <auth_token>]"
                 " [--workspace-url <url>]"
-                " [--workspace-origin-url <url>] [--lepton-classic][/]\n"
+                " [--workspace-origin-url <url>][/]\n"
             )
             sys.exit(1)
         if WorkspaceRecord.current():
@@ -96,7 +90,7 @@ def login(
                 could_be_new_token=True,
             )
         else:
-            WorkspaceRecord.set_or_exit(workspace_id, auth_token=info.auth_token, url=info.url, workspace_origin_url=info.workspace_origin_url, is_lepton_classic=lepton_classic)  # type: ignore
+            WorkspaceRecord.set_or_exit(workspace_id, auth_token=info.auth_token, url=info.url, workspace_origin_url=info.workspace_origin_url)  # type: ignore
     else:
         if not auth_token:
             console.print(
@@ -110,7 +104,6 @@ def login(
             auth_token=auth_token,
             url=workspace_url,
             workspace_origin_url=workspace_origin_url,
-            is_lepton_classic=lepton_classic,
             could_be_new_token=True,
         )
     # Try to login and print the info.
@@ -189,7 +182,6 @@ def list_command(debug):
     table.add_column("Expires")
     if debug:
         table.add_column("Origin URL")
-        table.add_column("Lepton classic")
     for info in workspace_list:
         name_text = info.display_name or ""
         id_text = info.id_ or ""
@@ -245,7 +237,6 @@ def list_command(debug):
         if debug:
             row_data.extend([
                 info.workspace_origin_url,
-                str(info.is_lepton_classic),
             ])
         table.add_row(*row_data)
     if current_workspace:

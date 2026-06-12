@@ -35,7 +35,6 @@ class LocalWorkspaceInfo(BaseModel):
     display_name: Optional[str] = None
     auth_token: Optional[str] = None
     workspace_origin_url: Optional[str] = None
-    is_lepton_classic: Optional[bool] = False
     token_expires_at: Optional[int] = None
 
 
@@ -109,7 +108,6 @@ class WorkspaceRecord(object):
         auth_token: Optional[str] = None,
         url: Optional[str] = None,
         workspace_origin_url: Optional[str] = None,
-        is_lepton_classic: Optional[bool] = None,
         could_be_new_token: Optional[bool] = False,
     ):
         """
@@ -130,7 +128,7 @@ class WorkspaceRecord(object):
         )
 
         # _get_workspace_display_name is called in two scenarios:
-        # 1. Initial CLI login without URL (for both DGXC and CLASSIC workspaces will use default urls)
+        # 1. Initial CLI login without URL (will use the default resolver url)
         # 2. CLI login with URL (will use input url)
         #    Note: This works for DGXC as the resolver api URL matches the workspace URL.
         #    Future workspace types may require additional modifications.
@@ -139,17 +137,15 @@ class WorkspaceRecord(object):
                 display_name = _get_workspace_display_name(
                     workspace_id,
                     url=url,
-                    is_lepton_classic=is_lepton_classic,
                     token=auth_token,
                 )
             except RuntimeError as e:
                 logger.trace(
                     "Failed to fetch workspace display name"
-                    f" (workspace_id={workspace_id}, url={url},"
-                    f" is_lepton_classic={is_lepton_classic}): {e}"
+                    f" (workspace_id={workspace_id}, url={url}): {e}"
                 )
                 display_name = None
-        if token_expires_at is None and not is_lepton_classic:
+        if token_expires_at is None:
             try:
                 token_expires_at = _get_token_expires_at(
                     workspace_id,
@@ -163,9 +159,7 @@ class WorkspaceRecord(object):
                 )
                 token_expires_at = None
         if url is None:
-            url = _get_full_workspace_api_url(
-                workspace_id, is_lepton_classic=is_lepton_classic
-            )
+            url = _get_full_workspace_api_url(workspace_id)
         if not workspace_origin_url:
             workspace_origin_url = _get_workspace_origin_url(url)
         # Create workspace info with optional workspace_origin_url
@@ -175,7 +169,6 @@ class WorkspaceRecord(object):
             display_name=display_name,
             auth_token=auth_token,
             workspace_origin_url=workspace_origin_url,
-            is_lepton_classic=is_lepton_classic,
             token_expires_at=token_expires_at,
         )
         cls._singleton_record.current_workspace = workspace_id
@@ -188,7 +181,6 @@ class WorkspaceRecord(object):
         auth_token: Optional[str] = None,
         url: Optional[str] = None,
         workspace_origin_url: Optional[str] = None,
-        is_lepton_classic: Optional[bool] = None,
         could_be_new_token: Optional[bool] = False,
     ):
         """
@@ -201,7 +193,6 @@ class WorkspaceRecord(object):
                 auth_token,
                 url,
                 workspace_origin_url,
-                is_lepton_classic,
                 could_be_new_token,
             )
         except WorkspaceNotCreatedYet:
@@ -252,7 +243,6 @@ class WorkspaceRecord(object):
                 ws.auth_token,
                 ws.url,
                 ws.workspace_origin_url,
-                ws.is_lepton_classic,
             )
         else:
             raise ValueError(
@@ -296,7 +286,7 @@ class WorkspaceRecord(object):
         Returns the base dashboard URL derived from the current workspace URL.
         """
         info = cls.get(workspace_id) if workspace_id else cls.current()
-        if not info or info.is_lepton_classic:
+        if not info:
             return None
         base = (info.url or "").replace("://gateway", "://dashboard", 1)
         base = base.replace("/api/v2", "", 1)
@@ -321,7 +311,7 @@ class WorkspaceRecord(object):
             return cls.get(workspace_id).token_expires_at
 
         info = cls.get(workspace_id)
-        if not info or info.is_lepton_classic:
+        if not info:
             return None
         try:
             token_expires_at = _get_token_expires_at(

@@ -58,7 +58,6 @@ class APIClient(object):
         auth_token: Optional[str] = None,
         url: Optional[str] = None,
         workspace_origin_url: Optional[str] = None,
-        is_lepton_classic: Optional[bool] = None,
     ):
         """
         Creates a workspace api client by identifying the workspace in the following
@@ -80,14 +79,6 @@ class APIClient(object):
         #  - environment variable LEPTON_WORKSPACE_ID
         #  - current workspace of the workspace record
         # and if there is still no choice, we will throw an error.
-        is_lepton_classic = (
-            is_lepton_classic
-            or os.environ.get("LEPTON_CLASSIC")
-            or WorkspaceRecord.current().is_lepton_classic
-            if WorkspaceRecord.current()
-            else False
-        )
-
         workspace_id = (
             workspace_id
             or os.environ.get("LEPTON_WORKSPACE_ID")
@@ -126,9 +117,7 @@ class APIClient(object):
                 if WorkspaceRecord.has(workspace_id)
                 else None
             )
-            or _get_full_workspace_api_url(
-                workspace_id, is_lepton_classic=is_lepton_classic
-            )
+            or _get_full_workspace_api_url(workspace_id)
         )
         workspace_origin_url = (
             workspace_origin_url
@@ -151,10 +140,9 @@ class APIClient(object):
         self.auth_token: Optional[str] = auth_token
         self.url: str = url
         self.workspace_origin_url: Optional[str] = workspace_origin_url
-        self.is_lepton_classic: Optional[bool] = is_lepton_classic
         self.token_expires_at: Optional[int] = token_expires_at
 
-        if not self.is_lepton_classic and self.token_expires_at is not None:
+        if self.token_expires_at is not None:
             global HAS_WARNED_TOKEN_EXPIRE
             if not HAS_WARNED_TOKEN_EXPIRE:
                 now_ms = int(time.time() * 1000)
@@ -188,8 +176,7 @@ class APIClient(object):
             f"  id: {self.workspace_id}\n"
             f"  url: {self.url}\n"
             f"  auth_token: {self.auth_token[:2]}****{self.auth_token[-2:]}\n"
-            f"  workspace_origin_url: {self.workspace_origin_url}\n"
-            f"  is_lepton_classic: {self.is_lepton_classic}"
+            f"  workspace_origin_url: {self.workspace_origin_url}"
         )
 
         # In default, timeout for the API calls is set to 120 seconds.
@@ -322,8 +309,6 @@ class APIClient(object):
         """
         Returns the base dashboard URL derived from the current workspace URL.
         """
-        if self.is_lepton_classic:
-            return None
         base = (self.url or "").replace("://gateway", "://dashboard", 1)
         base = base.replace("/api/v2", "", 1)
         base = base.replace("/workspaces", "/workspace", 1)
