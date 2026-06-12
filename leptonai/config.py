@@ -27,17 +27,6 @@ VERSION_CHECK_INTERVAL_SEC: int = 60 * 60 * 24  # 24h
 # Configurations you can change to customize Lepton's behavior.
 ################################################################################
 
-# Whether to trust remote code. This is often used in model repositories such as
-# HuggingFace's tokenizer. In default, we will allow users to trust remote code
-# and run such tokenizers. Set the environment variable `LEPTON_TRUST_REMOTE_CODE`
-# to `false` to disable this behavior.
-TRUST_REMOTE_CODE = os.environ.get("LEPTON_TRUST_REMOTE_CODE", "true").lower() in (
-    "true",
-    "1",
-    "t",
-    "on",
-)
-
 # Whether to set deployments to have a default timeout of 1 hour. This is often
 # preferred in a development environment. Set the environment variable `LEPTON_DEFAULT_TIMEOUT`
 # to `false` to disable this behavior.
@@ -166,7 +155,6 @@ else:
 # If you are in need of accessing the cache directory, use the functions `create_cached_dir_if_needed()`
 # in `leptonai.utils`.
 CACHE_DIR = Path(os.environ.get("LEPTON_CACHE_DIR", Path.home() / ".cache" / "lepton"))
-DB_PATH = CACHE_DIR / "lepton.db"
 LOGS_DIR = CACHE_DIR / "logs"
 
 
@@ -212,16 +200,6 @@ except ValueError:
         "You have set an invalid value for LEPTON_TIMEOUT_KEEP_ALIVE."
         f" Using default value of {DEFAULT_TIMEOUT_KEEP_ALIVE} seconds."
     )
-
-# When the server is shut down, we will wait for all the ongoing requests to finish before
-# shutting down. This is the timeout for the graceful shutdown. If the timeout is
-# reached, we will force kill the server. If not set, this is the default that we will use.
-# Implementation note: None means we will use the default behavior of asyncio.
-DEFAULT_TIMEOUT_GRACEFUL_SHUTDOWN = (
-    int(os.environ["LEPTON_TIMEOUT_GRACEFUL_SHUTDOWN"])
-    if os.environ.get("LEPTON_TIMEOUT_GRACEFUL_SHUTDOWN")
-    else None
-)
 
 # During some deployment environments, the server might run behind a load balancer, and during
 # the shutdown time, the load balancer will send a SIGTERM to uvicorn to shut down the server.
@@ -280,9 +258,6 @@ def get_local_deployment_token() -> str:
         return _LOCAL_DEPLOYMENT_TOKEN
 
 
-# In a deployment template, this means you will need to specify env variables.
-ENV_VAR_REQUIRED = "PLEASE_ENTER_YOUR_ENV_VARIABLE_HERE_(LEPTON_ENV_VAR_REQUIRED)"
-
 # Valid resource shapes
 VALID_SHAPES = [
     "cpu.small",
@@ -325,7 +300,6 @@ LEPTON_RESERVED_ENV_NAMES = {
     "LEPTON_DEPLOYMENT_NAME",
     "LEPTON_RESOURCE_ACCELERATOR_TYPE",
     "LEPTON_WORKSPACE_ORIGIN_URL",
-    "LEPTON_CLASSIC",
 }
 
 if "LEPTON_ALLOW_ORIGINS" in os.environ:

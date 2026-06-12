@@ -94,12 +94,6 @@ finetune.add_command(lep)
     default=None,
 )
 @click.option(
-    "--lepton-classic",
-    "-l",
-    is_flag=True,
-    help="Login to the classic Lepton AI workspace.",
-)
-@click.option(
     "--workspace-origin-url",
     "-o",
     help="The origin url of the workspace to login to.",
@@ -116,7 +110,6 @@ finetune.add_command(lep)
 def login(
     credentials,
     workspace_url,
-    lepton_classic,
     workspace_origin_url,
     credentials_page_url,
 ):
@@ -135,19 +128,18 @@ def login(
             auth_token=auth_token,
             url=workspace_url,
             workspace_origin_url=workspace_origin_url,
-            is_lepton_classic=lepton_classic,
             could_be_new_token=True,
         )
     else:
-        if workspace_url or lepton_classic or workspace_origin_url:
+        if workspace_url or workspace_origin_url:
             console.print(
-                "[bold red]Invalid usage:[/bold red] --workspace-url,"
-                " --workspace-origin-url, and --lepton-classic must be used together"
+                "[bold red]Invalid usage:[/bold red] --workspace-url and"
+                " --workspace-origin-url must be used together"
                 " with --credentials.\n[white]Either provide credentials or remove"
                 " these options to avoid misconfiguring local"
                 " workspaces.[/white]\n[yellow]Example:[/yellow] [#76B900]lep login -c"
                 " <workspace_id>:<auth_token> [--workspace-url <url>]"
-                " [--workspace-origin-url <url>] [--lepton-classic][/]\n"
+                " [--workspace-origin-url <url>][/]\n"
             )
             sys.exit(1)
         if WorkspaceRecord.current():
@@ -159,8 +151,7 @@ def login(
                 f" {current_ws.url}\n  display_name: {current_ws.display_name}\n "
                 " auth_token:"
                 f" {current_ws.auth_token[:2]}****{current_ws.auth_token[-2:] if current_ws.auth_token else None}\n"
-                f"  workspace_origin_url: {current_ws.workspace_origin_url}\n "
-                f" is_lepton_classic: {current_ws.is_lepton_classic}"
+                f"  workspace_origin_url: {current_ws.workspace_origin_url}"
             )
         else:
             candidates = WorkspaceRecord.workspaces()
@@ -169,7 +160,7 @@ def login(
             elif len(candidates) == 1:
                 # Only one workspace, so we will simply log in to that one.
                 ws = candidates[0]
-                WorkspaceRecord.set_or_exit(ws.id_, ws.auth_token, ws.url, ws.workspace_origin_url, ws.is_lepton_classic)  # type: ignore
+                WorkspaceRecord.set_or_exit(ws.id_, ws.auth_token, ws.url, ws.workspace_origin_url)  # type: ignore
             else:
                 # multiple workspaces. login to one of them.
                 console.print("You have multiple workspaces. Please select one:")
@@ -188,7 +179,6 @@ def login(
                     candidates[choice].auth_token,
                     candidates[choice].url,
                     candidates[choice].workspace_origin_url,
-                    candidates[choice].is_lepton_classic,
                 )
                 console.print(
                     "[dim]Note: If you have multiple workspaces, you can pick the one"
@@ -220,8 +210,6 @@ def login(
             credentials_page_url = (
                 "https://dashboard.dgxc-lepton.nvidia.com/credentials"
             )
-            if lepton_classic:
-                credentials_page_url = "https://dashboard.lepton.ai/credentials"
 
         success = webbrowser.open(credentials_page_url)
         if not success:
@@ -297,10 +285,6 @@ def login(
         [white]Workspace ID:[/white] {e.workspace_id}
 
         [#76B900]If you are logging in with a fresh token, please wait for 2-3 minutes and try again.[/#76B900]
-
-        [white]Note: If you are trying to login to a Lepton classic workspace, please use:[/white]
-        [#76B900]'lep login -c <workspace-id>:<token> --lepton-classic'[/#76B900]
-        [white]Make sure to include the --lepton-classic or -l flag. (Ignore if you are DGXC User)[/white]
 
         [bold]To resolve this issue:[/bold]
             1. [#76B900]Verify your login credentials above.[/#76B900]

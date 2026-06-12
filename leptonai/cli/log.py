@@ -245,26 +245,6 @@ def fetch_all_within_time_slot(
             cur_log_result.extend(cur_log_list)
 
 
-log_help_text = """
-    Manage and retrieve the logs history of specific jobs, deployments and replicas.\n
-    IMPORTANT: \n
-    - 'lep log get' and 'lep log get --path' are intended for quick, time-scoped viewing. \n
-    - They are NOT recommended for downloading logs \n
-    - Prefer using Workspace Dashboard -> Settings -> Logs Export for downloading
-      large-volume logs (jobs/endpoints long-running or with many replicas). \n
-    - Concurrency (workers) is applied only when --limit is NOT used. \n
-    - --limit is deprecated and not recommended. When set, logs will be fetched
-      sequentially without parallelism. It will be removed in a future release. \n 
-    - Interactive mode (next/last/time+/time-) is deprecated and not recommended.
-      It will be removed in a future release. \n
-
-    JOB DEFAULT TIME RANGE: \n
-    - For jobs, --start/--end can be omitted. If omitted, the job's creation_time
-      and completion_time (when available) will be used automatically; if the job
-      has not completed, end defaults to 'now'.
-"""
-
-
 @click_group()
 def log():
     """
