@@ -2017,19 +2017,6 @@ def update(
             if not confirmed:
                 sys.exit(1)
 
-            replicas = client.deployment.get_replicas(lepton_deployment)
-
-            version_str_list = [lepton_deployment.metadata.semantic_version] + [
-                replica.metadata.semantic_version for replica in replicas
-            ]
-
-            updating_ongoing = not _same_major_version(version_str_list)
-            if updating_ongoing:
-                console.print(
-                    "[red]An update is in progress. Please try again later.[/]"
-                )
-                sys.exit(1)
-
             console.print("Proceeding with the update...")
 
     updated_lepton_deployment = client.deployment.update(
