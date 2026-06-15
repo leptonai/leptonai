@@ -322,13 +322,18 @@ def _parse_ip_whitelist(ip_whitelist_values):
 
 
 def _validate_ip_whitelist_flag_requires_value(ctx, param, value):
-    """Reject option-like tokens and validate IP/CIDR tokens for --ip-whitelist."""
+    """Reject option-like tokens for --ip-whitelist.
+
+    Empty or whitespace-only values are deliberately left to the global
+    empty-string guard (``_ValidatedCommand``) so the error message stays
+    consistent with other options such as ``--env``.
+    """
     if value is None:
         return value
 
     values = value if isinstance(value, tuple) else (value,)
     for v in values:
-        if not isinstance(v, str) or v.strip() == "" or v.strip().startswith("-"):
+        if not isinstance(v, str) or v.strip().startswith("-"):
             opt_name = (
                 param.opts[-1] if getattr(param, "opts", None) else "--ip-whitelist"
             )
