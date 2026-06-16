@@ -341,12 +341,12 @@ def _validate_ip_whitelist_flag_requires_value(ctx, param, value):
 @click_group(hidden=True)
 def deployment():
     """
-    Manage endpoints (formerly called deployments) on the DGX Cloud Lepton.
+    Manage endpoints on the DGX Cloud Lepton.
 
-    An endpoint is a running instance (previously referred to as a
-    deployment). Endpoints are created with the `lep endpoint create` command and
-    typically expose one or more HTTP routes that users can call, either via a
-    RESTful API or through the Python client provided by `leptonai.client`.
+    An endpoint is a running instance. Endpoints are created with the `lep
+    endpoint create` command and typically expose one or more HTTP routes that
+    users can call, either via a RESTful API or through the Python client
+    provided by `leptonai.client`.
 
     The endpoint commands let you list, manage, and remove endpoints on the
     DGX Cloud Lepton.
@@ -450,7 +450,7 @@ def _print_deployments_table(
 # Visible alias group for deployment commands
 @click_group()
 def endpoint():
-    """Manage endpoints (formerly called deployments) on the DGX Cloud Lepton."""
+    """Manage endpoints on the DGX Cloud Lepton."""
     pass
 
 
@@ -533,7 +533,7 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--cserve",
     is_flag=True,
     default=False,
-    help="Enable cserve mode and attach cserve options to the deployment spec.",
+    help="Enable cserve mode and attach cserve options to the endpoint spec.",
 )
 @click.option(
     "--cserve-options",
@@ -610,7 +610,7 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
         "Examples: --ip-whitelist 192.168.1.1,10.0.0.0/8 or "
         "--ip-whitelist 192.168.1.1 --ip-whitelist 10.0.0.0/8. "
         "Mutually exclusive with --public. This sets the IP allowlist in the "
-        "deployment's authentication configuration. "
+        "endpoint's authentication configuration. "
         "Note: --tokens are completely independent of IP access control."
     ),
     multiple=True,
@@ -667,9 +667,9 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     hidden=True,
     help=(
         "If specified, the workspace token will be included as an environment variable."
-        " This is used when the deployment code uses Lepton SDK capabilities that"
+        " This is used when the endpoint code uses Lepton SDK capabilities that"
         " require the workspace token. Note that you should trust the code in the"
-        " deployment, as it will have access to the workspace token."
+        " endpoint, as it will have access to the workspace token."
     ),
     default=False,
 )
@@ -1012,7 +1012,7 @@ def create(
     if container_port is not None and spec.container is None:
         console.print(
             "[red]Error[/]: --container-port can only be used with container-based"
-            " deployments."
+            " endpoints."
         )
         sys.exit(1)
 
@@ -1125,7 +1125,7 @@ def create(
     # include workspace token
     secret = list(secret)  # to convert secret from tuple to list
     if include_workspace_token:
-        console.print("Including the workspace token for the deployment execution.")
+        console.print("Including the workspace token for the endpoint execution.")
         _create_workspace_token_secret_var_if_not_existing(client)
         if "LEPTON_WORKSPACE_TOKEN" not in secret:
             secret += [
@@ -1180,8 +1180,6 @@ def create(
         ip_allowlist = getattr(getattr(spec, "auth_config", None), "ip_allowlist", None)
         has_ip_restriction = bool(ip_allowlist)
         has_tokens = bool(getattr(spec, "api_tokens", None))
-        console.print(f"has_ip_restriction: {has_ip_restriction}")
-        console.print(f"has_tokens: {has_tokens}")
         should_warn = not has_ip_restriction and not has_tokens
 
         if should_warn:
@@ -1566,7 +1564,7 @@ def log(name, replica):
     "--min-replicas",
     help=(
         "Number of replicas to update to. Pass `0` to scale the number"
-        " of replicas to zero, in which case the deployment status page"
+        " of replicas to zero, in which case the endpoint status page"
         " will show the endpoint to be `not ready` until you scale it"
         " back with a positive number of replicas."
     ),
@@ -1601,7 +1599,7 @@ def log(name, replica):
         "Examples: --ip-whitelist 192.168.1.1,10.0.0.0/8 or "
         "--ip-whitelist 192.168.1.1 --ip-whitelist 10.0.0.0/8. "
         "Mutually exclusive with --public. This sets the IP allowlist in the "
-        "deployment's authentication configuration."
+        "endpoint's authentication configuration."
     ),
     multiple=True,
     callback=_validate_ip_whitelist_flag_requires_value,
@@ -1765,7 +1763,7 @@ def log(name, replica):
     "--cserve",
     is_flag=True,
     default=False,
-    help="Enable cserve mode and attach cserve options to the deployment spec.",
+    help="Enable cserve mode and attach cserve options to the endpoint spec.",
 )
 @click.option(
     "--cserve-options",
@@ -2122,7 +2120,7 @@ def get(name, path):
 @click.option("--name", "-n", help="The endpoint name to stop.", required=True)
 def stop(name):
     """
-    Stops a deployment by its name.
+    Stops an endpoint by its name.
     """
     client = APIClient()
     endpoint = client.deployment.get(name)
@@ -2133,12 +2131,12 @@ def stop(name):
         LeptonDeploymentState.NotReady,
     ]:
         console.print(
-            f"[yellow]⚠ Deployment [green]{name}[/] is {endpoint.status.state}. No"
+            f"[yellow]⚠ Endpoint [green]{name}[/] is {endpoint.status.state}. No"
             " action taken.[/]"
         )
         sys.exit(0)
     client.deployment.stop(name)
-    console.print(f"Deployment [green]{name}[/] stopped successfully.")
+    console.print(f"Endpoint [green]{name}[/] stopped successfully.")
 
 
 def add_command(cli_group):
