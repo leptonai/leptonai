@@ -53,6 +53,18 @@ pip install -e ".[lint]"
 Then run
 ```
 black .
-ruff .
+ruff check .
 ```
 to check code.
+
+### Auto-format on commit (recommended)
+
+This repo ships a [pre-commit](https://pre-commit.com/) config that runs `ruff --fix` and `black` on the files you are committing, so formatting stays consistent without having to remember to run it by hand.
+
+Installing `.[lint]` (above) installs the `pre-commit` tool, but the git hook is **not** active until you enable it **once per clone**:
+
+```shell
+pre-commit install
+```
+
+After that the hooks run automatically on `git commit`. If a hook reformats a file, the commit is aborted so you can review the change — just `git add` the updated files and commit again. To format the whole repo in one pass, run `pre-commit run --all-files`.
