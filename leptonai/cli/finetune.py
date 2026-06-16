@@ -18,7 +18,11 @@ from .util import (
     PathResolutionError,
 )
 from ..api.v2.client import APIClient
-from leptonai.api.v1.types.job import LeptonJobQueryMode, LeptonJobSegmentConfig
+from leptonai.api.v1.types.job import (
+    LeptonJobQueryMode,
+    LeptonJobSegmentConfig,
+    LeptonJobState,
+)
 from leptonai.api.v1.types.common import Metadata, LeptonVisibility
 from leptonai.api.v1.spec_utils import (
     make_mounts_from_strings,
@@ -439,7 +443,14 @@ def delete_command(id: str, include_archived: bool):
         if include_archived
         else LeptonJobQueryMode.AliveOnly.value
     )
-    client.finetune.get(id, job_query_mode=job_query_mode)
+    job = client.finetune.get(id, job_query_mode=job_query_mode)
+    state = job.status.state if job.status else None
+    if state == LeptonJobState.Archived:
+        console.print(
+            f"Finetune job [yellow]{id}[/] is archived and cannot be deleted — "
+            "its compute resources have already been released."
+        )
+        sys.exit(1)
     client.finetune.delete(id, job_query_mode=job_query_mode)
     console.print(f"Finetune job [green]{id}[/] deleted successfully.")
 
