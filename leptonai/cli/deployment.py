@@ -1959,7 +1959,7 @@ def update(
         elif lb == "sticky-routing":
             lepton_deployment_spec.load_balance_config = {
                 "least_request": None,
-                "maglev": {"useHostnameForHashing": None},
+                "maglev": {},
             }
 
     if header_based_routing is not None:
