@@ -553,7 +553,7 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
 )
 @click.option(
     "--min-replicas",
-    type=int,
+    type=click.IntRange(min=0),
     help="(Will be deprecated soon) Minimum number of replicas.",
     default=1,
 )
@@ -716,7 +716,7 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--replicas-static",
     "-r",
     "-replicas",
-    type=int,
+    type=click.IntRange(min=0),
     default=None,
     help="""
                 Use this option if you want a fixed number of replicas and want to turn off autoscaling.
@@ -1568,7 +1568,7 @@ def log(name, replica):
         " will show the endpoint to be `not ready` until you scale it"
         " back with a positive number of replicas."
     ),
-    type=int,
+    type=click.IntRange(min=0),
     default=None,
 )
 @click.option(
@@ -1636,7 +1636,7 @@ def log(name, replica):
     "--replicas-static",
     "-r",
     "-replicas",
-    type=int,
+    type=click.IntRange(min=0),
     default=None,
     help="""
                 Use this option if you want a fixed number of replicas and want to turn off autoscaling.

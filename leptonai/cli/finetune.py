@@ -331,8 +331,18 @@ def _print_finetune_jobs_table(jobs, dashboard_base_url: Optional[str] = None):
 @click.option(
     "--created-by", type=str, required=False, help="Filter by creator email (single)."
 )
-@click.option("--page", type=int, required=False, help="Page number (1-based).")
-@click.option("--page-size", type=int, required=False, help="Items per page.")
+@click.option(
+    "--page",
+    type=click.IntRange(min=1),
+    required=False,
+    help="Page number (1-based).",
+)
+@click.option(
+    "--page-size",
+    type=click.IntRange(min=1),
+    required=False,
+    help="Items per page.",
+)
 @click.option(
     "--include-archived",
     "-ia",
@@ -503,7 +513,7 @@ def list_trainers_command():
         "[job] Number of workers to use for the job. For distributed execution, set"
         " > 1."
     ),
-    type=int,
+    type=click.IntRange(min=1),
     default=None,
 )
 @click.option(
@@ -513,7 +523,7 @@ def list_trainers_command():
         " num_workers, and num_workers % segment_count == 0. Workers within the same"
         " segment are scheduled into one NVL72 domain."
     ),
-    type=int,
+    type=click.IntRange(min=1),
     default=None,
 )
 @click.option(
