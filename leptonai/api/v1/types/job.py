@@ -102,6 +102,7 @@ class LeptonJobState(str, Enum):
     Queueing = "Queueing"
     Awaiting = "Awaiting"
     PendingRetry = "PendingRetry"
+    Terminating = "Terminating"
     Unknown = "UNK"
 
     @classmethod
