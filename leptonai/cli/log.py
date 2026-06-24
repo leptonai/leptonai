@@ -330,7 +330,7 @@ def log():
 )
 @click.option(
     "--limit",
-    type=int,
+    type=click.IntRange(min=1),
     default=None,
     help="[Deprecated] This option is deprecated and not recommended.",
     hidden=True,

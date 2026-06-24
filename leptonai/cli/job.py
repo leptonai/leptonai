@@ -357,7 +357,7 @@ def job():
         "Number of workers to use for the job. For example, when you do a distributed"
         " training job of 4 replicas, use --num-workers 4."
     ),
-    type=int,
+    type=click.IntRange(min=1),
     default=None,
 )
 @click.option(
@@ -367,7 +367,7 @@ def job():
         " num_workers, and num_workers % segment_count == 0. Workers within the same"
         " segment are scheduled into one NVL72 domain."
     ),
-    type=int,
+    type=click.IntRange(min=1),
     default=None,
 )
 
