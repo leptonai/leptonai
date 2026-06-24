@@ -18,7 +18,10 @@ from .util import (
     PathResolutionError,
 )
 from ..api.v2.client import APIClient
-from leptonai.api.v1.types.job import LeptonJobQueryMode, LeptonJobSegmentConfig
+from leptonai.api.v1.types.job import (
+    LeptonJobQueryMode,
+    LeptonJobSegmentConfig,
+)
 from leptonai.api.v1.types.common import Metadata, LeptonVisibility
 from leptonai.api.v1.spec_utils import (
     make_mounts_from_strings,
@@ -429,16 +432,22 @@ def get_command(id: str, include_archived: bool, path: Optional[str]):
     "-ia",
     is_flag=True,
     default=False,
-    help="Include archived jobs when resolving the ID",
+    help=(
+        "[Deprecated] Archived jobs cannot be deleted; this option does nothing "
+        "and will be removed in the next release."
+    ),
 )
 def delete_command(id: str, include_archived: bool):
     """Delete a finetune job by ID."""
+    if include_archived:
+        raise click.BadParameter(
+            "Archived finetune jobs cannot be deleted — their compute resources "
+            "have already been released. This option is deprecated and will be "
+            "removed in the next release.",
+            param_hint="'--include-archived' / '-ia'",
+        )
     client = APIClient()
-    job_query_mode = (
-        LeptonJobQueryMode.AliveAndArchive.value
-        if include_archived
-        else LeptonJobQueryMode.AliveOnly.value
-    )
+    job_query_mode = LeptonJobQueryMode.AliveOnly.value
     client.finetune.get(id, job_query_mode=job_query_mode)
     client.finetune.delete(id, job_query_mode=job_query_mode)
     console.print(f"Finetune job [green]{id}[/] deleted successfully.")
