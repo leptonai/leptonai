@@ -37,6 +37,44 @@ def _validate_cserve_options_flag_requires_value(ctx, param, value):
     return value
 
 
+def _validate_header_based_routing(ctx, param, value):
+    """Validate and normalize the --header-based-routing flag.
+
+    Accepts only "true"/"false" (case-insensitive) and returns the normalized
+    lowercase string. Any other value (e.g. a misspelled "ture") raises a clear
+    error instead of being silently treated as "false".
+    """
+    if value is None:
+        return None
+    normalized = value.strip().lower()
+    if normalized in ("true", "false"):
+        return normalized
+    raise click.BadParameter(
+        f"'{value}' is not a valid value. Use 'true' or 'false' (for example,"
+        " --header-based-routing true or --header-based-routing false).",
+        ctx=ctx,
+        param=param,
+    )
+
+
+def _exit_if_no_changes_to_update(e, name):
+    """Turn the backend "no valid field to update" 400 into a clear message.
+
+    The backend rejects an update with this error when every value in the
+    request already matches the endpoint's current configuration. Re-raise any
+    other client error unchanged.
+    """
+    response = getattr(e, "response", None)
+    text = response.text if response is not None else str(e)
+    if "no valid field to update" in text.lower():
+        console.print(
+            f"No changes applied to endpoint [green]{name}[/]: the value(s) you"
+            " provided already match the current configuration."
+        )
+        sys.exit(0)
+    raise e
+
+
 def _parse_container_port(container_port: Optional[str]) -> Optional["ContainerPort"]:
     if container_port is None:
         return None
@@ -77,6 +115,7 @@ from leptonai.config import (
     DEFAULT_RESOURCE_SHAPE,
 )
 from ..api.v2.client import APIClient
+from ..api.v1.api_resource import ClientError
 from ..api.v1.deployment import make_token_vars_from_config
 from ..api.v1.spec_utils import make_mounts_from_strings, make_env_vars_from_strings
 from ..api.v2.workspace_record import WorkspaceRecord
@@ -889,6 +928,7 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     is_flag=False,
     flag_value="true",
     default=None,
+    callback=_validate_header_based_routing,
     help=(
         "Enable or disable header-based replica routing. Use --header-based-routing"
         " to enable, or --header-based-routing false to disable. When enabled,"
@@ -1749,6 +1789,7 @@ def log(name, replica):
     is_flag=False,
     flag_value="true",
     default=None,
+    callback=_validate_header_based_routing,
     help=(
         "Enable or disable header-based replica routing. Use --header-based-routing"
         " to enable, or --header-based-routing false to disable. When enabled,"
@@ -1990,11 +2031,14 @@ def update(
     logger.trace(json.dumps(new_lepton_deployment.model_dump(), indent=2))
 
     if lepton_deployment.metadata.semantic_version:
-        dryrun_deployment = client.deployment.update(
-            name_or_deployment=name,
-            spec=new_lepton_deployment,
-            dryrun=True,
-        )
+        try:
+            dryrun_deployment = client.deployment.update(
+                name_or_deployment=name,
+                spec=new_lepton_deployment,
+                dryrun=True,
+            )
+        except ClientError as e:
+            _exit_if_no_changes_to_update(e, name)
 
         will_restart = not _same_major_version([
             dryrun_deployment.metadata.semantic_version,
@@ -2030,10 +2074,13 @@ def update(
 
             console.print("Proceeding with the update...")
 
-    updated_lepton_deployment = client.deployment.update(
-        name_or_deployment=name,
-        spec=new_lepton_deployment,
-    )
+    try:
+        updated_lepton_deployment = client.deployment.update(
+            name_or_deployment=name,
+            spec=new_lepton_deployment,
+        )
+    except ClientError as e:
+        _exit_if_no_changes_to_update(e, name)
     logger.trace(json.dumps(updated_lepton_deployment.model_dump(), indent=2))
     console.print(f"Endpoint [green]{name}[/] updated.")
 
