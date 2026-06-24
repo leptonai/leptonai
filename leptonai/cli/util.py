@@ -745,11 +745,11 @@ def _stringify_state(state: Optional[Union[str, Any]]) -> str:
 def colorize_state(state: Optional[Union[str, Any]]) -> str:
     """Return rich-markup colored state string.
 
-    Green for healthy states (Ready/Running), red for failure states
-    (Error/Failed), yellow for any other non-empty transitional state.
+    Green for healthy/success states (Ready/Running/Completed), red for failure
+    states (Error/Failed), yellow for any other non-empty transitional state.
     """
     text = _stringify_state(state)
-    if text in {"Ready", "Running"}:
+    if text in {"Ready", "Running", "Completed"}:
         return f"[green]{text}[/]"
     if text in {"Error", "Failed"}:
         return f"[red]{text}[/]"
