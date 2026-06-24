@@ -288,8 +288,6 @@ def create(
         try:
             payload = {"run": run} if run else {}
             rendered = client.template.render(template, payload, is_pod=True)
-            print("rendered")
-            print(rendered)
             spec_from_file = rendered.spec
         except Exception as e:
             console.print(f"[red]Failed to render pod template[/]: {e}")
