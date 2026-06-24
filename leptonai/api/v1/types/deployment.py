@@ -307,15 +307,23 @@ class LeptonDeploymentUserSpec(BaseModel):
         return v
 
 
+# Keep in sync with the backend's authoritative LeptonDeploymentState enum
+# (deployment-operator/api/v1alpha1/leptondeployment_types.go). Any value missing
+# here falls through to `_missing_` and collapses to Unknown, which previously hid
+# real states such as "Error" from the CLI (shown as a cryptic "UNK").
 class LeptonDeploymentState(str, Enum):
     Ready = "Ready"
     NotReady = "Not Ready"
     Starting = "Starting"
     Updating = "Updating"
-    Deleting = "Deleting"
+    Scaling = "Scaling"
+    Migrating = "Migrating"
     Stopping = "Stopping"
     Stopped = "Stopped"
-    Scaling = "Scaling"
+    Deleting = "Deleting"
+    Restarting = "Restarting"
+    Error = "Error"
+    # Backend represents the unknown state as an empty string ("").
     Unknown = "UNK"
 
     @classmethod
