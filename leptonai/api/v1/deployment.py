@@ -1,6 +1,8 @@
 import warnings
 from typing import Union, List, Iterator, Optional
 
+from pydantic import BaseModel
+
 from .api_resource import APIResourse
 from .types.deployment import LeptonDeployment, TokenVar
 from .types.events import LeptonEvent
@@ -75,11 +77,36 @@ class DeploymentAPI(APIResourse):
     ) -> LeptonDeployment:
         dryrun_param = "" if not dryrun else "?dryrun=true"
 
+        payload = self.safe_json(spec)
+        self._preserve_load_balance_nulls(spec, payload)
+
         response = self._patch(
             f"/deployments/{self._to_name(name_or_deployment)+dryrun_param}",
-            json=self.safe_json(spec),
+            json=payload,
         )
         return self.ensure_type(response, LeptonDeployment)
+
+    @staticmethod
+    def _preserve_load_balance_nulls(spec: LeptonDeployment, payload) -> None:
+        """Keep explicit nulls in load_balance_config for PATCH updates.
+
+        The backend applies updates as a JSON merge patch (RFC 7386), where a
+        field is only cleared when the request sends an explicit null. But
+        load_balance_config has mutually-exclusive sub-fields (least_request /
+        maglev), and safe_json drops the unset one via exclude_none=True. As a
+        result a policy switch (e.g. least_request -> maglev) would merge into
+        BOTH sub-fields instead of replacing, and the merge patch never clears
+        the old one. Re-serialize this one field without exclude_none so the
+        deselected sibling is sent as null and actually gets cleared.
+        """
+        lbc = spec.spec.load_balance_config if spec.spec is not None else None
+        if lbc is None or not isinstance(payload, dict):
+            return
+        spec_payload = payload.get("spec")
+        if not isinstance(spec_payload, dict):
+            return
+        if isinstance(lbc, BaseModel):
+            spec_payload["load_balance_config"] = lbc.model_dump(by_alias=True)
 
     def stop(
         self, name_or_deployment: Union[str, LeptonDeployment]
