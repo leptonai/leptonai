@@ -37,26 +37,6 @@ def _validate_cserve_options_flag_requires_value(ctx, param, value):
     return value
 
 
-def _validate_header_based_routing(ctx, param, value):
-    """Validate and normalize the --header-based-routing flag.
-
-    Accepts only "true"/"false" (case-insensitive) and returns the normalized
-    lowercase string. Any other value (e.g. a misspelled "ture") raises a clear
-    error instead of being silently treated as "false".
-    """
-    if value is None:
-        return None
-    normalized = value.strip().lower()
-    if normalized in ("true", "false"):
-        return normalized
-    raise click.BadParameter(
-        f"'{value}' is not a valid value. Use 'true' or 'false' (for example,"
-        " --header-based-routing true or --header-based-routing false).",
-        ctx=ctx,
-        param=param,
-    )
-
-
 def _exit_if_no_changes_to_update(e, name):
     """Turn the backend "no valid field to update" 400 into a clear message.
 
@@ -926,9 +906,9 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
 @click.option(
     "--header-based-routing",
     is_flag=False,
-    flag_value="true",
+    flag_value=True,
     default=None,
-    callback=_validate_header_based_routing,
+    type=click.BOOL,
     help=(
         "Enable or disable header-based replica routing. Use --header-based-routing"
         " to enable, or --header-based-routing false to disable. When enabled,"
@@ -1301,9 +1281,7 @@ def create(
 
         if header_based_routing is not None:
             spec.routing_policy = LeptonRoutingPolicy(
-                enable_header_based_replica_routing=(
-                    header_based_routing.lower() == "true"
-                )
+                enable_header_based_replica_routing=header_based_routing
             )
 
         if privileged:
@@ -1787,9 +1765,9 @@ def log(name, replica):
 @click.option(
     "--header-based-routing",
     is_flag=False,
-    flag_value="true",
+    flag_value=True,
     default=None,
-    callback=_validate_header_based_routing,
+    type=click.BOOL,
     help=(
         "Enable or disable header-based replica routing. Use --header-based-routing"
         " to enable, or --header-based-routing false to disable. When enabled,"
@@ -2003,7 +1981,7 @@ def update(
 
     if header_based_routing is not None:
         lepton_deployment_spec.routing_policy = LeptonRoutingPolicy(
-            enable_header_based_replica_routing=(header_based_routing.lower() == "true")
+            enable_header_based_replica_routing=header_based_routing
         )
 
     # Set IP access control in auth_config (independent of tokens)
