@@ -456,7 +456,7 @@ def _print_deployments_table(
 
     console.print(
         f"[bold]Resource Utilization Summary for above [cyan]{count}[/]"
-        f" endpoint{'s' if count!=1 else ''} (Ready / Starting / Updating / Scaling /"
+        f" endpoint{'s' if count != 1 else ''} (Ready / Starting / Updating / Scaling /"
         " Deleting only):[/]"
     )
     for shape, total in sorted(

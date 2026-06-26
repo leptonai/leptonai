@@ -162,7 +162,7 @@ class TestDeploymentCliLocal(unittest.TestCase):
 
 
 class TestHeaderBasedRoutingValidation(unittest.TestCase):
-    """Issue #3: --header-based-routing only accepts true/false."""
+    """Issue #3: --header-based-routing parses as a boolean and rejects typos."""
 
     _CREATE_ARGS = [
         "endpoint",
@@ -204,7 +204,7 @@ class TestHeaderBasedRoutingValidation(unittest.TestCase):
         self.assertTrue(created.spec.routing_policy.enable_header_based_replica_routing)
 
     def test_create_bare_flag_enables_routing(self):
-        # No value given -> flag_value="true" kicks in.
+        # No value given -> flag_value=True kicks in.
         result = self._create_with_routing("--header-based-routing")
         self.assertEqual(result.exit_code, 0, result.output)
         created = _FakeAPIClient.last_instance.deployment.created_spec
@@ -214,7 +214,7 @@ class TestHeaderBasedRoutingValidation(unittest.TestCase):
         # A typo like "ture" must error out, not be silently treated as false.
         result = self._create_with_routing("--header-based-routing", "ture")
         self.assertNotEqual(result.exit_code, 0)
-        self.assertIn("is not a valid value", result.output)
+        self.assertIn("is not a valid boolean", result.output)
         # Validation fails at parse time, so the client is never constructed.
         self.assertIsNone(_FakeAPIClient.last_instance)
 
@@ -233,7 +233,7 @@ class TestHeaderBasedRoutingValidation(unittest.TestCase):
                 ],
             )
         self.assertNotEqual(result.exit_code, 0)
-        self.assertIn("is not a valid value", result.output)
+        self.assertIn("is not a valid boolean", result.output)
         # Validation happens at parse time, before the client is ever used.
         MockClient.assert_not_called()
 
