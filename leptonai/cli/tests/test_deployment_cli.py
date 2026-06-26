@@ -288,7 +288,8 @@ class TestEndpointUpdateNoOp(unittest.TestCase):
         self.assertNotIn("No changes applied", result.output)
         self.assertIn("boom", result.output)
 
-    def test_update_passes_normalized_routing_value(self):
+    def test_update_passes_routing_value_to_spec(self):
+        # "TRUE" is accepted case-insensitively by click.BOOL and reaches the spec.
         with patch("leptonai.cli.deployment.APIClient") as MockClient:
             client = MockClient.return_value
             client.deployment.get.return_value = _make_existing_deployment()
