@@ -1948,17 +1948,25 @@ def update(
     if ingress_timeout_seconds is not None:
         lepton_deployment_spec.ingress_timeout_seconds = ingress_timeout_seconds
 
-    # Load balancer config via unified enum
+    # Load balancer config via unified enum.
+    # Assigned as a raw dict (not a pydantic model) so the explicit null for the
+    # deselected, mutually-exclusive policy survives serialization: safe_json
+    # dumps with exclude_none=True, which would otherwise drop it and leave the
+    # old policy in place under the backend's JSON merge patch. The empty {} for
+    # the selected policy avoids sending nested nulls that would clobber its own
+    # previously configured options (e.g. least_request.choice_count).
     if load_balance:
         lb = load_balance.lower()
         if lb == "least-request":
-            lepton_deployment_spec.load_balance_config = LoadBalanceConfig(
-                least_request=LeastRequestLoadBalancer()
-            )
+            lepton_deployment_spec.load_balance_config = {
+                "least_request": {},
+                "maglev": None,
+            }
         elif lb == "sticky-routing":
-            lepton_deployment_spec.load_balance_config = LoadBalanceConfig(
-                maglev=MaglevLoadBalancer()
-            )
+            lepton_deployment_spec.load_balance_config = {
+                "least_request": None,
+                "maglev": {},
+            }
 
     if header_based_routing is not None:
         lepton_deployment_spec.routing_policy = LeptonRoutingPolicy(
