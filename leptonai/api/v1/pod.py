@@ -26,13 +26,12 @@ class PodAPI(APIResourse):
             return None
         if not spec.is_pod:
             raise ValueError("The spec is not a pod spec.")
-        if spec.container and (spec.container.ports or spec.container.command):
+        if spec.container and spec.container.ports:
             warnings.warn(
-                "Container port and command fields do not take effect in pod spec.",
+                "Container port field does not take effect in pod spec.",
                 RuntimeWarning,
             )
             spec.container.ports = None
-            spec.container.command = None
         if spec.resource_requirement:
             if spec.resource_requirement.min_replicas not in (None, 1):
                 warnings.warn(
