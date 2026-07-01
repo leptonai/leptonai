@@ -16,4 +16,4 @@ python run.py \
 
 If you are benchmarking lepton endpoints and you are logged in, you can use `lep ws token` to obtain the workspace token.
 
-To find the list of `OPENAI_COMPATIBLE_API_BASE` provided by Lepton AI, please refer to the [documentation page](https://www.lepton.ai/references/llm_models).
+To find the list of `OPENAI_COMPATIBLE_API_BASE` provided by Lepton AI, please refer to the [documentation page](https://docs.nvidia.com/dgx-cloud/lepton/references/llm_models).
