@@ -1,7 +1,7 @@
 [project]
 name = "leptonai"
-description = "Lepton AI Platform"
-authors = [{name = "Lepton AI Inc.", email = "dev@lepton.ai"}]
+description = "NVIDIA DGCX Lepton AI Platform, SDK and CLI"
+authors = [{name = "Lepton Contributors"}]
 dynamic = ["version"]
 readme = "README.md"
 requires-python = ">=3.9,<3.14"
@@ -23,7 +23,7 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://lepton.ai"
+Homepage = "https://docs.nvidia.com/dgx-cloud/lepton"
 
 [project.scripts]
 lep = "leptonai.cli:lep"
