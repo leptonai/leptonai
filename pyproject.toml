@@ -1,6 +1,6 @@
 [project]
 name = "leptonai"
-description = "NVIDIA DGCX Lepton AI Platform, SDK and CLI"
+description = "NVIDIA DGXC Lepton AI Platform, SDK and CLI"
 authors = [{name = "Lepton Contributors"}]
 dynamic = ["version"]
 readme = "README.md"
