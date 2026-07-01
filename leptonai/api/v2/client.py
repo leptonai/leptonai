@@ -10,24 +10,24 @@ import re
 import requests
 from typing import Optional, Union, Dict, Tuple
 
-from ..v1.log import LogAPI
+from .log import LogAPI
 
-from ..v1.types.workspace import WorkspaceInfo
+from .types.workspace import WorkspaceInfo
 
 # import the related API resources. Note that in all these files, they should
 # not import workspace to avoid circular imports.
-from ..v1.api_resource import APIResourse
+from .api_resource import APIResourse
 from .dedicated_node_groups import DedicatedNodeGroupAPI
-from ..v1.deployment import DeploymentAPI
-from ..v1.job import JobAPI
-from ..v1.secret import SecretAPI
-from ..v1.pod import PodAPI
-from ..v1.ingress import IngressAPI
-from ..v1.storage import StorageAPI
+from .deployment import DeploymentAPI
+from .job import JobAPI
+from .secret import SecretAPI
+from .pod import PodAPI
+from .ingress import IngressAPI
+from .storage import StorageAPI
 from .resource_shape import ResourceShapeAPI
 from .template import TemplateAPI
 from .finetune import FineTuneAPI
-from ..v1.raycluster import RayClusterAPI
+from .raycluster import RayClusterAPI
 
 
 from .utils import (

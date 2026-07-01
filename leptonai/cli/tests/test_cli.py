@@ -11,7 +11,7 @@ from click.testing import CliRunner
 from loguru import logger
 
 from leptonai import config, __version__
-from leptonai.api.v1.spec_utils import make_mounts_from_strings
+from leptonai.api.v2.spec_utils import make_mounts_from_strings
 from leptonai.cli import lep as cli
 
 

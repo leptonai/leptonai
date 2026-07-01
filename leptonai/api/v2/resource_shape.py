@@ -1,5 +1,5 @@
 from typing import Optional, List
-from ..v1.api_resource import APIResourse
+from .api_resource import APIResourse
 from .types.shape import Shape
 
 

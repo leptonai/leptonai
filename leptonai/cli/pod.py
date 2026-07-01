@@ -25,7 +25,7 @@ from leptonai.config import (
     TCP_PORT,
     TCP_JUPYTER_PORT,
 )
-from leptonai.api.v1 import types
+from leptonai.api.v2 import types
 from .util import (
     click_group,
     _get_only_replica_public_ip,
@@ -39,14 +39,14 @@ from .util import (
 )
 from .util import make_container_ports_from_str_list
 from ..api.v2.client import APIClient
-from ..api.v1.spec_utils import make_mounts_from_strings, make_env_vars_from_strings
-from ..api.v1.types.deployment import (
+from ..api.v2.spec_utils import make_mounts_from_strings, make_env_vars_from_strings
+from ..api.v2.types.deployment import (
     LeptonDeploymentState,
     ResourceRequirement,
     LeptonLog,
     LeptonContainer,
 )
-from ..api.v1.types.common import LeptonUserSecurityContext
+from ..api.v2.types.common import LeptonUserSecurityContext
 
 
 console = Console(highlight=False)

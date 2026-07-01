@@ -95,12 +95,12 @@ from leptonai.config import (
     DEFAULT_RESOURCE_SHAPE,
 )
 from ..api.v2.client import APIClient
-from ..api.v1.api_resource import ClientError
-from ..api.v1.deployment import make_token_vars_from_config
-from ..api.v1.spec_utils import make_mounts_from_strings, make_env_vars_from_strings
+from ..api.v2.api_resource import ClientError
+from ..api.v2.deployment import make_token_vars_from_config
+from ..api.v2.spec_utils import make_mounts_from_strings, make_env_vars_from_strings
 from ..api.v2.workspace_record import WorkspaceRecord
-from ..api.v1.types.common import Metadata, LeptonVisibility, LeptonUserSecurityContext
-from ..api.v1.types.deployment import (
+from ..api.v2.types.common import Metadata, LeptonVisibility, LeptonUserSecurityContext
+from ..api.v2.types.deployment import (
     AutoScaler,
     HealthCheck,
     HealthCheckLiveness,
@@ -117,7 +117,7 @@ from ..api.v1.types.deployment import (
     SchedulingToggle,
     LeptonRoutingPolicy,
 )
-from ..api.v1.types.ingress import (
+from ..api.v2.types.ingress import (
     AuthConfig,
     LoadBalanceConfig,
     LeastRequestLoadBalancer,
@@ -491,7 +491,7 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     """
     Adds the workspace token as a secret environment variable.
     """
-    from ..api.v1.types.secret import SecretItem
+    from ..api.v2.types.secret import SecretItem
 
     secrets = client.secret.list_all()
     existing_names = {s.name for s in secrets}

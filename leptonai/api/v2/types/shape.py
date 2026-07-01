@@ -1,6 +1,6 @@
 from typing import Optional, List
 from pydantic import BaseModel
-from leptonai.api.v1.types.common import Metadata
+from leptonai.api.v2.types.common import Metadata
 
 
 class ShapeSpec(BaseModel):

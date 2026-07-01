@@ -12,9 +12,9 @@ from click.testing import CliRunner
 from loguru import logger
 
 from leptonai import config
-from leptonai.api.v1.api_resource import ClientError
-from leptonai.api.v1.types.common import Metadata
-from leptonai.api.v1.types.deployment import LeptonDeployment, LeptonDeploymentUserSpec
+from leptonai.api.v2.api_resource import ClientError
+from leptonai.api.v2.types.common import Metadata
+from leptonai.api.v2.types.deployment import LeptonDeployment, LeptonDeploymentUserSpec
 from leptonai.cli import lep as cli
 
 

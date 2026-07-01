@@ -29,15 +29,15 @@ from .util import (
 
 from .util import make_container_port_from_string  # noqa: F401
 
-from leptonai.api.v1.spec_utils import (
+from leptonai.api.v2.spec_utils import (
     make_mounts_from_strings,
     make_env_vars_from_strings,
 )
 from leptonai.config import VALID_SHAPES
 from leptonai.config import JOB_BASE_IMAGE as BASE_IMAGE
 
-from leptonai.api.v1.types.common import Metadata, LeptonVisibility
-from leptonai.api.v1.types.job import (
+from leptonai.api.v2.types.common import Metadata, LeptonVisibility
+from leptonai.api.v2.types.job import (
     LeptonJob,
     LeptonJobTimeSchedule,
     LeptonJobUserSpec,
@@ -45,11 +45,11 @@ from leptonai.api.v1.types.job import (
     LeptonJobSegmentConfig,
     LeptonJobQueryMode,
 )
-from leptonai.api.v1.types.deployment import (
+from leptonai.api.v2.types.deployment import (
     LeptonLog,
 )
 from leptonai.api.v2.client import APIClient
-from leptonai.api.v1.types.common import LeptonUserSecurityContext
+from leptonai.api.v2.types.common import LeptonUserSecurityContext
 
 
 def _warn_state_patterns(ctx, param, value):
@@ -62,7 +62,7 @@ def _warn_state_patterns(ctx, param, value):
     if not value:
         return value
     try:
-        from leptonai.api.v1.types.job import LeptonJobState
+        from leptonai.api.v2.types.job import LeptonJobState
 
         known_states = [s.value for s in LeptonJobState if s.value != "UNK"]
         known_lower = [s.lower() for s in known_states]

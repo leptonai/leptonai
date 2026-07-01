@@ -10,16 +10,10 @@ from leptonai._internal.client_utils import (  # noqa
     _get_method_docstring,
     _get_positional_argument_error_message,
 )
-from leptonai.api.v0.connection import Connection
-from leptonai.api.v1.workspace_record import WorkspaceRecord
-from leptonai.api.v1.utils import (
-    _get_full_workspace_api_url,
-)
+from leptonai.api.v2.workspace_record import WorkspaceRecord
 from leptonai.config import DEFAULT_PORT, build_endpoint_url
 from leptonai.types import FileParam  # noqa
 from leptonai.util import is_valid_url
-from .api.v0 import deployment
-from .api.v0.util import APIError
 
 
 def local(port: int = DEFAULT_PORT) -> str:
@@ -625,78 +619,4 @@ class Client(object):
     def __dir__(self) -> Iterable[str]:
         return ["debug_record", "paths", "healthz", "openapi"] + list(
             self._path_cache.__dir__()
-        )
-
-
-class Workspace(object):
-    """
-    The lepton python class that holds necessary info to access a workspace.
-
-    A workspace allows one to access a set of deployments under this workspace.
-    Currently, we do not support local workspaces - all workspaces are remote.
-    """
-
-    def __init__(self, workspace_id: Optional[str] = None, token: Optional[str] = None):
-        """
-        Creates a Lepton workspace.
-
-        Args:
-            workspace_id (str): The workspace id. If not specified, the currently
-                logged in workspace will be used.
-            token (str, optional): The token to use for authentication. Defaults to None.
-        """
-        if workspace_id is None:
-            workspace_id = WorkspaceRecord.get_current_workspace_id()
-            if workspace_id is None:
-                raise ValueError(
-                    "No workspace id specified, and it seems that you are not"
-                    " logged in."
-                )
-        if workspace_id == WorkspaceRecord.get_current_workspace_id() and not token:
-            token = WorkspaceRecord.client().token()
-        self.workspace_id = workspace_id
-        api_url = _get_full_workspace_api_url(workspace_id, cached=True)
-        if not api_url:
-            raise ValueError(
-                f"Workspace {workspace_id} does not seem to exist. Did you specify the"
-                " right id?"
-            )
-        else:
-            self.workspace_api_url = api_url
-        self.token = token if token else ""
-        self.api_conn = Connection(self.workspace_api_url, self.token)
-
-    def _workspace_deployments(self) -> List:
-        deployments = deployment.list_deployment(self.api_conn)
-        if isinstance(deployments, APIError):
-            raise ValueError(
-                f"Failed to list deployments for workspace {self.workspace_id}"
-            )
-        else:
-            return deployments
-
-    def list_deployments(self) -> List[str]:
-        return [deployment["name"] for deployment in self._workspace_deployments()]
-
-    def client(self, deployment_name: str, token: Optional[str] = None) -> Client:
-        """
-        Get the client to call a deployment in this workspace. Note that this
-        does not actually start a deployment - it only creates a client that
-        can call the currently active deployment.
-
-        Args:
-            deployment_name (str): The deployment name.
-            token (str, optional): The token to use for authentication. If None,
-                the default is to use the token passed in when the workspace was
-                created. Defaults to None.
-        Returns:
-            client: The client to call the deployment.
-        """
-        if deployment_name not in self.list_deployments():
-            raise ValueError(
-                f"Deployment {deployment_name} not found in workspace"
-                f" {self.workspace_id}."
-            )
-        return Client(
-            self.workspace_id, deployment_name, token if token else self.api_conn._token
         )

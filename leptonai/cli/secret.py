@@ -13,8 +13,8 @@ from .util import (
 )
 from leptonai.config import LEPTON_RESERVED_ENV_NAMES
 from ..api.v2.client import APIClient
-from ..api.v1.types.common import LeptonVisibility
-from ..api.v1.types.secret import SecretItem
+from ..api.v2.types.common import LeptonVisibility
+from ..api.v2.types.secret import SecretItem
 
 
 @click_group()

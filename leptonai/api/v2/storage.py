@@ -2,11 +2,11 @@ import os
 
 from typing import Union, List, Dict, Optional
 
-from leptonai.api.v1.api_resource import APIResourse
-from leptonai.api.v1.types.deployment import (
+from leptonai.api.v2.api_resource import APIResourse
+from leptonai.api.v2.types.deployment import (
     DEFAULT_STORAGE_VOLUME_NAME,
 )
-from leptonai.api.v1.types.storage import FileSystem, DirInfo
+from leptonai.api.v2.types.storage import FileSystem, DirInfo
 
 
 def _prepend_separator(file_path):

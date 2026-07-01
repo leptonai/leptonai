@@ -1,8 +1,8 @@
 import unittest
 import warnings
 
-from leptonai.api.v1.pod import PodAPI
-from leptonai.api.v1.types.deployment import (
+from leptonai.api.v2.pod import PodAPI
+from leptonai.api.v2.types.deployment import (
     ContainerPort,
     LeptonContainer,
     LeptonDeploymentUserSpec,

@@ -10,14 +10,14 @@ from urllib.parse import urlparse
 
 import click
 from loguru import logger
-from leptonai.api.v1.api_resource import ClientError, ServerError
+from leptonai.api.v2.api_resource import ClientError, ServerError
 from leptonai.api.v2.utils import WorkspaceError, WorkspaceConfigurationError
 
 from rich.console import Console
-from leptonai.api.v1.types.job import LeptonJob, LeptonJobQueryMode
+from leptonai.api.v2.types.job import LeptonJob, LeptonJobQueryMode
 from leptonai.api.v2.client import APIClient
 
-from leptonai.api.v1.types.deployment import (
+from leptonai.api.v2.types.deployment import (
     ContainerPort,
     ContainerPortExposeStrategy,
 )
@@ -659,8 +659,8 @@ def apply_nodegroup_and_queue_config(
 
     Raises ValueError when required dedicated node group info is missing."""
 
-    from leptonai.api.v1.types.affinity import LeptonResourceAffinity
-    from leptonai.api.v1.types.deployment import QueueConfig, ReservationConfig
+    from leptonai.api.v2.types.affinity import LeptonResourceAffinity
+    from leptonai.api.v2.types.deployment import QueueConfig, ReservationConfig
 
     # Determine flags presence
     has_queue_flags = (

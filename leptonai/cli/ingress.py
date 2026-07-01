@@ -6,8 +6,8 @@ from datetime import datetime
 from rich.table import Table
 from .util import console, click_group
 from leptonai.api.v2.client import APIClient
-from ..api.v1.types.common import Metadata
-from ..api.v1.types.ingress import (
+from ..api.v2.types.common import Metadata
+from ..api.v2.types.ingress import (
     LeptonIngress,
     LeptonIngressUserSpec,
     LeptonIngressEndpoint,
