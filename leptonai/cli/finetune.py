@@ -18,12 +18,12 @@ from .util import (
     PathResolutionError,
 )
 from ..api.v2.client import APIClient
-from leptonai.api.v1.types.job import (
+from leptonai.api.v2.types.job import (
     LeptonJobQueryMode,
     LeptonJobSegmentConfig,
 )
-from leptonai.api.v1.types.common import Metadata, LeptonVisibility
-from leptonai.api.v1.spec_utils import (
+from leptonai.api.v2.types.common import Metadata, LeptonVisibility
+from leptonai.api.v2.spec_utils import (
     make_mounts_from_strings,
     make_env_vars_from_strings,
 )

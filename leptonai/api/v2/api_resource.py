@@ -1,7 +1,6 @@
 from pydantic import BaseModel
 from requests import Response
 from typing import (
-    TYPE_CHECKING,
     Dict,
     Optional,
     Union,
@@ -11,10 +10,6 @@ from typing import (
     Type,
     NoReturn,
 )
-
-if TYPE_CHECKING:
-    # only used for type hinting, but avoids circular imports
-    from .client import APIClient
 
 
 class ClientError(RuntimeError):
@@ -50,9 +45,9 @@ class APIResourse(object):
     See for example leptonai/api/v1/deployment.py for an example.
     """
 
-    _client: "APIClient"
+    _client: Any
 
-    def __init__(self, _client: "APIClient"):
+    def __init__(self, _client: Any):
         """
         Initializes the APIResource with the Workspace object. You should not
         need to explicitly call this method. All APIResource classes should

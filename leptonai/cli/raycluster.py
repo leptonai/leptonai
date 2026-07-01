@@ -21,8 +21,8 @@ from .util import (
     PathResolutionError,
 )
 from ..api.v2.client import APIClient
-from ..api.v1.types.common import LeptonVisibility, Metadata, LeptonUserSecurityContext
-from ..api.v1.types.raycluster import (
+from ..api.v2.types.common import LeptonVisibility, Metadata, LeptonUserSecurityContext
+from ..api.v2.types.raycluster import (
     LeptonRayCluster,
     LeptonRayClusterUserSpec,
     RayHeadGroupSpec,
@@ -30,9 +30,9 @@ from ..api.v1.types.raycluster import (
     RayAutoscaler,
     RayClusterCommonGroupSpec,
 )
-from ..api.v1.spec_utils import make_mounts_from_strings, make_env_vars_from_strings
-from ..api.v1.types.deployment import LeptonContainer, ReservationConfig
-from ..api.v1.types.job import LeptonJobSegmentConfig
+from ..api.v2.spec_utils import make_mounts_from_strings, make_env_vars_from_strings
+from ..api.v2.types.deployment import LeptonContainer, ReservationConfig
+from ..api.v2.types.job import LeptonJobSegmentConfig
 
 
 def _normalize_group_name(raw: str | None, context: str) -> str | None:

@@ -1,9 +1,9 @@
 from typing import Optional, Any, List
 from pydantic import BaseModel
 
-from leptonai.api.v1.types.common import Metadata
-from leptonai.api.v1.types.job import LeptonJobUserSpec, LeptonJobStatus
-from leptonai.api.v1.types.deployment import Mount
+from leptonai.api.v2.types.common import Metadata
+from leptonai.api.v2.types.job import LeptonJobUserSpec, LeptonJobStatus
+from leptonai.api.v2.types.deployment import Mount
 
 
 class TechniqueInfo(BaseModel):

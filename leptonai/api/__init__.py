@@ -9,7 +9,7 @@ programmatical way, please let us know and discuss options.
 
 In general, the api is organized into several modules, each of which corresponds
 to a specific functionality of the Lepton AI web API. For example, the
-:mod:`leptonai.api.v1.deployment` module contains functions that interact with the
+:mod:`leptonai.api.v2.deployment` module contains functions that interact with the
 Lepton AI web API to manage deployments.
 
 Lepton AI web APIs usually return two types of responses:
@@ -22,5 +22,4 @@ Lepton AI web APIs usually return two types of responses:
   python api simply returns the response itself.
 """
 
-from . import v0
-from . import v1
+from . import v2

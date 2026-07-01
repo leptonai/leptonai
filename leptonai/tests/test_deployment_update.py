@@ -1,8 +1,8 @@
 import unittest
 
-from leptonai.api.v1.deployment import DeploymentAPI
-from leptonai.api.v1.types.common import Metadata
-from leptonai.api.v1.types.deployment import (
+from leptonai.api.v2.deployment import DeploymentAPI
+from leptonai.api.v2.types.common import Metadata
+from leptonai.api.v2.types.deployment import (
     LeptonDeployment,
     LeptonDeploymentUserSpec,
 )

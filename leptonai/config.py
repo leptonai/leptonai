@@ -279,14 +279,9 @@ VALID_SHAPES = [
     "gpu.8xh100-sxm",
 ]
 
-# Current API path to resolve a workspace url. When we calls the URL with a json
-# body {"id": <workspace_id>}, it returns the workspace url.
-WORKSPACE_API_PATH = "/api/v1"
 DGXC_WORKSPACE_API_PATH = "/api/v2/workspaces/"
 
 API_URL_BASE = "https://gateway.dgxc-lepton.nvidia.com"
-
-WORKSPACE_URL_RESOLVER_API = "https://portal.lepton.ai/api/workspace"
 
 DGXC_WORKSPACE_URL_RESOLVER_API = (
     "https://gateway.dgxc-lepton.nvidia.com/api/v2/workspaces"

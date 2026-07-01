@@ -1,7 +1,7 @@
 from typing import Union, List, Optional
 
-from ..v1.api_resource import APIResourse
-from leptonai.api.v1.types.job import LeptonJobQueryMode
+from .api_resource import APIResourse
+from leptonai.api.v2.types.job import LeptonJobQueryMode
 from .types.finetune import (
     LeptonFineTuneJob,
     FineTuneModelInfo,

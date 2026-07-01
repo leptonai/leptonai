@@ -1,9 +1,9 @@
 from typing import Any, Dict, Optional
 
-from leptonai.api.v1.types.deployment import LeptonDeployment
+from leptonai.api.v2.types.deployment import LeptonDeployment
 
-from ..v1.api_resource import APIResourse
-from ..v1.types.job import LeptonJob
+from .api_resource import APIResourse
+from .types.job import LeptonJob
 from .types.template import LeptonTemplate
 
 

@@ -2,10 +2,10 @@
 from typing import List, Union
 from concurrent.futures import ThreadPoolExecutor
 
-from ..v1.api_resource import APIResourse
+from .api_resource import APIResourse
 
-from ..v1.types.dedicated_node_group import DedicatedNodeGroup, Node
-from ..v1.types.node_reservation import NodeReservation
+from .types.dedicated_node_group import DedicatedNodeGroup, Node
+from .types.node_reservation import NodeReservation
 
 
 class DedicatedNodeGroupAPI(APIResourse):

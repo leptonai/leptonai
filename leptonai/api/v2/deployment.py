@@ -53,7 +53,7 @@ class DeploymentAPI(APIResourse):
         with is_pod=True.
         """
         warnings.warn(
-            "create_pod is deprecated. Use the api under leptonai.api.v1.pod"
+            "create_pod is deprecated. Use the api under leptonai.api.v2.pod"
             " instead, which is more explicit and gives more strict param checking.",
             DeprecationWarning,
         )
