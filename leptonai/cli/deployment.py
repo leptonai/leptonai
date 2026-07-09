@@ -24,19 +24,6 @@ from .util import (
 )
 
 
-# Ensure options-like tokens are not accepted as values for --cserve-options
-def _validate_cserve_options_flag_requires_value(ctx, param, value):
-    if value is None:
-        return value
-    if isinstance(value, str) and value.strip().startswith("-"):
-        # The next token looks like another option; treat as missing argument
-        opt_name = (
-            param.opts[-1] if getattr(param, "opts", None) else "--cserve-options"
-        )
-        raise click.UsageError(f"Option '{opt_name}' requires an argument.", ctx=ctx)
-    return value
-
-
 def _exit_if_no_changes_to_update(e, name):
     """Turn the backend "no valid field to update" 400 into a clear message.
 
@@ -554,19 +541,6 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     ),
 )
 @click.option(
-    "--cserve",
-    is_flag=True,
-    default=False,
-    help="Enable cserve mode and attach cserve options to the endpoint spec.",
-)
-@click.option(
-    "--cserve-options",
-    type=str,
-    default=None,
-    help="JSON string for cserve options (stored at spec.cserve).",
-    callback=_validate_cserve_options_flag_requires_value,
-)
-@click.option(
     "--resource-shape",
     "-rs",
     type=str,
@@ -930,8 +904,6 @@ def create(
     container_image,
     container_port,
     container_command,
-    cserve,
-    cserve_options,
     resource_shape,
     min_replicas,
     max_replicas,
@@ -971,13 +943,6 @@ def create(
     Creates an endpoint from a container image.
     """
     client = APIClient()
-
-    # Enforce cserve options must be used with --cserve
-    if cserve_options is not None and not cserve:
-        console.print(
-            "[red]Error[/]: --cserve-options requires --cserve to be specified."
-        )
-        sys.exit(1)
 
     # Load spec from file if provided
     if file:
@@ -1294,16 +1259,6 @@ def create(
                 spec.user_security_context = LeptonUserSecurityContext(privileged=True)
             else:
                 spec.user_security_context.privileged = True
-        if cserve and cserve_options is not None:
-            try:
-                # Validate JSON and use parsed object for options
-                cserve_options_obj = json.loads(cserve_options)
-            except json.JSONDecodeError:
-                console.print(
-                    f"[red]Invalid JSON for --cserve-options: {cserve_options}[/]"
-                )
-                sys.exit(1)
-            spec.cserve = {"options": cserve_options_obj}
 
     except ValueError as e:
         console.print(
@@ -1783,19 +1738,6 @@ def log(name, replica):
         " targeted requests."
     ),
 )
-@click.option(
-    "--cserve",
-    is_flag=True,
-    default=False,
-    help="Enable cserve mode and attach cserve options to the endpoint spec.",
-)
-@click.option(
-    "--cserve-options",
-    type=str,
-    default=None,
-    help="JSON string for cserve options (stored at spec.cserve).",
-    callback=_validate_cserve_options_flag_requires_value,
-)
 def update(
     name,
     container_image,
@@ -1816,8 +1758,6 @@ def update(
     ingress_timeout_seconds,
     load_balance,
     header_based_routing,
-    cserve,
-    cserve_options,
 ):
     """
     Updates an endpoint. Note that for all the update options, changes are made
@@ -1841,13 +1781,6 @@ def update(
         console.print(
             "[red]Error[/]: Cannot specify both --tokens and --remove-tokens. "
             "Use --tokens to specify tokens or --remove-tokens to remove all tokens. "
-        )
-        sys.exit(1)
-
-    # Enforce cserve options must be used with --cserve
-    if cserve_options is not None and not cserve:
-        console.print(
-            "[red]Error[/]: --cserve-options requires --cserve to be specified."
         )
         sys.exit(1)
 
@@ -1943,17 +1876,6 @@ def update(
             command=(existing_container.command if existing_container else None),
             ports=(existing_container.ports if existing_container else None),
         )
-
-    # Minimal cserve update support: only set when both flags are provided; validate JSON only
-    if cserve and cserve_options is not None:
-        try:
-            cserve_options_obj = json.loads(cserve_options)
-        except json.JSONDecodeError:
-            console.print(
-                f"[red]Invalid JSON for --cserve-options: {cserve_options}[/]"
-            )
-            sys.exit(1)
-        lepton_deployment_spec.cserve = {"options": cserve_options_obj}
 
     if replica_spread is not None:
         toggle = (
