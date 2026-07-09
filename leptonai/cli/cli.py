@@ -10,8 +10,10 @@ from leptonai.api.v2.utils import (
     WorkspaceUnauthorizedError,
     WorkspaceNotFoundError,
     WorkspaceForbiddenError,
+    _get_full_workspace_api_url,
 )
 from .util import console
+from leptonai.api.v2.client import APIClient
 from leptonai.api.v2.workspace_record import WorkspaceRecord
 from loguru import logger
 from rich.prompt import Prompt
@@ -121,10 +123,12 @@ def login(
     """
     console.print(LOGIN_LOGO)
     need_further_login = False
+    # Login info pending verification; persisted only after info() succeeds.
+    pending_login = None
     if credentials:
         workspace_id, auth_token = credentials.split(":", 1)
-        WorkspaceRecord.set_or_exit(
-            workspace_id,
+        pending_login = dict(
+            workspace_id=workspace_id,
             auth_token=auth_token,
             url=workspace_url,
             workspace_origin_url=workspace_origin_url,
@@ -160,7 +164,12 @@ def login(
             elif len(candidates) == 1:
                 # Only one workspace, so we will simply log in to that one.
                 ws = candidates[0]
-                WorkspaceRecord.set_or_exit(ws.id_, ws.auth_token, ws.url, ws.workspace_origin_url)  # type: ignore
+                pending_login = dict(
+                    workspace_id=ws.id_,
+                    auth_token=ws.auth_token,
+                    url=ws.url,
+                    workspace_origin_url=ws.workspace_origin_url,
+                )
             else:
                 # multiple workspaces. login to one of them.
                 console.print("You have multiple workspaces. Please select one:")
@@ -174,11 +183,12 @@ def login(
                 except ValueError:
                     console.print("Invalid choice. Please enter a number.")
                     sys.exit(1)
-                WorkspaceRecord.set_or_exit(
-                    candidates[choice].id_,  # type: ignore
-                    candidates[choice].auth_token,
-                    candidates[choice].url,
-                    candidates[choice].workspace_origin_url,
+                chosen = candidates[choice]
+                pending_login = dict(
+                    workspace_id=chosen.id_,  # type: ignore
+                    auth_token=chosen.auth_token,
+                    url=chosen.url,
+                    workspace_origin_url=chosen.workspace_origin_url,
                 )
                 console.print(
                     "[dim]Note: If you have multiple workspaces, you can pick the one"
@@ -236,19 +246,36 @@ def login(
             auth_token = parts[1]
             base_url = parts[2] if len(parts) == 3 else None
             print(f"base_url: {base_url}")
-            WorkspaceRecord.set_or_exit(
-                workspace_id,
+            pending_login = dict(
+                workspace_id=workspace_id,
                 auth_token=auth_token,
                 url=base_url,
                 could_be_new_token=True,
             )
         else:
             workspace_id, auth_token = credentials.split(":", 1)
-            WorkspaceRecord.set_or_exit(
-                workspace_id, auth_token=auth_token, could_be_new_token=True
+            pending_login = dict(
+                workspace_id=workspace_id,
+                auth_token=auth_token,
+                could_be_new_token=True,
             )
-    # Try to login and print the info.
-    api_client = WorkspaceRecord.client()
+
+    # Verify workspace access first; the record is persisted only after the
+    # verification succeeds, so a failed login does not pollute local records
+    # or switch the current workspace.
+    if pending_login is not None:
+        if pending_login.get("url") is None:
+            pending_login["url"] = _get_full_workspace_api_url(
+                pending_login["workspace_id"]
+            )
+        api_client = APIClient(
+            pending_login["workspace_id"],
+            pending_login["auth_token"],
+            pending_login["url"],
+            pending_login.get("workspace_origin_url"),
+        )
+    else:
+        api_client = WorkspaceRecord.client()
 
     try:
         # Retry info() in case the new token is not yet propagated.
@@ -258,17 +285,6 @@ def login(
                 if retries == 16:
                     console.print("[bold]Loading workspace...[/bold]")
                 info = api_client.info()
-                ws_name = info.workspace_name
-                tier = info.workspace_tier
-
-                indent = " " * 17  # match logo's left margin for alignment
-                console.print(f"{indent}{'Workspace':>12}: [#76B900]{ws_name}[/]")
-                console.print(f"{indent}{'Tier':>12}: {tier}")
-                WorkspaceRecord.refresh_token_expires_at(skip_if_token_exists=True)
-                version_info_list = api_client.version(info)
-                if version_info_list is not None:
-                    version = ".".join(str(v) for v in version_info_list)
-                    console.print(f"{indent}{'Version':>12}: {version}\n")
                 break
             except WorkspaceUnauthorizedError:
                 retries -= 1
@@ -327,15 +343,32 @@ def login(
     except WorkspaceForbiddenError as e:
         console.print("\n", e)
 
-        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         console.print(f"""
-        [red bold]Workspace Forbidden access[/]
+        [red bold]Workspace Access Forbidden[/]
         [red]Workspace ID:[/red] {e.workspace_id}
-        
-        [red]You may using an invalid token or the token is expired.[/red]
-        [red]Please re-issue a new token and run `lep workspace login` again.[/red]
+        [red]Workspace URL:[/red] {e.workspace_url}
+
+        [bold]If you have access to this workspace, to resolve this issue:[/bold]
+        [yellow]Check that the workspace URL above matches the environment your token was issued from.[/yellow]
+        If not, login again with the correct workspace URL:
+           [green]lep workspace login -i <workspace_id> -t <auth_token> --workspace-url <workspace_url>[/green]
         """)
         sys.exit(1)
+
+    if pending_login is not None:
+        WorkspaceRecord.set_or_exit(**pending_login)
+
+    ws_name = info.workspace_name
+    tier = info.workspace_tier
+
+    indent = " " * 17  # match logo's left margin for alignment
+    console.print(f"{indent}{'Workspace':>12}: [#76B900]{ws_name}[/]")
+    console.print(f"{indent}{'Tier':>12}: {tier}")
+    WorkspaceRecord.refresh_token_expires_at(skip_if_token_exists=True)
+    version_info_list = api_client.version(info)
+    if version_info_list is not None:
+        version = ".".join(str(v) for v in version_info_list)
+        console.print(f"{indent}{'Version':>12}: {version}\n")
 
 
 @lep.command()

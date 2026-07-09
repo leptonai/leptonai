@@ -8,12 +8,14 @@ from loguru import logger
 from rich.console import Console
 from rich.table import Table
 
+from leptonai.api.v2.client import APIClient
 from leptonai.api.v2.workspace_record import WorkspaceRecord
 from .util import click_group, check, sizeof_fmt
 from ..api.v2.utils import (
     WorkspaceForbiddenError,
     WorkspaceNotFoundError,
     WorkspaceUnauthorizedError,
+    _get_full_workspace_api_url,
 )
 
 console = Console(highlight=False)
@@ -64,10 +66,11 @@ def login(
     """
     Logs in to a workspace. This also verifies that the workspace is accessible.
     """
+    is_new_credentials = bool(auth_token or workspace_url or workspace_origin_url)
     if workspace_id is None:
         # If workspace_id is not given and current workspace is present, we will
         # simply print the info.
-        if auth_token or workspace_url or workspace_origin_url:
+        if is_new_credentials:
             console.print(
                 "\n[bold red]Invalid usage:[/bold red] --auth-token,"
                 " --workspace-url, and"
@@ -80,45 +83,34 @@ def login(
                 " [--workspace-origin-url <url>][/]\n"
             )
             sys.exit(1)
-        if WorkspaceRecord.current():
-            pass
     elif WorkspaceRecord.has(workspace_id):
-        # already has the info: update the auth token if given.
-        info = WorkspaceRecord.get(workspace_id)
-        if auth_token or workspace_url or workspace_origin_url:
-            WorkspaceRecord.set_or_exit(
-                workspace_id,
-                auth_token=auth_token,
-                url=workspace_url,
-                workspace_origin_url=workspace_origin_url,
-                could_be_new_token=True,
-            )
-        else:
-            WorkspaceRecord.set_or_exit(workspace_id, auth_token=info.auth_token, url=info.url, workspace_origin_url=info.workspace_origin_url)  # type: ignore
-    else:
-        if not auth_token:
-            console.print(
-                f"[red]Error[/]: Workspace '{workspace_id}' not found; please provide"
-                " --auth-token."
-            )
-            sys.exit(1)
-
-        WorkspaceRecord.set_or_exit(
-            workspace_id,
-            auth_token=auth_token,
-            url=workspace_url,
-            workspace_origin_url=workspace_origin_url,
-            could_be_new_token=True,
+        # Options that are not given fall back to the stored record, so that
+        # e.g. a token refresh does not reset a custom workspace URL back to
+        # the default gateway.
+        stored = WorkspaceRecord.get(workspace_id)
+        auth_token = auth_token or stored.auth_token  # type: ignore
+        workspace_url = workspace_url or stored.url  # type: ignore
+        workspace_origin_url = workspace_origin_url or stored.workspace_origin_url  # type: ignore
+    elif not auth_token:
+        console.print(
+            f"[red]Error[/]: Workspace '{workspace_id}' not found; please provide"
+            " --auth-token."
         )
-    # Try to login and print the info.
-    api_client = WorkspaceRecord.client()
+        sys.exit(1)
+
+    # Verify workspace access first; the record is persisted only after the
+    # verification succeeds, so a failed login does not pollute local records
+    # or switch the current workspace.
+    if workspace_id is None:
+        api_client = WorkspaceRecord.client()
+    else:
+        if workspace_url is None:
+            workspace_url = _get_full_workspace_api_url(workspace_id)
+        api_client = APIClient(
+            workspace_id, auth_token, workspace_url, workspace_origin_url
+        )
     try:
         info = api_client.info()
-
-        console.print(f"Logged in to your workspace [green]{info.workspace_name}[/].")
-        console.print(f"\t      tier: {info.workspace_tier}")
-        console.print(f"\tbuild time: {info.build_time}")
-        console.print(f"\t   version: {api_client.version()}")
     except WorkspaceUnauthorizedError as e:
         console.print("\n", e)
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -167,6 +159,20 @@ def login(
            [green]lep workspace login -i <workspace_id> -t <auth_token> --workspace-url <workspace_url>[/green]
         """)
         sys.exit(1)
+
+    if workspace_id is not None:
+        WorkspaceRecord.set_or_exit(
+            workspace_id,
+            auth_token=auth_token,
+            url=workspace_url,
+            workspace_origin_url=workspace_origin_url,
+            could_be_new_token=is_new_credentials,
+        )
+
+    console.print(f"Logged in to your workspace [green]{info.workspace_name}[/].")
+    console.print(f"\t      tier: {info.workspace_tier}")
+    console.print(f"\tbuild time: {info.build_time}")
+    console.print(f"\t   version: {api_client.version(info)}")
 
 
 @workspace.command()
