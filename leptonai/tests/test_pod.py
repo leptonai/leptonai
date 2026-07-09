@@ -34,23 +34,25 @@ class TestSanityCheckPodSpec(unittest.TestCase):
         self.assertIsNotNone(checked)
         self.assertEqual(checked.container.command, command)
 
-    def test_container_ports_are_stripped(self):
-        # Ports still do not take effect for pods (no service/ingress), so they
-        # should continue to be dropped with a warning.
+    def test_container_ports_are_preserved(self):
+        # Pods support container port exposure (hostmap/proxy strategies) since
+        # the container port exposure strategy feature, so the sanity check must
+        # not strip ports from the spec.
+        ports = [ContainerPort(container_port=8080)]
         spec = LeptonDeploymentUserSpec(
             is_pod=True,
             container=LeptonContainer(
                 image="ubuntu",
                 command=["/bin/bash", "-c", "sleep 1"],
-                ports=[ContainerPort(container_port=8080)],
+                ports=list(ports),
             ),
         )
 
-        with self.assertWarns(RuntimeWarning):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
             checked = self.api._sanity_check_pod_spec(spec)
 
-        self.assertIsNone(checked.container.ports)
-        # Command must survive even when ports are present and stripped.
+        self.assertEqual(checked.container.ports, ports)
         self.assertEqual(checked.container.command, ["/bin/bash", "-c", "sleep 1"])
 
 
