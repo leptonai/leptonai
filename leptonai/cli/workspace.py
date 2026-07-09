@@ -10,7 +10,11 @@ from rich.table import Table
 
 from leptonai.api.v2.workspace_record import WorkspaceRecord
 from .util import click_group, check, sizeof_fmt
-from ..api.v2.utils import WorkspaceNotFoundError, WorkspaceUnauthorizedError
+from ..api.v2.utils import (
+    WorkspaceForbiddenError,
+    WorkspaceNotFoundError,
+    WorkspaceUnauthorizedError,
+)
 
 console = Console(highlight=False)
 
@@ -147,6 +151,20 @@ def login(
         2. [green]Please check the login info you just used above[/green]
         3. [yellow]Login to the workspace with valid credentials:[/yellow]
            [green]lep workspace login -i <valid_workspace_id> -t <valid_workspace_token>[/green]
+        """)
+        sys.exit(1)
+
+    except WorkspaceForbiddenError as e:
+        console.print("\n", e)
+        console.print(f"""
+        [red bold]Workspace Access Forbidden[/]
+        [red]Workspace ID:[/red] {e.workspace_id}
+        [red]Workspace URL:[/red] {e.workspace_url}
+
+        [bold]If you have access to this workspace, to resolve this issue:[/bold]
+        [yellow]Check that the workspace URL above matches the environment your token was issued from.[/yellow]
+        If not, login again with the correct workspace URL:
+           [green]lep workspace login -i <workspace_id> -t <auth_token> --workspace-url <workspace_url>[/green]
         """)
         sys.exit(1)
 
