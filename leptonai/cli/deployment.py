@@ -965,14 +965,11 @@ def create(
     else:
         spec = LeptonDeploymentUserSpec()
 
-    # Bind the deployment dispatcher once for the whole create operation. The
-    # `client.deployment` property re-resolves the new-deployment-API flag on
-    # every access, and a transient /workspace failure is not cached
-    # (client.py). Reading it separately for the preflight list, the --rerun
-    # delete, and the create could therefore split across APIs: e.g. a legacy
-    # list that misses an existing new endpoint, then an endpoint create that
-    # 409s on the duplicate instead of rerunning it. One binding keeps the
-    # whole operation on a single API.
+    # Bind the deployment dispatcher once for the whole create operation
+    # (preflight list -> optional --rerun delete -> create). The dispatch flag
+    # is now committed process-wide on first resolution (client.py), so repeated
+    # `client.deployment` reads already agree; binding once is belt-and-braces
+    # that also makes the single-API intent explicit at the call site.
     dep_api = client.deployment
     existing_deployments = dep_api.list_all()
     if name in [d.metadata.name for d in existing_deployments]:

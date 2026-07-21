@@ -48,6 +48,23 @@ from loguru import logger
 HAS_WARNED_TOKEN_EXPIRE: bool = False
 
 
+# Process-wide memo of the resolved new-deployment-API flag, keyed by workspace
+# URL. A single `lep` invocation targets exactly one workspace, but it may build
+# several short-lived `APIClient` instances (e.g. the parallel `lep log get`
+# workers each construct their own). Keying the resolved flag on the workspace
+# URL commits one dispatch decision for the whole invocation, so no two clients —
+# and no two reads on one client — can disagree and split a logical operation
+# across the legacy /deployments and the new /endpoints|/devpods APIs.
+_NEW_DEPLOYMENT_API_FLAG_CACHE: Dict[str, bool] = {}
+
+# Bounded retry for the one-time flag resolution. The CLI is a short-lived
+# process: a couple of quick retries smooth over a transient /workspace blip
+# without a per-command round-trip, and the committed outcome (including a
+# committed False after retries are exhausted) then holds for the process.
+_FLAG_RESOLVE_RETRIES: int = 2
+_FLAG_RESOLVE_BACKOFF_SECONDS: float = 0.25
+
+
 class APIClient(object):
     """
     A Lepton API client that is associated with a workspace. This class holds all
@@ -223,56 +240,83 @@ class APIClient(object):
         self._endpoint_api = EndpointAPI(self)
         self._devpod_api = DevPodAPI(self)
 
-        # Memoized resolution of the new-deployment-API workspace flag. None
-        # means "not yet resolved"; resolved to a bool on first access.
+        # Per-instance mirror of the process-wide resolved flag (keyed by
+        # workspace URL in `_NEW_DEPLOYMENT_API_FLAG_CACHE`). None means "not yet
+        # read on this client"; it is populated from the memo on first access.
         self._new_deployment_api_enabled: Optional[bool] = None
 
     @property
     def new_deployment_api_enabled(self) -> bool:
         """Whether the workspace has the new endpoint/devpod API enabled.
 
-        Resolved lazily from a single ``info()`` call the first time it is
-        accessed, then memoized for the lifetime of this client — no extra
-        round-trip per command. The semantics mirror the dashboard's
-        ``useEndpointApiMode``: only an explicit ``true`` for
-        ``features.enable_new_deployment_api`` switches to the new routes.
-        An absent field, ``false``, a missing ``features`` object, or any
-        error resolving the flag all fail safe to the legacy routes.
+        Resolved once, then committed for the lifetime of the *process* (not
+        just this client) via a workspace-URL-keyed memo. The first access on
+        the first client for a workspace does a single ``info()`` resolution
+        with a small bounded retry; the resulting bool — ``True`` OR ``False``,
+        including a ``False`` committed after the retries are exhausted — is
+        stored and returned unconditionally for every later access, on this
+        client and on any other client built for the same workspace in the same
+        invocation. The semantics mirror the dashboard's ``useEndpointApiMode``:
+        only an explicit ``true`` for ``features.enable_new_deployment_api``
+        switches to the new routes; an absent field, ``false``, or a missing
+        ``features`` object stays on the legacy routes.
+
+        Why commit unconditionally (superseding the earlier no-cache-on-failure
+        design): the ``lep`` CLI is a short-lived process, and many operations
+        span several dispatch reads (a preflight list then a create, an update's
+        get-then-patch-then-verify, a pod list then its per-replica IP lookup)
+        or several clients (the parallel ``lep log get`` workers). If a
+        *transient* /workspace failure yielded legacy for one read and a later
+        read recovered the real flag, the operation would split across the
+        legacy /deployments and the new /endpoints|/devpods APIs — the exact
+        multi-call inconsistency class fixed here. Intra-process consistency
+        therefore beats freshness. The earlier concern that fail-to-legacy could
+        silently land an endpoint-flavored create on /deployments in a flag-on
+        workspace is now backstopped SERVER-SIDE (api-server MR !7865 rejects
+        such a create with 400), so committing legacy after a genuine, retried
+        resolution failure fails loud rather than silently wrong.
 
         @implements LEP-5664, LEP-5665 (flag detection)
         """
-        if self._new_deployment_api_enabled is None:
-            resolved = self._resolve_new_deployment_api()
-            if resolved is None:
-                # Could not resolve (transient error). Fail safe to legacy for
-                # THIS access, but do not memoize the failure: a later command on
-                # the same client should retry rather than being pinned to legacy
-                # by one flaky /workspace call. Caching failure→legacy in a
-                # flag-on workspace would route a subsequent create to
-                # /deployments (endpoint-flavored legacy create is only gated by
-                # the sibling api-server MR, so it could silently land on the
-                # wrong API).
-                return False
-            self._new_deployment_api_enabled = resolved
-        return self._new_deployment_api_enabled
+        cached = _NEW_DEPLOYMENT_API_FLAG_CACHE.get(self.url)
+        if cached is not None:
+            self._new_deployment_api_enabled = cached
+            return cached
+        resolved = self._resolve_new_deployment_api()
+        _NEW_DEPLOYMENT_API_FLAG_CACHE[self.url] = resolved
+        self._new_deployment_api_enabled = resolved
+        return resolved
 
-    def _resolve_new_deployment_api(self) -> Optional[bool]:
-        """Resolve the new-deployment-API flag from workspace info.
+    def _resolve_new_deployment_api(self) -> bool:
+        """Resolve the new-deployment-API flag from workspace info, once.
 
-        Returns the definite flag value (``True``/``False``) on a successful
-        resolution, or ``None`` when the flag could not be resolved at all
-        (network error, unauthorized, malformed response). A resolved ``False``
-        — including an absent flag or missing ``features`` object — is a real
-        answer and is cached; ``None`` is transient and is not cached by the
-        caller so the next access retries.
+        Always returns a definite bool: an explicit ``features
+        .enable_new_deployment_api is True`` yields ``True``; an absent flag,
+        missing ``features``, or an unresolvable /workspace call (after a small
+        bounded retry) all yield ``False``. This is called at most once per
+        workspace URL per process — the caller commits the result to the
+        process-wide memo — so a transient blip is retried here rather than
+        being re-litigated on every subsequent dispatch read.
         """
-        try:
-            info = self.info()
-        except Exception as e:
-            logger.trace(
-                f"Could not resolve new deployment API flag, using legacy: {e}"
-            )
-            return None
+        info = None
+        for attempt in range(_FLAG_RESOLVE_RETRIES + 1):
+            try:
+                info = self.info()
+                break
+            except Exception as e:
+                if attempt < _FLAG_RESOLVE_RETRIES:
+                    logger.trace(
+                        "Could not resolve new deployment API flag (attempt"
+                        f" {attempt + 1}), retrying: {e}"
+                    )
+                    time.sleep(_FLAG_RESOLVE_BACKOFF_SECONDS * (2**attempt))
+                else:
+                    logger.trace(
+                        "Could not resolve new deployment API flag after"
+                        f" {_FLAG_RESOLVE_RETRIES + 1} attempts, committing"
+                        f" legacy: {e}"
+                    )
+                    return False
         features = getattr(info, "features", None)
         if features is None:
             return False

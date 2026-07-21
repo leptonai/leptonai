@@ -25,6 +25,7 @@ import unittest
 
 import responses
 
+from leptonai.api.v2 import client as client_module
 from leptonai.api.v2.client import APIClient
 from leptonai.api.v2.types.common import Metadata
 from leptonai.api.v2.types.deployment import (
@@ -38,6 +39,11 @@ BASE = "https://gw.example/api/v2/workspaces/ws1"
 
 
 def _make_client() -> APIClient:
+    # The new-deployment-API flag is committed process-wide (keyed by workspace
+    # URL) once resolved, so a resolution from an earlier test would otherwise
+    # leak into later tests that reuse BASE. Clear the memo per client build to
+    # keep each test's flag resolution independent.
+    client_module._NEW_DEPLOYMENT_API_FLAG_CACHE.clear()
     return APIClient(workspace_id="ws1", auth_token="tok", url=BASE)
 
 
@@ -161,17 +167,31 @@ class TestFlagDetection(unittest.TestCase):
         self.assertFalse(client.new_deployment_api_enabled)
 
     @responses.activate
-    def test_info_error_fails_safe_to_legacy(self):
+    def test_persistent_info_error_commits_legacy(self):
+        # A /workspace error that survives the bounded retry commits legacy for
+        # the process (fail-safe). Committing legacy after a genuine, retried
+        # failure is fail-loud now: an endpoint-flavored legacy create in a
+        # flag-on workspace is rejected 400 server-side (api-server MR !7865).
         responses.add(responses.GET, f"{BASE}/workspace", status=500)
         client = _make_client()
         self.assertFalse(client.new_deployment_api_enabled)
+        # The committed False is memoized process-wide; no further /workspace
+        # calls on repeat access.
+        before = len(
+            [c for c in responses.calls if c.request.url == f"{BASE}/workspace"]
+        )
+        self.assertFalse(client.new_deployment_api_enabled)
+        after = len(
+            [c for c in responses.calls if c.request.url == f"{BASE}/workspace"]
+        )
+        self.assertEqual(before, after)
 
     @responses.activate
-    def test_resolution_failure_is_not_cached_and_retries(self):
-        # A transient /workspace failure fails safe to legacy for that access but
-        # must NOT be memoized: a later access retries and can flip to the new
-        # API once resolution succeeds. Caching failure->legacy in a flag-on
-        # workspace would route a later create to the wrong API.
+    def test_transient_failure_absorbed_by_bounded_retry(self):
+        # A transient /workspace blip on the first attempt is absorbed by the
+        # bounded retry inside a SINGLE resolution, then the recovered flag is
+        # committed. The dispatch decision never splits: there is no window where
+        # one read sees legacy and a later read sees the new API.
         responses.add(responses.GET, f"{BASE}/workspace", status=500)
         responses.add(
             responses.GET,
@@ -180,14 +200,34 @@ class TestFlagDetection(unittest.TestCase):
             status=200,
         )
         client = _make_client()
-        self.assertFalse(client.new_deployment_api_enabled)  # first: error -> legacy
-        self.assertTrue(client.new_deployment_api_enabled)  # retry: resolves -> new
-        # And now it is cached: no third /workspace call.
+        # First access already returns the committed, recovered value (True) —
+        # not a transient legacy False.
         self.assertTrue(client.new_deployment_api_enabled)
+        self.assertTrue(client.new_deployment_api_enabled)
+        # Two /workspace calls: the failed attempt + the successful retry, both
+        # inside the one resolution. No third call on repeat access.
         workspace_calls = [
             c for c in responses.calls if c.request.url == f"{BASE}/workspace"
         ]
         self.assertEqual(len(workspace_calls), 2)
+
+    @responses.activate
+    def test_flag_committed_process_wide_across_fresh_clients(self):
+        # One CLI invocation may build several APIClient instances for the same
+        # workspace (e.g. the parallel `lep log get` workers). The flag resolves
+        # once and every later client on the same workspace URL reuses it, so no
+        # two clients can disagree and split an operation across APIs.
+        _register_workspace(enable_new_deployment_api=True)
+        first = _make_client()
+        self.assertTrue(first.new_deployment_api_enabled)
+        # A fresh client built WITHOUT clearing the memo reuses the committed
+        # decision and makes no second /workspace call.
+        second = APIClient(workspace_id="ws1", auth_token="tok", url=BASE)
+        self.assertTrue(second.new_deployment_api_enabled)
+        workspace_calls = [
+            c for c in responses.calls if c.request.url == f"{BASE}/workspace"
+        ]
+        self.assertEqual(len(workspace_calls), 1)
 
     @responses.activate
     def test_flag_is_cached_single_workspace_call(self):
@@ -751,6 +791,38 @@ class TestReplicaPublicIPSharesCallerClient(unittest.TestCase):
         self.assertNotIn(f"{BASE}/deployments/my-pod/replicas", _urls_called())
         # Only one /workspace resolution happened — the helper did not resolve
         # the flag again on a different client.
+        workspace_calls = [
+            c for c in responses.calls if c.request.url == f"{BASE}/workspace"
+        ]
+        self.assertEqual(len(workspace_calls), 1)
+
+    @responses.activate
+    def test_helper_on_separate_client_still_agrees_via_process_memo(self):
+        # Root-fix proof for the multi-call split class: even if the helper falls
+        # back to a SEPARATE client (the historical get_client() singleton path),
+        # the process-wide committed flag keeps it on /devpods. There is no
+        # window where the caller routes to /devpods and the helper re-resolves
+        # (transiently) to the legacy /deployments/<name>/replicas route.
+        from leptonai.cli.util import _get_only_replica_public_ip
+
+        _register_workspace(enable_new_deployment_api=True)
+        body = _devpod_body("my-pod")
+        body["status"]["public_ip"] = "1.2.3.4"
+        responses.add(responses.GET, f"{BASE}/devpods/my-pod", json=body, status=200)
+
+        caller = _make_client()
+        # Caller commits the flag (True) for the process.
+        self.assertTrue(caller.new_deployment_api_enabled)
+
+        # A separate, fresh client for the same workspace — built WITHOUT
+        # clearing the memo — reuses the committed decision.
+        helper_client = APIClient(workspace_id="ws1", auth_token="tok", url=BASE)
+        ip = _get_only_replica_public_ip("my-pod", helper_client)
+
+        self.assertEqual(ip, "1.2.3.4")
+        self.assertIn(f"{BASE}/devpods/my-pod", _urls_called())
+        self.assertNotIn(f"{BASE}/deployments/my-pod/replicas", _urls_called())
+        # One resolution total, shared across both clients.
         workspace_calls = [
             c for c in responses.calls if c.request.url == f"{BASE}/workspace"
         ]
