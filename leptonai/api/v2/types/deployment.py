@@ -364,6 +364,11 @@ class LeptonDeploymentStatus(BaseModel):
     # status.public_ip. Legacy /deployments responses do not carry this field
     # (the CLI reads the per-replica public_ip there instead), so it stays None.
     public_ip: Optional[str] = None
+    # Ready-replica count surfaced from the new endpoint API's
+    # status.ready_replicas. Static (non-autoscaled) endpoints carry no
+    # autoscaler_status, so the CLI list falls back to this to avoid reporting 0
+    # running replicas. Legacy /deployments responses do not set it -> None.
+    ready_replicas: Optional[int] = None
     is_system: Optional[bool] = None
 
 

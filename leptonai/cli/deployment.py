@@ -415,6 +415,11 @@ def _print_deployments_table(
             and d.status.autoscaler_status.desired_replicas is not None
             else None
         )
+        # Static endpoints (new API) carry no autoscaler_status; fall back to the
+        # ready_replicas count so the list does not report 0 for a running
+        # endpoint. Legacy /deployments responses leave ready_replicas None.
+        if desired is None and d.status and d.status.ready_replicas is not None:
+            desired = d.status.ready_replicas
         desired_disp = str(desired if desired is not None else 0)
 
         shape = rr.resource_shape if rr and rr.resource_shape else "-"
@@ -1983,11 +1988,24 @@ def update(
 
             replicas = client.deployment.get_replicas(lepton_deployment)
 
-            version_str_list = [lepton_deployment.metadata.semantic_version] + [
-                replica.metadata.semantic_version for replica in replicas
+            # "Update in progress" is inferred from a replica whose major version
+            # differs from the deployment's. New /endpoints replicas carry no
+            # semantic_version (only ID + created_at), so a missing value is
+            # "unknown", not evidence of an overlap — otherwise every disruptive
+            # endpoint update would falsely warn. Only compare replicas that
+            # actually report a version.
+            replica_versions = [
+                replica.metadata.semantic_version
+                for replica in replicas
+                if replica.metadata.semantic_version
             ]
-
-            updating_ongoing = not _same_major_version(version_str_list)
+            if replica_versions:
+                version_str_list = [
+                    lepton_deployment.metadata.semantic_version
+                ] + replica_versions
+                updating_ongoing = not _same_major_version(version_str_list)
+            else:
+                updating_ongoing = False
 
             confirmation_prompt = (
                 "Warning: another update is currently in progress for this"

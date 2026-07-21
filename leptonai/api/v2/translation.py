@@ -396,6 +396,10 @@ def http_endpoint_to_legacy(ep: Dict[str, Any]) -> Dict[str, Any]:
             "external_endpoint": external_url or "",
         },
         "autoscaler_status": _get(status, "auto_scaler_status"),
+        # Carry the endpoint's ready_replicas so the CLI list can report running
+        # replicas for static endpoints (no autoscaler_status). HTTPEndpointStatus
+        # omits the field when zero, so absence reads as 0.
+        "ready_replicas": _get(status, "ready_replicas"),
     }
     return {
         "metadata": metadata,

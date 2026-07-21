@@ -167,6 +167,29 @@ class TestFlagDetection(unittest.TestCase):
         self.assertFalse(client.new_deployment_api_enabled)
 
     @responses.activate
+    def test_resolution_failure_is_not_cached_and_retries(self):
+        # A transient /workspace failure fails safe to legacy for that access but
+        # must NOT be memoized: a later access retries and can flip to the new
+        # API once resolution succeeds. Caching failure->legacy in a flag-on
+        # workspace would route a later create to the wrong API.
+        responses.add(responses.GET, f"{BASE}/workspace", status=500)
+        responses.add(
+            responses.GET,
+            f"{BASE}/workspace",
+            json=_workspace_info(enable_new_deployment_api=True),
+            status=200,
+        )
+        client = _make_client()
+        self.assertFalse(client.new_deployment_api_enabled)  # first: error -> legacy
+        self.assertTrue(client.new_deployment_api_enabled)  # retry: resolves -> new
+        # And now it is cached: no third /workspace call.
+        self.assertTrue(client.new_deployment_api_enabled)
+        workspace_calls = [
+            c for c in responses.calls if c.request.url == f"{BASE}/workspace"
+        ]
+        self.assertEqual(len(workspace_calls), 2)
+
+    @responses.activate
     def test_flag_is_cached_single_workspace_call(self):
         _register_workspace(enable_new_deployment_api=True)
         client = _make_client()
@@ -599,6 +622,24 @@ class TestSameMajorVersionGuard(unittest.TestCase):
         self.assertFalse(_same_major_version([None, None]))
         self.assertTrue(_same_major_version(["1.0", "1.3"]))
         self.assertFalse(_same_major_version(["1.0", "2.1"]))
+
+
+class TestReadyReplicasFallback(unittest.TestCase):
+    def test_static_endpoint_carries_ready_replicas(self):
+        from leptonai.api.v2 import translation
+        from leptonai.api.v2.types.deployment import LeptonDeployment
+
+        # Static endpoint: no auto_scaler_status, but ready_replicas is set.
+        ep = {
+            "metadata": {"name": "ep", "id": "ep"},
+            "spec": {"components": [{"name": "default", "image": "svc"}]},
+            "status": {"state": "Ready", "ready_replicas": 3},
+        }
+        legacy = translation.http_endpoint_to_legacy(ep)
+        self.assertEqual(legacy["status"]["ready_replicas"], 3)
+        model = LeptonDeployment(**legacy)
+        self.assertIsNone(model.status.autoscaler_status)
+        self.assertEqual(model.status.ready_replicas, 3)
 
 
 class TestLogRoutingDispatch(unittest.TestCase):

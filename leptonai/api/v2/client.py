@@ -242,15 +242,29 @@ class APIClient(object):
         @implements LEP-5664, LEP-5665 (flag detection)
         """
         if self._new_deployment_api_enabled is None:
-            self._new_deployment_api_enabled = self._resolve_new_deployment_api()
+            resolved = self._resolve_new_deployment_api()
+            if resolved is None:
+                # Could not resolve (transient error). Fail safe to legacy for
+                # THIS access, but do not memoize the failure: a later command on
+                # the same client should retry rather than being pinned to legacy
+                # by one flaky /workspace call. Caching failure→legacy in a
+                # flag-on workspace would route a subsequent create to
+                # /deployments (endpoint-flavored legacy create is only gated by
+                # the sibling api-server MR, so it could silently land on the
+                # wrong API).
+                return False
+            self._new_deployment_api_enabled = resolved
         return self._new_deployment_api_enabled
 
-    def _resolve_new_deployment_api(self) -> bool:
-        """Resolve the new-deployment-API flag from workspace info, fail-safe.
+    def _resolve_new_deployment_api(self) -> Optional[bool]:
+        """Resolve the new-deployment-API flag from workspace info.
 
-        Any failure (network error, unauthorized, malformed response, missing
-        ``features``) resolves to ``False`` so the CLI keeps working against the
-        legacy routes rather than surfacing a spurious error at command start.
+        Returns the definite flag value (``True``/``False``) on a successful
+        resolution, or ``None`` when the flag could not be resolved at all
+        (network error, unauthorized, malformed response). A resolved ``False``
+        — including an absent flag or missing ``features`` object — is a real
+        answer and is cached; ``None`` is transient and is not cached by the
+        caller so the next access retries.
         """
         try:
             info = self.info()
@@ -258,7 +272,7 @@ class APIClient(object):
             logger.trace(
                 f"Could not resolve new deployment API flag, using legacy: {e}"
             )
-            return False
+            return None
         features = getattr(info, "features", None)
         if features is None:
             return False
