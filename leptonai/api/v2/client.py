@@ -7,6 +7,7 @@ such as http sessions.
 import os
 import time
 import re
+import threading
 import requests
 from typing import Optional, Union, Dict, Tuple
 
@@ -19,6 +20,8 @@ from .types.workspace import WorkspaceInfo
 from .api_resource import APIResourse
 from .dedicated_node_groups import DedicatedNodeGroupAPI
 from .deployment import DeploymentAPI
+from .endpoint import EndpointAPI
+from .devpod import DevPodAPI
 from .job import JobAPI
 from .secret import SecretAPI
 from .pod import PodAPI
@@ -44,6 +47,52 @@ from loguru import logger
 
 # Token expiry warning: warn at most once per process
 HAS_WARNED_TOKEN_EXPIRE: bool = False
+
+
+# Process-wide memo of the resolved new-deployment-API flag, keyed by workspace
+# URL. A single `lep` invocation targets exactly one workspace, but it may build
+# several short-lived `APIClient` instances (e.g. the parallel `lep log get`
+# workers each construct their own). Keying the resolved flag on the workspace
+# URL commits one dispatch decision for the whole invocation, so no two clients —
+# and no two reads on one client — can disagree and split a logical operation
+# across the legacy /deployments and the new /endpoints|/devpods APIs.
+_NEW_DEPLOYMENT_API_FLAG_CACHE: Dict[str, bool] = {}
+
+# Guards the check-resolve-commit sequence in `new_deployment_api_enabled`. The
+# GIL makes each individual dict op atomic, but not the read-then-/workspace-
+# resolve-then-write span: without this lock, two threads that hit a cold memo
+# concurrently (e.g. `lep log get` workers, each with its own APIClient) could
+# each issue their own /workspace call, get different transient outcomes, and
+# route their in-flight requests to different API families before last-write-wins
+# settles the memo. Single-flight under this lock guarantees exactly one
+# resolution per workspace URL and one committed dispatch decision.
+_FLAG_CACHE_LOCK = threading.Lock()
+
+# Bounded retry for the one-time flag resolution. The CLI is a short-lived
+# process: a couple of quick retries smooth over a transient /workspace blip
+# without a per-command round-trip, and the committed outcome (including a
+# committed False after retries are exhausted) then holds for the process.
+_FLAG_RESOLVE_RETRIES: int = 2
+_FLAG_RESOLVE_BACKOFF_SECONDS: float = 0.25
+
+
+def reset_new_deployment_api_flag_cache(url: Optional[str] = None) -> None:
+    """Drop the memoized new-deployment-API dispatch flag.
+
+    The flag is resolved once and committed for the lifetime of the process (see
+    :attr:`APIClient.new_deployment_api_enabled`). That is correct for the
+    short-lived ``lep`` CLI, but a long-lived SDK consumer (a notebook or a
+    service that ``import leptonai`` and stays up) would otherwise never observe
+    an ``enable_new_deployment_api`` flip on the workspace — the api-server does
+    permit toggling it. Call this to force the next dispatch to re-resolve.
+
+    :param url: clear only the entry for this workspace URL; ``None`` clears all.
+    """
+    with _FLAG_CACHE_LOCK:
+        if url is None:
+            _NEW_DEPLOYMENT_API_FLAG_CACHE.clear()
+        else:
+            _NEW_DEPLOYMENT_API_FLAG_CACHE.pop(url, None)
 
 
 class APIClient(object):
@@ -199,9 +248,7 @@ class APIClient(object):
 
         # Add individual APIs
         self.nodegroup = DedicatedNodeGroupAPI(self)
-        self.deployment = DeploymentAPI(self)
         self.job = JobAPI(self)
-        self.pod = PodAPI(self)
         self.secret = SecretAPI(self)
         self.ingress = IngressAPI(self)
         self.storage = StorageAPI(self)
@@ -210,6 +257,148 @@ class APIClient(object):
         self.finetune = FineTuneAPI(self)
         self.shapes = ResourceShapeAPI(self)
         self.raycluster = RayClusterAPI(self)
+
+        # Deployment ("endpoint") and pod ("devpod") each have two backing
+        # implementations: the legacy /deployments-based API and the new
+        # /endpoints|/devpods-based API. The public `deployment` and `pod`
+        # attributes are @property accessors below that dispatch to one of these
+        # based on the cached `enable_new_deployment_api` workspace flag. Legacy
+        # is the default and the fail-safe. Internal code that must always reach
+        # the legacy /deployments routes (e.g. LogAPI) can use these directly.
+        self._deployment_legacy = DeploymentAPI(self)
+        self._pod_legacy = PodAPI(self)
+        self._endpoint_api = EndpointAPI(self)
+        self._devpod_api = DevPodAPI(self)
+
+        # Per-instance mirror of the process-wide resolved flag (keyed by
+        # workspace URL in `_NEW_DEPLOYMENT_API_FLAG_CACHE`). None means "not yet
+        # read on this client"; it is populated from the memo on first access.
+        self._new_deployment_api_enabled: Optional[bool] = None
+
+    @property
+    def new_deployment_api_enabled(self) -> bool:
+        """Whether the workspace has the new endpoint/devpod API enabled.
+
+        Resolved once, then committed for the lifetime of the *process* (not
+        just this client) via a workspace-URL-keyed memo. The first access on
+        the first client for a workspace does a single ``info()`` resolution
+        with a small bounded retry; the resulting bool — ``True`` OR ``False``,
+        including a ``False`` committed after the retries are exhausted — is
+        stored and returned unconditionally for every later access, on this
+        client and on any other client built for the same workspace in the same
+        invocation. The semantics mirror the dashboard's ``useEndpointApiMode``:
+        only an explicit ``true`` for ``features.enable_new_deployment_api``
+        switches to the new routes; an absent field, ``false``, or a missing
+        ``features`` object stays on the legacy routes.
+
+        Why commit unconditionally (superseding the earlier no-cache-on-failure
+        design): the ``lep`` CLI is a short-lived process, and many operations
+        span several dispatch reads (a preflight list then a create, an update's
+        get-then-patch-then-verify, a pod list then its per-replica IP lookup)
+        or several clients (the parallel ``lep log get`` workers). If a
+        *transient* /workspace failure yielded legacy for one read and a later
+        read recovered the real flag, the operation would split across the
+        legacy /deployments and the new /endpoints|/devpods APIs — the exact
+        multi-call inconsistency class fixed here. Intra-process consistency
+        therefore beats freshness. The earlier concern that fail-to-legacy could
+        silently land an endpoint-flavored create on /deployments in a flag-on
+        workspace is now backstopped SERVER-SIDE (api-server MR !7865 rejects
+        such a create with 400), so committing legacy after a genuine, retried
+        resolution failure fails loud rather than silently wrong.
+
+        SDK implication: because the commit lasts the whole process, a long-lived
+        consumer (a notebook or service that keeps ``leptonai`` imported) will
+        NOT observe a workspace's ``enable_new_deployment_api`` being toggled
+        after the first dispatch — the api-server permits the toggle, but this
+        client will keep routing to the family it first resolved. That is
+        intentional (freshness is traded for per-operation consistency); a
+        consumer that needs to pick up a flip can call
+        :func:`reset_new_deployment_api_flag_cache` to force a re-resolution.
+
+        Concurrency: the cold-memo resolve-and-commit runs single-flight under
+        ``_FLAG_CACHE_LOCK`` (double-checked), so concurrent first accesses from
+        different threads/clients on the same workspace URL do exactly one
+        /workspace resolution and commit one dispatch decision — they cannot
+        split routing across API families.
+
+        @implements LEP-5664, LEP-5665 (flag detection)
+        """
+        cached = _NEW_DEPLOYMENT_API_FLAG_CACHE.get(self.url)
+        if cached is not None:
+            self._new_deployment_api_enabled = cached
+            return cached
+        with _FLAG_CACHE_LOCK:
+            # Re-check under the lock: another thread may have resolved and
+            # committed while we waited, in which case we adopt its decision
+            # rather than issuing a second /workspace call.
+            cached = _NEW_DEPLOYMENT_API_FLAG_CACHE.get(self.url)
+            if cached is not None:
+                self._new_deployment_api_enabled = cached
+                return cached
+            resolved = self._resolve_new_deployment_api()
+            _NEW_DEPLOYMENT_API_FLAG_CACHE[self.url] = resolved
+            self._new_deployment_api_enabled = resolved
+            return resolved
+
+    def _resolve_new_deployment_api(self) -> bool:
+        """Resolve the new-deployment-API flag from workspace info, once.
+
+        Always returns a definite bool: an explicit ``features
+        .enable_new_deployment_api is True`` yields ``True``; an absent flag,
+        missing ``features``, or an unresolvable /workspace call (after a small
+        bounded retry) all yield ``False``. This is called at most once per
+        workspace URL per process — the caller commits the result to the
+        process-wide memo — so a transient blip is retried here rather than
+        being re-litigated on every subsequent dispatch read.
+        """
+        info = None
+        for attempt in range(_FLAG_RESOLVE_RETRIES + 1):
+            try:
+                info = self.info()
+                break
+            except Exception as e:
+                if attempt < _FLAG_RESOLVE_RETRIES:
+                    logger.trace(
+                        "Could not resolve new deployment API flag (attempt"
+                        f" {attempt + 1}), retrying: {e}"
+                    )
+                    time.sleep(_FLAG_RESOLVE_BACKOFF_SECONDS * (2**attempt))
+                else:
+                    logger.trace(
+                        "Could not resolve new deployment API flag after"
+                        f" {_FLAG_RESOLVE_RETRIES + 1} attempts, committing"
+                        f" legacy: {e}"
+                    )
+                    return False
+        features = getattr(info, "features", None)
+        if features is None:
+            return False
+        return features.enable_new_deployment_api is True
+
+    @property
+    def deployment(self) -> Union[DeploymentAPI, "EndpointAPI"]:
+        """The deployment (endpoint) API.
+
+        Dispatches to the new /endpoints-based :class:`EndpointAPI` when the
+        workspace flag is on, otherwise the legacy /deployments-based
+        :class:`DeploymentAPI`. Both expose the same method surface and return
+        :class:`LeptonDeployment`-shaped objects, so callers are unaffected.
+        """
+        if self.new_deployment_api_enabled:
+            return self._endpoint_api
+        return self._deployment_legacy
+
+    @property
+    def pod(self) -> Union[PodAPI, "DevPodAPI"]:
+        """The pod (devpod) API.
+
+        Dispatches to the new /devpods-based :class:`DevPodAPI` when the
+        workspace flag is on, otherwise the legacy /deployments-based
+        :class:`PodAPI`.
+        """
+        if self.new_deployment_api_enabled:
+            return self._devpod_api
+        return self._pod_legacy
 
     def _safe_add(self, kwargs: Dict) -> Dict:
         """

@@ -308,9 +308,12 @@ def upload(
 
         name = "storage-rsync-by-lepton"
 
-        lepton_deployment = client.deployment.get(name)
+        # storage-rsync-by-lepton is a pod (devpod under the new API). Read it via
+        # the pod dispatcher, not client.deployment: in a flag-on workspace the
+        # latter routes to GET /endpoints/<name>, which 404s for a devpod.
+        lepton_deployment = client.pod.get(name)
         port = lepton_deployment.spec.container.ports[0].host_port
-        ip = _get_only_replica_public_ip(name)
+        ip = _get_only_replica_public_ip(name, client)
 
         workspace_id = client.get_workspace_id()
 

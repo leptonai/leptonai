@@ -83,6 +83,7 @@ from leptonai.config import (
 )
 from ..api.v2.client import APIClient
 from ..api.v2.api_resource import ClientError
+from ..api.v2.endpoint import NewEndpointAPIUnsupported
 from ..api.v2.deployment import make_token_vars_from_config
 from ..api.v2.spec_utils import make_mounts_from_strings, make_env_vars_from_strings
 from ..api.v2.workspace_record import WorkspaceRecord
@@ -117,7 +118,10 @@ def _same_major_version(version_str_list: List[str]) -> bool:
         return True
 
     def validate(v: str) -> bool:
-        return bool(re.match(r"^\d+\.\d+$", v))
+        # Replicas from the new /endpoints API do not carry a semantic_version
+        # (only legacy /deployments replicas do), so treat a missing/None value
+        # as "not a comparable version" rather than letting re.match raise.
+        return bool(v) and bool(re.match(r"^\d+\.\d+$", v))
 
     if not all(validate(version_str) for version_str in version_str_list):
         return False
@@ -411,6 +415,11 @@ def _print_deployments_table(
             and d.status.autoscaler_status.desired_replicas is not None
             else None
         )
+        # Static endpoints (new API) carry no autoscaler_status; fall back to the
+        # ready_replicas count so the list does not report 0 for a running
+        # endpoint. Legacy /deployments responses leave ready_replicas None.
+        if desired is None and d.status and d.status.ready_replicas is not None:
+            desired = d.status.ready_replicas
         desired_disp = str(desired if desired is not None else 0)
 
         shape = rr.resource_shape if rr and rr.resource_shape else "-"
@@ -956,14 +965,20 @@ def create(
     else:
         spec = LeptonDeploymentUserSpec()
 
-    existing_deployments = client.deployment.list_all()
+    # Bind the deployment dispatcher once for the whole create operation
+    # (preflight list -> optional --rerun delete -> create). The dispatch flag
+    # is now committed process-wide on first resolution (client.py), so repeated
+    # `client.deployment` reads already agree; binding once is belt-and-braces
+    # that also makes the single-API intent explicit at the call site.
+    dep_api = client.deployment
+    existing_deployments = dep_api.list_all()
     if name in [d.metadata.name for d in existing_deployments]:
         if rerun:
             console.print(
                 f"Endpoint [green]{name}[/] already exists. Shutting down the"
                 " existing endpoint and rerunning."
             )
-            client.deployment.delete(name)
+            dep_api.delete(name)
         else:
             console.print(
                 f"Endpoint [green]{name}[/] already exists. Use `lep endpoint"
@@ -1275,7 +1290,7 @@ def create(
         spec=spec,
     )
     logger.trace(json.dumps(lepton_deployment.model_dump(), indent=2))
-    client.deployment.create(lepton_deployment)
+    dep_api.create(lepton_deployment)
     console.print(
         "🎉 [green]Endpoint Created Successfully![/]\n"
         f"Name: [blue]{name}[/]\n"
@@ -1423,6 +1438,12 @@ def status(name, show_tokens, detail):
     if show_tokens and dep_info.spec.api_tokens:
 
         def stringfy_token(x):
+            # The new /endpoints API redacts literal token values to "***" on
+            # read (secret references via value_from are returned intact). Make
+            # the redaction explicit rather than printing a bare "***" that looks
+            # like a usable token.
+            if x.value == "***":
+                return "*** (literal value hidden by server; not retrievable)"
             return x.value or f"[{x.value_from.token_name_ref}]"
 
         console.print(f"Tokens:     {stringfy_token(dep_info.spec.api_tokens[0])}")
@@ -1431,31 +1452,43 @@ def status(name, show_tokens, detail):
 
     console.print("Replicas List:")
 
-    reading_issue_root = client.deployment.get_readiness(name).root
-    # Print a table of readiness information.
-    table = Table(show_lines=False)
-    table.add_column("replica id")
-    table.add_column("status")
-    table.add_column("message")
-    ready_count = 0
-    for id, value in reading_issue_root.items():
-        reason = value[0].reason
-        message = value[0].message
-        # Do we need to display red?
-        if reason == "Ready":
-            reason = f"[green]{reason}[/]"
-            ready_count += 1
-        else:
-            reason = f"[yellow]{reason}[/]"
-        if message == "":
-            message = "(empty)"
-        table.add_row(id, reason, message)
-    console.print(table)
-    console.print(
-        f"[green]{ready_count}[/] out of {len(reading_issue_root)} replicas ready."
-    )
+    # The new /endpoints API folds readiness/termination into per-replica status
+    # and exposes no standalone readiness/termination route, so in new-API mode
+    # these degrade to a clear note rather than a 404. Legacy mode is unchanged.
+    try:
+        reading_issue_root = client.deployment.get_readiness(name).root
+    except NewEndpointAPIUnsupported as e:
+        reading_issue_root = None
+        console.print(f"[yellow]Readiness summary unavailable: {e}[/]")
 
-    deployment_terminations_root = client.deployment.get_termination(name).root
+    if reading_issue_root is not None:
+        # Print a table of readiness information.
+        table = Table(show_lines=False)
+        table.add_column("replica id")
+        table.add_column("status")
+        table.add_column("message")
+        ready_count = 0
+        for id, value in reading_issue_root.items():
+            reason = value[0].reason
+            message = value[0].message
+            # Do we need to display red?
+            if reason == "Ready":
+                reason = f"[green]{reason}[/]"
+                ready_count += 1
+            else:
+                reason = f"[yellow]{reason}[/]"
+            if message == "":
+                message = "(empty)"
+            table.add_row(id, reason, message)
+        console.print(table)
+        console.print(
+            f"[green]{ready_count}[/] out of {len(reading_issue_root)} replicas ready."
+        )
+
+    try:
+        deployment_terminations_root = client.deployment.get_termination(name).root
+    except NewEndpointAPIUnsupported:
+        deployment_terminations_root = {}
 
     if len(deployment_terminations_root):
         console.print("There are earlier terminations. Detailed Info:")
@@ -1961,11 +1994,24 @@ def update(
 
             replicas = client.deployment.get_replicas(lepton_deployment)
 
-            version_str_list = [lepton_deployment.metadata.semantic_version] + [
-                replica.metadata.semantic_version for replica in replicas
+            # "Update in progress" is inferred from a replica whose major version
+            # differs from the deployment's. New /endpoints replicas carry no
+            # semantic_version (only ID + created_at), so a missing value is
+            # "unknown", not evidence of an overlap — otherwise every disruptive
+            # endpoint update would falsely warn. Only compare replicas that
+            # actually report a version.
+            replica_versions = [
+                replica.metadata.semantic_version
+                for replica in replicas
+                if replica.metadata.semantic_version
             ]
-
-            updating_ongoing = not _same_major_version(version_str_list)
+            if replica_versions:
+                version_str_list = [
+                    lepton_deployment.metadata.semantic_version
+                ] + replica_versions
+                updating_ongoing = not _same_major_version(version_str_list)
+            else:
+                updating_ongoing = False
 
             confirmation_prompt = (
                 "Warning: another update is currently in progress for this"

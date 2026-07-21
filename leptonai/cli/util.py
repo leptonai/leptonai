@@ -316,9 +316,23 @@ def sizeof_fmt(num, suffix="B"):
     return f"{num:.1f}Yi{suffix}"
 
 
-def _get_only_replica_public_ip(name: str):
-    client = get_client()
-    replicas = client.deployment.get_replicas(name)
+def _get_only_replica_public_ip(name: str, client: Optional[APIClient] = None):
+    # Reuse the caller's client when provided so this helper shares the caller's
+    # dispatch decision. The dispatch flag is committed process-wide on first
+    # resolution (client.py), so even the get_client() fallback below now agrees
+    # with the caller; passing the caller's client remains the clearer contract.
+    if client is None:
+        client = get_client()
+    # The new devpod API exposes no /replicas route; the single pod's public IP
+    # is surfaced directly on the devpod status as a bare IP (status.public_ip),
+    # carried through by the response translation. In legacy mode, read it from
+    # the single replica as before. The dispatch flag is stable process-wide, so
+    # this branch cannot disagree with the caller's pod routing.
+    if client.new_deployment_api_enabled:
+        pod = client._devpod_api.get(name)
+        status = pod.status
+        return status.public_ip if status else None
+    replicas = client._deployment_legacy.get_replicas(name)
     logger.trace(f"Replicas for {name}:\n{replicas}")
 
     if len(replicas) != 1:

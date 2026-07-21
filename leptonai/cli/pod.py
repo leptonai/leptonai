@@ -459,12 +459,12 @@ def get(name, path):
 
     client = APIClient()
 
-    dep = client.deployment.get(name)
+    dep = client.pod.get(name)
     if not dep.spec.is_pod:
         console.print(f"[red]{name} is not a pod.[/]")
         sys.exit(1)
 
-    console.print(json.dumps(client.deployment.safe_json(dep), indent=2))
+    console.print(json.dumps(client.pod.safe_json(dep), indent=2))
 
     if path:
         spec_json = dep.spec.model_dump_json(indent=2, by_alias=True)
@@ -503,7 +503,7 @@ def list_command(pattern, detail):
     """
     client = APIClient()
 
-    deployments = client.deployment.list_all()
+    deployments = client.pod.list_all()
 
     logger.trace(f"Deployments:\n{[d for d in deployments if d.spec.is_pod]}")
     pods = [
@@ -537,7 +537,7 @@ def list_command(pattern, detail):
     pod_ips = [None] * pods_count
     for index, pod in enumerate(pods):
         if pod.status.state in ("Running", "Ready"):
-            public_ip = _get_only_replica_public_ip(pod.metadata.name)
+            public_ip = _get_only_replica_public_ip(pod.metadata.name, client)
             pod_ips[index] = public_ip
     logger.trace(f"Pod IPs:\n{pod_ips}")
 
@@ -697,7 +697,7 @@ def remove(name):
 
     client = APIClient()
 
-    client.deployment.delete(name)
+    client.pod.delete(name)
     console.log(f"Pod [green]{name}[/] removed.")
 
     return 0
@@ -709,7 +709,7 @@ def ssh(name):
     """SSH into a running pod."""
     client = APIClient()
 
-    pod = client.deployment.get(name)
+    pod = client.pod.get(name)
     logger.trace(json.dumps(pod.model_dump(), indent=2))
     ports = pod.status.container_port_status
     if pod.status.state not in ("Running", "Ready"):
@@ -721,7 +721,7 @@ def ssh(name):
         " command"
     )
 
-    public_ip = _get_only_replica_public_ip(pod.metadata.name)
+    public_ip = _get_only_replica_public_ip(pod.metadata.name, client)
 
     if not public_ip:
         dashboard_base_url = client.get_dashboard_base_url()
@@ -786,7 +786,7 @@ def stop(name):
     Stops a pod by its name.
     """
     client = APIClient()
-    endpoint = client.deployment.get(name)
+    endpoint = client.pod.get(name)
     if endpoint.status.state in [
         LeptonDeploymentState.Stopped,
         LeptonDeploymentState.Stopping,
@@ -798,7 +798,7 @@ def stop(name):
             " action taken.[/]"
         )
         sys.exit(0)
-    client.deployment.stop(name)
+    client.pod.stop(name)
     console.print(f"Pod [green]{name}[/] stopped successfully.")
 
 

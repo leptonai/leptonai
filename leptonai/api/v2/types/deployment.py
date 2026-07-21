@@ -54,6 +54,11 @@ class ContainerPort(BaseModel):
     container_port: int
     expose_strategies: Optional[List[ContainerPortExposeStrategy]] = None
     protocol: Optional[str] = None
+    # Ingress routing hint on the new endpoint component ports ("http" or "grpc";
+    # EndpointContainerPort.app_protocol). Carried through translation so an
+    # image-only endpoint update does not drop the live value. Unused by the
+    # legacy /deployments path.
+    app_protocol: Optional[str] = None
     host_port: Optional[int] = None
     enable_load_balancer: Optional[bool] = None
 
@@ -355,6 +360,15 @@ class LeptonDeploymentStatus(BaseModel):
     endpoint: DeploymentEndpoint
     container_port_status: Optional[List[ContainerPortStatus]] = None
     autoscaler_status: Optional[AutoScalerStatus] = None
+    # Bare public IP of the (single) pod, surfaced from the new devpod API's
+    # status.public_ip. Legacy /deployments responses do not carry this field
+    # (the CLI reads the per-replica public_ip there instead), so it stays None.
+    public_ip: Optional[str] = None
+    # Ready-replica count surfaced from the new endpoint API's
+    # status.ready_replicas. Static (non-autoscaled) endpoints carry no
+    # autoscaler_status, so the CLI list falls back to this to avoid reporting 0
+    # running replicas. Legacy /deployments responses do not set it -> None.
+    ready_replicas: Optional[int] = None
     is_system: Optional[bool] = None
 
 
