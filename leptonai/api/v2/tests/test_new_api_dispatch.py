@@ -601,6 +601,33 @@ class TestSameMajorVersionGuard(unittest.TestCase):
         self.assertFalse(_same_major_version(["1.0", "2.1"]))
 
 
+class TestLogRoutingDispatch(unittest.TestCase):
+    @responses.activate
+    def test_timeseries_uses_endpoint_key_when_flag_on(self):
+        _register_workspace(enable_new_deployment_api=True)
+        responses.add(
+            responses.GET, f"{BASE}/logs/timeseries", json={"data": {}}, status=200
+        )
+        client = _make_client()
+        client.log.get_log_time_series(name_or_deployment="my-ep")
+        call = next(c for c in responses.calls if "/logs/timeseries" in c.request.url)
+        # Flag on: the workload is a LeptonEndpoint, keyed under endpoint=.
+        self.assertIn("endpoint=my-ep", call.request.url)
+        self.assertNotIn("deployment=", call.request.url)
+
+    @responses.activate
+    def test_timeseries_uses_deployment_key_when_flag_off(self):
+        _register_workspace(enable_new_deployment_api=False)
+        responses.add(
+            responses.GET, f"{BASE}/logs/timeseries", json={"data": {}}, status=200
+        )
+        client = _make_client()
+        client.log.get_log_time_series(name_or_deployment="my-dep")
+        call = next(c for c in responses.calls if "/logs/timeseries" in c.request.url)
+        self.assertIn("deployment=my-dep", call.request.url)
+        self.assertNotIn("endpoint=", call.request.url)
+
+
 class TestGate403SurfacesCleanly(unittest.TestCase):
     @responses.activate
     def test_devpod_gate_403_raises_client_error_with_message(self):
