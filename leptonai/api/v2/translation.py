@@ -446,9 +446,15 @@ def legacy_to_http_devpod(legacy: Dict[str, Any]) -> Dict[str, Any]:
         "metrics": _get(spec, "metrics"),
         "ingress_timeout_seconds": _get(spec, "ingress_timeout_seconds"),
     })
-    metadata = {}
-    if _get(_get(legacy, "metadata", {}), "name"):
-        metadata["name"] = _get(_get(legacy, "metadata", {}), "name")
+    legacy_metadata = _get(legacy, "metadata", {})
+    metadata: Dict[str, Any] = {}
+    if _get(legacy_metadata, "name"):
+        metadata["name"] = _get(legacy_metadata, "name")
+    # HTTPDevPodMetadata inlines LeptonMetadata, so visibility sits directly on
+    # metadata (unlike the endpoint's nested lepton_metadata). Carry it through
+    # or a create with visibility=private is silently made public server-side.
+    if _get(legacy_metadata, "visibility"):
+        metadata["visibility"] = _get(legacy_metadata, "visibility")
     return {"metadata": metadata, "spec": devpod_spec}
 
 

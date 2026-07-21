@@ -499,6 +499,29 @@ class TestTranslationFidelity(unittest.TestCase):
         back = translation.http_devpod_to_legacy(dp)
         self.assertEqual(back["status"]["public_ip"], "203.0.113.7")
 
+    def test_devpod_create_carries_visibility(self):
+        from leptonai.api.v2 import translation
+
+        # HTTPDevPodMetadata inlines LeptonMetadata, so visibility sits directly
+        # on metadata. Dropping it silently makes a private devpod public.
+        legacy = {
+            "metadata": {"name": "pod", "visibility": "private"},
+            "spec": {
+                "is_pod": True,
+                "container": {"image": "ubuntu"},
+                "resource_requirement": {"resource_shape": "cpu.small"},
+            },
+        }
+        wire = translation.legacy_to_http_devpod(legacy)
+        self.assertEqual(wire["metadata"]["visibility"], "private")
+        # absent visibility must not inject an empty key
+        legacy_no_vis = {
+            "metadata": {"name": "pod"},
+            "spec": {"is_pod": True, "container": {"image": "ubuntu"}},
+        }
+        wire2 = translation.legacy_to_http_devpod(legacy_no_vis)
+        self.assertNotIn("visibility", wire2["metadata"])
+
     def test_devpod_not_ready_state_maps_to_legacy_spelling(self):
         from leptonai.api.v2 import translation
         from leptonai.api.v2.types.deployment import (
