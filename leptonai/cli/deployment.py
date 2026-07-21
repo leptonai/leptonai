@@ -118,7 +118,10 @@ def _same_major_version(version_str_list: List[str]) -> bool:
         return True
 
     def validate(v: str) -> bool:
-        return bool(re.match(r"^\d+\.\d+$", v))
+        # Replicas from the new /endpoints API do not carry a semantic_version
+        # (only legacy /deployments replicas do), so treat a missing/None value
+        # as "not a comparable version" rather than letting re.match raise.
+        return bool(v) and bool(re.match(r"^\d+\.\d+$", v))
 
     if not all(validate(version_str) for version_str in version_str_list):
         return False
@@ -1424,6 +1427,12 @@ def status(name, show_tokens, detail):
     if show_tokens and dep_info.spec.api_tokens:
 
         def stringfy_token(x):
+            # The new /endpoints API redacts literal token values to "***" on
+            # read (secret references via value_from are returned intact). Make
+            # the redaction explicit rather than printing a bare "***" that looks
+            # like a usable token.
+            if x.value == "***":
+                return "*** (literal value hidden by server; not retrievable)"
             return x.value or f"[{x.value_from.token_name_ref}]"
 
         console.print(f"Tokens:     {stringfy_token(dep_info.spec.api_tokens[0])}")

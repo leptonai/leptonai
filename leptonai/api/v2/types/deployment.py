@@ -54,6 +54,11 @@ class ContainerPort(BaseModel):
     container_port: int
     expose_strategies: Optional[List[ContainerPortExposeStrategy]] = None
     protocol: Optional[str] = None
+    # Ingress routing hint on the new endpoint component ports ("http" or "grpc";
+    # EndpointContainerPort.app_protocol). Carried through translation so an
+    # image-only endpoint update does not drop the live value. Unused by the
+    # legacy /deployments path.
+    app_protocol: Optional[str] = None
     host_port: Optional[int] = None
     enable_load_balancer: Optional[bool] = None
 

@@ -499,6 +499,84 @@ class TestTranslationFidelity(unittest.TestCase):
         back = translation.http_devpod_to_legacy(dp)
         self.assertEqual(back["status"]["public_ip"], "203.0.113.7")
 
+    def test_devpod_not_ready_state_maps_to_legacy_spelling(self):
+        from leptonai.api.v2 import translation
+        from leptonai.api.v2.types.deployment import (
+            LeptonDeployment,
+            LeptonDeploymentState,
+        )
+
+        # Backend DevPodState is "NotReady" (no space); the CLI enum expects
+        # "Not Ready". Without the remap this collapses to UNK.
+        dp = {
+            "metadata": {"name": "pod"},
+            "spec": {"container": {"image": "ubuntu"}, "resource_shape": "cpu.small"},
+            "status": {"state": "NotReady"},
+        }
+        back = translation.http_devpod_to_legacy(dp)
+        self.assertEqual(back["status"]["state"], "Not Ready")
+        model = LeptonDeployment(**back)
+        self.assertEqual(model.status.state, LeptonDeploymentState.NotReady)
+
+    def test_endpoint_app_protocol_round_trips(self):
+        from leptonai.api.v2 import translation
+
+        # app_protocol ("grpc") selects ingress routing and must survive an
+        # image-only update (inbound get -> outbound patch).
+        legacy = {
+            "metadata": {"name": "ep"},
+            "spec": {
+                "container": {
+                    "image": "svc",
+                    "ports": [{
+                        "container_port": 8080,
+                        "protocol": "TCP",
+                        "app_protocol": "grpc",
+                    }],
+                },
+                "resource_requirement": {"resource_shape": "cpu.small"},
+            },
+        }
+        wire = translation.legacy_to_http_endpoint(legacy)
+        self.assertEqual(
+            wire["spec"]["components"][0]["ports"][0]["app_protocol"], "grpc"
+        )
+
+        ep = {
+            "metadata": {"name": "ep"},
+            "spec": {
+                "components": [{
+                    "name": "default",
+                    "ports": [{
+                        "container_port": 8080,
+                        "protocol": "TCP",
+                        "app_protocol": "grpc",
+                    }],
+                }]
+            },
+            "status": {"state": "Ready"},
+        }
+        back = translation.http_endpoint_to_legacy(ep)
+        self.assertEqual(back["spec"]["container"]["ports"][0]["app_protocol"], "grpc")
+        # and the patch (full component array) preserves it for an image update
+        raw = ep
+        patch = translation.legacy_to_http_endpoint_patch(raw, back)
+        self.assertEqual(
+            patch["spec"]["components"][0]["ports"][0]["app_protocol"], "grpc"
+        )
+
+
+class TestSameMajorVersionGuard(unittest.TestCase):
+    def test_none_semantic_version_does_not_raise(self):
+        from leptonai.cli.deployment import _same_major_version
+
+        # New-endpoint replicas carry no semantic_version (None); the helper must
+        # not raise TypeError on re.match(None).
+        self.assertFalse(_same_major_version(["1.0", None]))
+        self.assertFalse(_same_major_version([None, None]))
+        self.assertTrue(_same_major_version(["1.0", "1.3"]))
+        self.assertFalse(_same_major_version(["1.0", "2.1"]))
+
 
 class TestGate403SurfacesCleanly(unittest.TestCase):
     @responses.activate

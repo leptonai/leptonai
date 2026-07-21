@@ -61,12 +61,15 @@ def _legacy_ports_to_component(
     ports = _get(container, "ports")
     if not ports:
         return None
-    # HTTPComponentSpec ports carry only container_port + protocol
+    # HTTPComponentSpec ports carry container_port + protocol + app_protocol
     # (api-server/httpapi/endpoint/types.go EndpointContainerPort projection).
+    # app_protocol ("http"/"grpc") selects ingress routing and must survive the
+    # round-trip so an image-only update does not silently clear it.
     return [
         _prune_none({
             "container_port": _get(p, "container_port", 0),
             "protocol": _get(p, "protocol"),
+            "app_protocol": _get(p, "app_protocol"),
         })
         for p in ports
     ]
@@ -326,6 +329,7 @@ def http_endpoint_to_legacy(ep: Dict[str, Any]) -> Dict[str, Any]:
                 _prune_none({
                     "container_port": _get(p, "container_port"),
                     "protocol": _get(p, "protocol"),
+                    "app_protocol": _get(p, "app_protocol"),
                 })
                 for p in ports
             ]
@@ -452,6 +456,19 @@ def _running_replica_count(stopped: Optional[bool]) -> int:
     return 0 if stopped is True else 1
 
 
+# The devpod DevPodState enum spells NotReady without a space, but the CLI's
+# LeptonDeploymentState enum expects "Not Ready"; without this remap the state
+# collapses to "UNK". Every other DevPodState value matches the CLI enum, so
+# unknown states pass through for the enum's own _missing_ handling.
+_DEVPOD_STATE_TO_LEGACY = {"NotReady": "Not Ready"}
+
+
+def _map_devpod_state_to_legacy(state: Optional[str]) -> str:
+    if not state:
+        return ""
+    return _DEVPOD_STATE_TO_LEGACY.get(state, state)
+
+
 def http_devpod_to_legacy(dp: Dict[str, Any]) -> Dict[str, Any]:
     """HTTPDevPod response -> legacy LeptonDeployment (pod) dict.
 
@@ -463,7 +480,7 @@ def http_devpod_to_legacy(dp: Dict[str, Any]) -> Dict[str, Any]:
     spec = _get(dp, "spec", {})
     status = _get(dp, "status", {})
     name = _get(md, "name") or ""
-    state = _get(status, "state", "")
+    state = _map_devpod_state_to_legacy(_get(status, "state", ""))
     container = _get(spec, "container", {})
     ports = _get(container, "ports", []) or []
 
