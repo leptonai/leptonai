@@ -719,5 +719,105 @@ class TestGate403SurfacesCleanly(unittest.TestCase):
         self.assertEqual(ctx.exception.response.status_code, 403)
 
 
+class TestReplicaPublicIPSharesCallerClient(unittest.TestCase):
+    """`_get_only_replica_public_ip` must reuse the caller's client so it shares
+    the caller's already-resolved dispatch decision, rather than resolving the
+    new-deployment-API flag a second time on the get_client() singleton.
+
+    Regression: with the flag ON, the caller routes the pod through /devpods,
+    but an independent second flag resolution on a different client could
+    transiently fail (uncached -> legacy) and hit /deployments/<name>/replicas,
+    which 404s for a devpod. Passing the caller's client keeps it on /devpods.
+    """
+
+    @responses.activate
+    def test_helper_uses_passed_client_and_hits_devpod_route(self):
+        from leptonai.cli.util import _get_only_replica_public_ip
+
+        _register_workspace(enable_new_deployment_api=True)
+        body = _devpod_body("my-pod")
+        body["status"]["public_ip"] = "1.2.3.4"
+        responses.add(responses.GET, f"{BASE}/devpods/my-pod", json=body, status=200)
+
+        client = _make_client()
+        # Caller resolves the flag first (as pod list/ssh/storage do).
+        client.pod.get("my-pod")
+
+        ip = _get_only_replica_public_ip("my-pod", client)
+
+        self.assertEqual(ip, "1.2.3.4")
+        # The devpod status route was used; the legacy replicas route never was.
+        self.assertIn(f"{BASE}/devpods/my-pod", _urls_called())
+        self.assertNotIn(f"{BASE}/deployments/my-pod/replicas", _urls_called())
+        # Only one /workspace resolution happened — the helper did not resolve
+        # the flag again on a different client.
+        workspace_calls = [
+            c for c in responses.calls if c.request.url == f"{BASE}/workspace"
+        ]
+        self.assertEqual(len(workspace_calls), 1)
+
+
+class TestCreateBindsDispatcherOnce(unittest.TestCase):
+    """The endpoint create flow (list -> optional rerun delete -> create) must
+    bind the deployment dispatcher once. Otherwise a transient /workspace
+    failure on the preflight list (uncached -> legacy) followed by a recovered
+    resolution on create could split the operation across APIs, POSTing a
+    duplicate to /endpoints (409) instead of rerunning it.
+
+    We assert the property directly: repeated access to `client.deployment`
+    after the flag has resolved yields the same backing API instance, and a
+    single bound reference is stable across the whole operation.
+    """
+
+    @responses.activate
+    def test_deployment_dispatcher_is_stable_once_resolved(self):
+        _register_workspace(enable_new_deployment_api=True)
+        client = _make_client()
+
+        dep_api = client.deployment
+        # After the first resolution the flag is cached; the bound reference and
+        # any later access agree on the same (endpoint) backing API.
+        self.assertIs(dep_api, client._endpoint_api)
+        self.assertIs(dep_api, client.deployment)
+
+    @responses.activate
+    def test_rerun_delete_and_create_stay_on_endpoints(self):
+        _register_workspace(enable_new_deployment_api=True)
+        responses.add(
+            responses.GET,
+            f"{BASE}/endpoints",
+            json=[_endpoint_body("my-ep")],
+            status=200,
+        )
+        responses.add(responses.DELETE, f"{BASE}/endpoints/my-ep", json={}, status=200)
+        responses.add(
+            responses.POST,
+            f"{BASE}/endpoints",
+            json=_endpoint_body("my-ep"),
+            status=201,
+        )
+
+        client = _make_client()
+        # Simulate the create flow's bound-dispatcher sequence.
+        dep_api = client.deployment
+        existing = dep_api.list_all()
+        self.assertIn("my-ep", [d.metadata.name for d in existing])
+        dep_api.delete("my-ep")
+        dep_api.create(
+            LeptonDeployment(
+                metadata=Metadata(id="my-ep", name="my-ep"),
+                spec=LeptonDeploymentUserSpec(
+                    resource_requirement=ResourceRequirement(resource_shape="cpu.small")
+                ),
+            )
+        )
+
+        urls = _urls_called()
+        # Every mutating call stayed on /endpoints; none leaked to /deployments.
+        self.assertTrue(any(u == f"{BASE}/endpoints" for u in urls))
+        self.assertIn(f"{BASE}/endpoints/my-ep", urls)
+        self.assertFalse(any("/deployments" in u for u in urls))
+
+
 if __name__ == "__main__":
     unittest.main()

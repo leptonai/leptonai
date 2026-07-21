@@ -316,19 +316,27 @@ def sizeof_fmt(num, suffix="B"):
     return f"{num:.1f}Yi{suffix}"
 
 
-def _get_only_replica_public_ip(name: str):
-    client = get_client()
+def _get_only_replica_public_ip(name: str, client: Optional[APIClient] = None):
+    # Reuse the caller's client so this helper shares the caller's already
+    # resolved dispatch decision. The callers (pod list/ssh, storage upload)
+    # each construct their own APIClient() and successfully route the pod
+    # through client.pod before calling here; falling back to the get_client()
+    # singleton would resolve the new-deployment-API flag a SECOND time on a
+    # DIFFERENT client, and since a transient /workspace failure is no longer
+    # cached (client.py), that second resolution could disagree and route this
+    # devpod to the legacy /deployments/<name>/replicas route (404 for a
+    # devpod). Sharing the caller's client keeps the whole operation on one API.
+    if client is None:
+        client = get_client()
     # The new devpod API exposes no /replicas route; the single pod's public IP
     # is surfaced directly on the devpod status as a bare IP (status.public_ip),
     # carried through by the response translation. In legacy mode, read it from
     # the single replica as before.
     #
     # Snapshot the flag once and call the matching backing implementation
-    # directly: a transient /workspace failure is no longer cached (client.py),
-    # so reading the flag twice within one operation could disagree and route
-    # this pod to the mismatched API (e.g. GET /endpoints/<pod>/replicas, which
-    # does not exist for a devpod). Resolving once keeps the whole operation on
-    # one API.
+    # directly: reading the flag twice within one operation could disagree and
+    # route this pod to the mismatched API (e.g. GET /endpoints/<pod>/replicas,
+    # which does not exist for a devpod). Resolving once keeps this on one API.
     if client.new_deployment_api_enabled:
         pod = client._devpod_api.get(name)
         status = pod.status

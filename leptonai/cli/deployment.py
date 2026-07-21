@@ -965,14 +965,23 @@ def create(
     else:
         spec = LeptonDeploymentUserSpec()
 
-    existing_deployments = client.deployment.list_all()
+    # Bind the deployment dispatcher once for the whole create operation. The
+    # `client.deployment` property re-resolves the new-deployment-API flag on
+    # every access, and a transient /workspace failure is not cached
+    # (client.py). Reading it separately for the preflight list, the --rerun
+    # delete, and the create could therefore split across APIs: e.g. a legacy
+    # list that misses an existing new endpoint, then an endpoint create that
+    # 409s on the duplicate instead of rerunning it. One binding keeps the
+    # whole operation on a single API.
+    dep_api = client.deployment
+    existing_deployments = dep_api.list_all()
     if name in [d.metadata.name for d in existing_deployments]:
         if rerun:
             console.print(
                 f"Endpoint [green]{name}[/] already exists. Shutting down the"
                 " existing endpoint and rerunning."
             )
-            client.deployment.delete(name)
+            dep_api.delete(name)
         else:
             console.print(
                 f"Endpoint [green]{name}[/] already exists. Use `lep endpoint"
@@ -1284,7 +1293,7 @@ def create(
         spec=spec,
     )
     logger.trace(json.dumps(lepton_deployment.model_dump(), indent=2))
-    client.deployment.create(lepton_deployment)
+    dep_api.create(lepton_deployment)
     console.print(
         "🎉 [green]Endpoint Created Successfully![/]\n"
         f"Name: [blue]{name}[/]\n"

@@ -537,7 +537,7 @@ def list_command(pattern, detail):
     pod_ips = [None] * pods_count
     for index, pod in enumerate(pods):
         if pod.status.state in ("Running", "Ready"):
-            public_ip = _get_only_replica_public_ip(pod.metadata.name)
+            public_ip = _get_only_replica_public_ip(pod.metadata.name, client)
             pod_ips[index] = public_ip
     logger.trace(f"Pod IPs:\n{pod_ips}")
 
@@ -721,7 +721,7 @@ def ssh(name):
         " command"
     )
 
-    public_ip = _get_only_replica_public_ip(pod.metadata.name)
+    public_ip = _get_only_replica_public_ip(pod.metadata.name, client)
 
     if not public_ip:
         dashboard_base_url = client.get_dashboard_base_url()
