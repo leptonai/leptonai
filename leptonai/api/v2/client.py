@@ -7,6 +7,7 @@ such as http sessions.
 import os
 import time
 import re
+import threading
 import requests
 from typing import Optional, Union, Dict, Tuple
 
@@ -57,12 +58,41 @@ HAS_WARNED_TOKEN_EXPIRE: bool = False
 # across the legacy /deployments and the new /endpoints|/devpods APIs.
 _NEW_DEPLOYMENT_API_FLAG_CACHE: Dict[str, bool] = {}
 
+# Guards the check-resolve-commit sequence in `new_deployment_api_enabled`. The
+# GIL makes each individual dict op atomic, but not the read-then-/workspace-
+# resolve-then-write span: without this lock, two threads that hit a cold memo
+# concurrently (e.g. `lep log get` workers, each with its own APIClient) could
+# each issue their own /workspace call, get different transient outcomes, and
+# route their in-flight requests to different API families before last-write-wins
+# settles the memo. Single-flight under this lock guarantees exactly one
+# resolution per workspace URL and one committed dispatch decision.
+_FLAG_CACHE_LOCK = threading.Lock()
+
 # Bounded retry for the one-time flag resolution. The CLI is a short-lived
 # process: a couple of quick retries smooth over a transient /workspace blip
 # without a per-command round-trip, and the committed outcome (including a
 # committed False after retries are exhausted) then holds for the process.
 _FLAG_RESOLVE_RETRIES: int = 2
 _FLAG_RESOLVE_BACKOFF_SECONDS: float = 0.25
+
+
+def reset_new_deployment_api_flag_cache(url: Optional[str] = None) -> None:
+    """Drop the memoized new-deployment-API dispatch flag.
+
+    The flag is resolved once and committed for the lifetime of the process (see
+    :attr:`APIClient.new_deployment_api_enabled`). That is correct for the
+    short-lived ``lep`` CLI, but a long-lived SDK consumer (a notebook or a
+    service that ``import leptonai`` and stays up) would otherwise never observe
+    an ``enable_new_deployment_api`` flip on the workspace — the api-server does
+    permit toggling it. Call this to force the next dispatch to re-resolve.
+
+    :param url: clear only the entry for this workspace URL; ``None`` clears all.
+    """
+    with _FLAG_CACHE_LOCK:
+        if url is None:
+            _NEW_DEPLOYMENT_API_FLAG_CACHE.clear()
+        else:
+            _NEW_DEPLOYMENT_API_FLAG_CACHE.pop(url, None)
 
 
 class APIClient(object):
@@ -276,16 +306,39 @@ class APIClient(object):
         such a create with 400), so committing legacy after a genuine, retried
         resolution failure fails loud rather than silently wrong.
 
+        SDK implication: because the commit lasts the whole process, a long-lived
+        consumer (a notebook or service that keeps ``leptonai`` imported) will
+        NOT observe a workspace's ``enable_new_deployment_api`` being toggled
+        after the first dispatch — the api-server permits the toggle, but this
+        client will keep routing to the family it first resolved. That is
+        intentional (freshness is traded for per-operation consistency); a
+        consumer that needs to pick up a flip can call
+        :func:`reset_new_deployment_api_flag_cache` to force a re-resolution.
+
+        Concurrency: the cold-memo resolve-and-commit runs single-flight under
+        ``_FLAG_CACHE_LOCK`` (double-checked), so concurrent first accesses from
+        different threads/clients on the same workspace URL do exactly one
+        /workspace resolution and commit one dispatch decision — they cannot
+        split routing across API families.
+
         @implements LEP-5664, LEP-5665 (flag detection)
         """
         cached = _NEW_DEPLOYMENT_API_FLAG_CACHE.get(self.url)
         if cached is not None:
             self._new_deployment_api_enabled = cached
             return cached
-        resolved = self._resolve_new_deployment_api()
-        _NEW_DEPLOYMENT_API_FLAG_CACHE[self.url] = resolved
-        self._new_deployment_api_enabled = resolved
-        return resolved
+        with _FLAG_CACHE_LOCK:
+            # Re-check under the lock: another thread may have resolved and
+            # committed while we waited, in which case we adopt its decision
+            # rather than issuing a second /workspace call.
+            cached = _NEW_DEPLOYMENT_API_FLAG_CACHE.get(self.url)
+            if cached is not None:
+                self._new_deployment_api_enabled = cached
+                return cached
+            resolved = self._resolve_new_deployment_api()
+            _NEW_DEPLOYMENT_API_FLAG_CACHE[self.url] = resolved
+            self._new_deployment_api_enabled = resolved
+            return resolved
 
     def _resolve_new_deployment_api(self) -> bool:
         """Resolve the new-deployment-API flag from workspace info, once.

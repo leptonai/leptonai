@@ -16,12 +16,16 @@ Coverage:
 
 import os
 import tempfile
+import itertools
+import threading
+import time
 
 # Set cache dir to a temp dir before importing anything from leptonai, matching
 # the existing CLI test suite so tests never touch a real workspace record.
 os.environ.setdefault("LEPTON_CACHE_DIR", tempfile.mkdtemp())
 
 import unittest
+import unittest.mock
 
 import responses
 
@@ -41,9 +45,11 @@ BASE = "https://gw.example/api/v2/workspaces/ws1"
 def _make_client() -> APIClient:
     # The new-deployment-API flag is committed process-wide (keyed by workspace
     # URL) once resolved, so a resolution from an earlier test would otherwise
-    # leak into later tests that reuse BASE. Clear the memo per client build to
-    # keep each test's flag resolution independent.
-    client_module._NEW_DEPLOYMENT_API_FLAG_CACHE.clear()
+    # leak into later tests that reuse BASE. Reset the memo per client build to
+    # keep each test's flag resolution independent. This is the public hook SDK
+    # consumers use to drop a stale flag; a consumer test suite can call it in an
+    # autouse fixture for the same isolation.
+    client_module.reset_new_deployment_api_flag_cache()
     return APIClient(workspace_id="ws1", auth_token="tok", url=BASE)
 
 
@@ -240,6 +246,65 @@ class TestFlagDetection(unittest.TestCase):
             c for c in responses.calls if c.request.url == f"{BASE}/workspace"
         ]
         self.assertEqual(len(workspace_calls), 1)
+
+    def test_concurrent_cold_resolution_is_single_flight(self):
+        # A cold memo hit by many threads at once (the shape of the parallel
+        # `lep log get` workers, each with its own APIClient) must resolve the
+        # flag EXACTLY ONCE and commit ONE dispatch decision. Without the
+        # single-flight lock, threads could each issue their own /workspace call,
+        # get different transient outcomes, and route to different API families.
+        client_module.reset_new_deployment_api_flag_cache()
+
+        n_threads = 16
+        start = threading.Barrier(n_threads)
+        resolve_count = itertools.count()
+        total_resolutions = []
+
+        def slow_resolve(self_client):
+            # Count each real resolution; the sleep widens the check-resolve-commit
+            # window so an unlocked implementation would reliably resolve twice.
+            total_resolutions.append(next(resolve_count))
+            time.sleep(0.05)
+            return True
+
+        results = []
+        results_lock = threading.Lock()
+
+        def worker():
+            # Every worker builds its OWN client (same workspace URL) — the
+            # process-wide memo is what must coordinate them, not a shared client.
+            c = APIClient(workspace_id="ws1", auth_token="tok", url=BASE)
+            start.wait()
+            value = c.new_deployment_api_enabled
+            with results_lock:
+                results.append(value)
+
+        with unittest.mock.patch.object(
+            APIClient, "_resolve_new_deployment_api", slow_resolve
+        ):
+            threads = [threading.Thread(target=worker) for _ in range(n_threads)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+
+        # Exactly one resolution despite n_threads concurrent cold accesses.
+        self.assertEqual(len(total_resolutions), 1)
+        # Every thread agreed on the one committed decision.
+        self.assertEqual(results, [True] * n_threads)
+
+    @responses.activate
+    def test_reset_hook_forces_reresolution(self):
+        # A long-lived SDK consumer can pick up a workspace flag flip by calling
+        # reset_new_deployment_api_flag_cache(); the next access re-resolves.
+        _register_workspace(enable_new_deployment_api=False)
+        client = _make_client()
+        self.assertFalse(client.new_deployment_api_enabled)
+        # Flip the workspace flag on the server side and reset the memo.
+        responses.reset()
+        _register_workspace(enable_new_deployment_api=True)
+        client_module.reset_new_deployment_api_flag_cache(BASE)
+        self.assertTrue(client.new_deployment_api_enabled)
 
 
 class TestFlagOffLegacyRoutes(unittest.TestCase):
