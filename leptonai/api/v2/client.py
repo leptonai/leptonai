@@ -19,6 +19,8 @@ from .types.workspace import WorkspaceInfo
 from .api_resource import APIResourse
 from .dedicated_node_groups import DedicatedNodeGroupAPI
 from .deployment import DeploymentAPI
+from .endpoint import EndpointAPI
+from .devpod import DevPodAPI
 from .job import JobAPI
 from .secret import SecretAPI
 from .pod import PodAPI
@@ -199,9 +201,7 @@ class APIClient(object):
 
         # Add individual APIs
         self.nodegroup = DedicatedNodeGroupAPI(self)
-        self.deployment = DeploymentAPI(self)
         self.job = JobAPI(self)
-        self.pod = PodAPI(self)
         self.secret = SecretAPI(self)
         self.ingress = IngressAPI(self)
         self.storage = StorageAPI(self)
@@ -210,6 +210,84 @@ class APIClient(object):
         self.finetune = FineTuneAPI(self)
         self.shapes = ResourceShapeAPI(self)
         self.raycluster = RayClusterAPI(self)
+
+        # Deployment ("endpoint") and pod ("devpod") each have two backing
+        # implementations: the legacy /deployments-based API and the new
+        # /endpoints|/devpods-based API. The public `deployment` and `pod`
+        # attributes are @property accessors below that dispatch to one of these
+        # based on the cached `enable_new_deployment_api` workspace flag. Legacy
+        # is the default and the fail-safe. Internal code that must always reach
+        # the legacy /deployments routes (e.g. LogAPI) can use these directly.
+        self._deployment_legacy = DeploymentAPI(self)
+        self._pod_legacy = PodAPI(self)
+        self._endpoint_api = EndpointAPI(self)
+        self._devpod_api = DevPodAPI(self)
+
+        # Memoized resolution of the new-deployment-API workspace flag. None
+        # means "not yet resolved"; resolved to a bool on first access.
+        self._new_deployment_api_enabled: Optional[bool] = None
+
+    @property
+    def new_deployment_api_enabled(self) -> bool:
+        """Whether the workspace has the new endpoint/devpod API enabled.
+
+        Resolved lazily from a single ``info()`` call the first time it is
+        accessed, then memoized for the lifetime of this client — no extra
+        round-trip per command. The semantics mirror the dashboard's
+        ``useEndpointApiMode``: only an explicit ``true`` for
+        ``features.enable_new_deployment_api`` switches to the new routes.
+        An absent field, ``false``, a missing ``features`` object, or any
+        error resolving the flag all fail safe to the legacy routes.
+
+        @implements LEP-5664, LEP-5665 (flag detection)
+        """
+        if self._new_deployment_api_enabled is None:
+            self._new_deployment_api_enabled = self._resolve_new_deployment_api()
+        return self._new_deployment_api_enabled
+
+    def _resolve_new_deployment_api(self) -> bool:
+        """Resolve the new-deployment-API flag from workspace info, fail-safe.
+
+        Any failure (network error, unauthorized, malformed response, missing
+        ``features``) resolves to ``False`` so the CLI keeps working against the
+        legacy routes rather than surfacing a spurious error at command start.
+        """
+        try:
+            info = self.info()
+        except Exception as e:
+            logger.trace(
+                f"Could not resolve new deployment API flag, using legacy: {e}"
+            )
+            return False
+        features = getattr(info, "features", None)
+        if features is None:
+            return False
+        return features.enable_new_deployment_api is True
+
+    @property
+    def deployment(self) -> Union[DeploymentAPI, "EndpointAPI"]:
+        """The deployment (endpoint) API.
+
+        Dispatches to the new /endpoints-based :class:`EndpointAPI` when the
+        workspace flag is on, otherwise the legacy /deployments-based
+        :class:`DeploymentAPI`. Both expose the same method surface and return
+        :class:`LeptonDeployment`-shaped objects, so callers are unaffected.
+        """
+        if self.new_deployment_api_enabled:
+            return self._endpoint_api
+        return self._deployment_legacy
+
+    @property
+    def pod(self) -> Union[PodAPI, "DevPodAPI"]:
+        """The pod (devpod) API.
+
+        Dispatches to the new /devpods-based :class:`DevPodAPI` when the
+        workspace flag is on, otherwise the legacy /deployments-based
+        :class:`PodAPI`.
+        """
+        if self.new_deployment_api_enabled:
+            return self._devpod_api
+        return self._pod_legacy
 
     def _safe_add(self, kwargs: Dict) -> Dict:
         """
