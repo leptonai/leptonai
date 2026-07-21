@@ -83,6 +83,7 @@ from leptonai.config import (
 )
 from ..api.v2.client import APIClient
 from ..api.v2.api_resource import ClientError
+from ..api.v2.endpoint import NewEndpointAPIUnsupported
 from ..api.v2.deployment import make_token_vars_from_config
 from ..api.v2.spec_utils import make_mounts_from_strings, make_env_vars_from_strings
 from ..api.v2.workspace_record import WorkspaceRecord
@@ -1431,31 +1432,43 @@ def status(name, show_tokens, detail):
 
     console.print("Replicas List:")
 
-    reading_issue_root = client.deployment.get_readiness(name).root
-    # Print a table of readiness information.
-    table = Table(show_lines=False)
-    table.add_column("replica id")
-    table.add_column("status")
-    table.add_column("message")
-    ready_count = 0
-    for id, value in reading_issue_root.items():
-        reason = value[0].reason
-        message = value[0].message
-        # Do we need to display red?
-        if reason == "Ready":
-            reason = f"[green]{reason}[/]"
-            ready_count += 1
-        else:
-            reason = f"[yellow]{reason}[/]"
-        if message == "":
-            message = "(empty)"
-        table.add_row(id, reason, message)
-    console.print(table)
-    console.print(
-        f"[green]{ready_count}[/] out of {len(reading_issue_root)} replicas ready."
-    )
+    # The new /endpoints API folds readiness/termination into per-replica status
+    # and exposes no standalone readiness/termination route, so in new-API mode
+    # these degrade to a clear note rather than a 404. Legacy mode is unchanged.
+    try:
+        reading_issue_root = client.deployment.get_readiness(name).root
+    except NewEndpointAPIUnsupported as e:
+        reading_issue_root = None
+        console.print(f"[yellow]Readiness summary unavailable: {e}[/]")
 
-    deployment_terminations_root = client.deployment.get_termination(name).root
+    if reading_issue_root is not None:
+        # Print a table of readiness information.
+        table = Table(show_lines=False)
+        table.add_column("replica id")
+        table.add_column("status")
+        table.add_column("message")
+        ready_count = 0
+        for id, value in reading_issue_root.items():
+            reason = value[0].reason
+            message = value[0].message
+            # Do we need to display red?
+            if reason == "Ready":
+                reason = f"[green]{reason}[/]"
+                ready_count += 1
+            else:
+                reason = f"[yellow]{reason}[/]"
+            if message == "":
+                message = "(empty)"
+            table.add_row(id, reason, message)
+        console.print(table)
+        console.print(
+            f"[green]{ready_count}[/] out of {len(reading_issue_root)} replicas ready."
+        )
+
+    try:
+        deployment_terminations_root = client.deployment.get_termination(name).root
+    except NewEndpointAPIUnsupported:
+        deployment_terminations_root = {}
 
     if len(deployment_terminations_root):
         console.print("There are earlier terminations. Detailed Info:")
