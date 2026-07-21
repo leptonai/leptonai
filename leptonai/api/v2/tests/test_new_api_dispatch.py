@@ -353,6 +353,18 @@ class TestFlagOnDevPodRoutes(unittest.TestCase):
         self.assertEqual(pod.spec.resource_requirement.resource_shape, "cpu.small")
 
     @responses.activate
+    def test_get_surfaces_public_ip_on_status(self):
+        _register_workspace(enable_new_deployment_api=True)
+        body = _devpod_body()
+        body["status"]["public_ip"] = "203.0.113.7"
+        responses.add(responses.GET, f"{BASE}/devpods/my-pod", json=body, status=200)
+        client = _make_client()
+        pod = client.pod.get("my-pod")
+        # The bare public IP flows through to the model status so the CLI can read
+        # it directly instead of parsing a port's external URL.
+        self.assertEqual(pod.status.public_ip, "203.0.113.7")
+
+    @responses.activate
     def test_stop_uses_stopped_switch(self):
         _register_workspace(enable_new_deployment_api=True)
         responses.add(
@@ -393,13 +405,99 @@ class TestFlagOnDevPodRoutes(unittest.TestCase):
         self.assertIn(f"{BASE}/devpods/my-pod/restart", _urls_called())
 
     @responses.activate
-    def test_log_degrades(self):
-        from leptonai.api.v2.devpod import NewDevPodAPIUnsupported
-
+    def test_log_streams_from_devpod_log_route(self):
+        # A devpod runs a single pod; logs stream by devpod id at
+        # GET /devpods/:did/log (no replica id required).
         _register_workspace(enable_new_deployment_api=True)
+        responses.add(
+            responses.GET,
+            f"{BASE}/devpods/my-pod/log",
+            body="line1\nline2\n",
+            status=200,
+        )
         client = _make_client()
-        with self.assertRaises(NewDevPodAPIUnsupported):
-            client.pod.get_log("my-pod")
+        chunks = list(client.pod.get_log("my-pod"))
+        self.assertIn(f"{BASE}/devpods/my-pod/log", _urls_called())
+        self.assertEqual("".join(chunks), "line1\nline2\n")
+
+
+class TestTranslationFidelity(unittest.TestCase):
+    def test_endpoint_host_network_round_trips_through_resource_requirement(self):
+        from leptonai.api.v2 import translation
+
+        # host_network lives at resource_requirement.host_network in the legacy
+        # model, but at component level on the new wire. Outbound must lift it
+        # into the component; inbound must fold it back.
+        legacy = {
+            "metadata": {"name": "ep"},
+            "spec": {
+                "container": {"image": "nginx"},
+                "resource_requirement": {
+                    "resource_shape": "cpu.small",
+                    "host_network": True,
+                },
+            },
+        }
+        wire = translation.legacy_to_http_endpoint(legacy)
+        self.assertTrue(wire["spec"]["components"][0]["host_network"])
+
+        # inbound: component host_network -> resource_requirement.host_network
+        ep = {
+            "metadata": {"name": "ep"},
+            "spec": {
+                "components": [{
+                    "name": "default",
+                    "resource_shape": "cpu.small",
+                    "host_network": True,
+                }]
+            },
+            "status": {"state": "Ready"},
+        }
+        back = translation.http_endpoint_to_legacy(ep)
+        self.assertTrue(back["spec"]["resource_requirement"]["host_network"])
+        # never placed at spec top level (the model has no such field)
+        self.assertNotIn("host_network", back["spec"])
+
+    def test_devpod_host_network_round_trips_through_resource_requirement(self):
+        from leptonai.api.v2 import translation
+
+        legacy = {
+            "metadata": {"name": "pod"},
+            "spec": {
+                "is_pod": True,
+                "container": {"image": "ubuntu"},
+                "resource_requirement": {
+                    "resource_shape": "cpu.small",
+                    "host_network": True,
+                },
+            },
+        }
+        wire = translation.legacy_to_http_devpod(legacy)
+        self.assertTrue(wire["spec"]["host_network"])
+
+        dp = {
+            "metadata": {"name": "pod"},
+            "spec": {
+                "container": {"image": "ubuntu"},
+                "resource_shape": "cpu.small",
+                "host_network": True,
+            },
+            "status": {"state": "Ready"},
+        }
+        back = translation.http_devpod_to_legacy(dp)
+        self.assertTrue(back["spec"]["resource_requirement"]["host_network"])
+        self.assertNotIn("host_network", back["spec"])
+
+    def test_devpod_public_ip_surfaced_from_status(self):
+        from leptonai.api.v2 import translation
+
+        dp = {
+            "metadata": {"name": "pod"},
+            "spec": {"container": {"image": "ubuntu"}, "resource_shape": "cpu.small"},
+            "status": {"state": "Ready", "public_ip": "203.0.113.7"},
+        }
+        back = translation.http_devpod_to_legacy(dp)
+        self.assertEqual(back["status"]["public_ip"], "203.0.113.7")
 
 
 class TestGate403SurfacesCleanly(unittest.TestCase):

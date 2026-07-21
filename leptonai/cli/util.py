@@ -319,20 +319,13 @@ def sizeof_fmt(num, suffix="B"):
 def _get_only_replica_public_ip(name: str):
     client = get_client()
     # The new devpod API exposes no /replicas route; the single pod's public IP
-    # is surfaced directly on the devpod status (mapped into the replica's
-    # status.public_ip by the response translation). In legacy mode, read it
-    # from the single replica as before.
+    # is surfaced directly on the devpod status as a bare IP (status.public_ip),
+    # carried through by the response translation. In legacy mode, read it from
+    # the single replica as before.
     if client.new_deployment_api_enabled:
         pod = client.pod.get(name)
         status = pod.status
-        cps = status.container_port_status if status else None
-        if cps:
-            for port_status in cps:
-                if port_status.external_endpoint:
-                    # external_endpoint is host:port; keep only the host part to
-                    # match the legacy replica public_ip semantics.
-                    return port_status.external_endpoint.split(":", 1)[0]
-        return None
+        return status.public_ip if status else None
     replicas = client.deployment.get_replicas(name)
     logger.trace(f"Replicas for {name}:\n{replicas}")
 

@@ -94,7 +94,9 @@ def _legacy_spec_to_component(spec: Dict[str, Any]) -> Dict[str, Any]:
         "shared_memory_size": _get(rr, "shared_memory_size"),
         "autoscaling": _get(spec, "auto_scaler"),
         "affinity": _get(rr, "affinity"),
-        "host_network": _get(spec, "host_network"),
+        # Legacy stores host_network under resource_requirement; the new component
+        # spec carries it at the component level.
+        "host_network": _get(rr, "host_network"),
         "scheduling_policy": _get(spec, "scheduling_policy"),
         "queue_config": _get(spec, "queue_config"),
         "reservation_config": _get(spec, "reservation_config"),
@@ -209,7 +211,7 @@ def legacy_to_http_endpoint_patch(
         "shared_memory_size": _get(rr, "shared_memory_size"),
         "autoscaling": _get(spec, "auto_scaler"),
         "affinity": _get(rr, "affinity"),
-        "host_network": _get(spec, "host_network"),
+        "host_network": _get(rr, "host_network"),
         "scheduling_policy": _get(spec, "scheduling_policy"),
         "queue_config": _get(spec, "queue_config"),
         "reservation_config": _get(spec, "reservation_config"),
@@ -338,6 +340,9 @@ def http_endpoint_to_legacy(ep: Dict[str, Any]) -> Dict[str, Any]:
         "max_replicas": _get(component, "max_replicas"),
         "shared_memory_size": _get(component, "shared_memory_size"),
         "affinity": _get(component, "affinity"),
+        # Legacy carries host_network under resource_requirement (there is no
+        # spec-level field); fold the component's value back in there.
+        "host_network": _get(component, "host_network"),
     })
 
     spec = _prune_none({
@@ -360,7 +365,6 @@ def http_endpoint_to_legacy(ep: Dict[str, Any]) -> Dict[str, Any]:
         ),
         "scheduling_policy": _get(component, "scheduling_policy"),
         "routing_policy": _get(_get(ep, "spec", {}), "routing_policy"),
-        "host_network": _get(component, "host_network"),
         "user_security_context": _get(component, "user_security_context"),
     })
 
@@ -431,7 +435,9 @@ def legacy_to_http_devpod(legacy: Dict[str, Any]) -> Dict[str, Any]:
         "queue_config": _get(spec, "queue_config"),
         "reservation_config": _get(spec, "reservation_config"),
         "user_security_context": _get(spec, "user_security_context"),
-        "host_network": _get(spec, "host_network"),
+        # Legacy stores host_network under resource_requirement; the devpod spec
+        # carries it at the top level.
+        "host_network": _get(rr, "host_network"),
         "log": _get(spec, "log"),
         "metrics": _get(spec, "metrics"),
         "ingress_timeout_seconds": _get(spec, "ingress_timeout_seconds"),
@@ -466,6 +472,9 @@ def http_devpod_to_legacy(dp: Dict[str, Any]) -> Dict[str, Any]:
         "min_replicas": _running_replica_count(_get(spec, "stopped")),
         "shared_memory_size": _get(spec, "shared_memory_size"),
         "affinity": _get(spec, "affinity"),
+        # Legacy carries host_network under resource_requirement (there is no
+        # spec-level field); fold the devpod spec's value back in there.
+        "host_network": _get(spec, "host_network"),
     })
 
     legacy_spec = _prune_none({
@@ -478,7 +487,6 @@ def http_devpod_to_legacy(dp: Dict[str, Any]) -> Dict[str, Any]:
         "queue_config": _get(spec, "queue_config"),
         "reservation_config": _get(spec, "reservation_config"),
         "user_security_context": _get(spec, "user_security_context"),
-        "host_network": _get(spec, "host_network"),
         "log": _get(spec, "log"),
         "metrics": _get(spec, "metrics"),
         "ingress_timeout_seconds": _get(spec, "ingress_timeout_seconds"),
@@ -515,6 +523,9 @@ def http_devpod_to_legacy(dp: Dict[str, Any]) -> Dict[str, Any]:
             "external_endpoint": external_url or "",
         },
         "container_port_status": container_port_status,
+        # The devpod status exposes the pod's bare public IP directly; carry it
+        # through so the CLI need not (mis)parse it out of a port's external URL.
+        "public_ip": _get(status, "public_ip"),
     })
 
     metadata = _prune_none({

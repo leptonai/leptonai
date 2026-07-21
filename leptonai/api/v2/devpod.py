@@ -9,17 +9,16 @@ exposes the same method surface and returns the same
 Route coverage (verified against api-server refs/base/main devpod/handler.go):
 - list/create/get/update/delete + ``/:did/restart`` + ``/:did/history``
 - ``/:did/shell``, ``/:did/network-connectivity``
+- ``/:did/log`` (api-server/httpapi/log/handler_log.go) — a devpod runs a single
+  pod, so logs stream by devpod id with no replica id required.
 
 Deliberately NOT available (no route exists on the devpod surface):
 - ``/devpods/:did/events`` — verified missing; ``get_events`` is unsupported.
-- per-replica log path — devpods run a single pod; the legacy PodAPI derived
-  logs from the single replica. The new devpod API has no replica log route, so
-  ``get_log`` degrades explicitly.
 
 Stop/start uses the ``spec.stopped`` boolean switch (PATCH), not scale-to-zero.
 """
 
-from typing import Union, List, Optional
+from typing import Union, List, Iterator, Optional
 import warnings
 
 from .api_resource import APIResourse
@@ -154,13 +153,23 @@ class DevPodAPI(APIResourse):
         self,
         name_or_deployment: Union[str, LeptonDeployment],
         timeout: Optional[int] = None,
-    ):
-        """Not available on the new devpod API.
+    ) -> Iterator[str]:
+        """Stream the devpod's logs.
 
-        The new devpod surface has no per-replica log route. ``lep pod log``
-        degrades to a clear message rather than 404.
+        The new devpod API serves logs at ``GET /devpods/:did/log`` (devpod runs a
+        single pod, so no replica id is needed — the backend streams the pod's
+        logs by name). Mirrors :meth:`EndpointAPI.get_log`'s streaming behavior.
         """
-        raise NewDevPodAPIUnsupported(
-            "streaming logs is not yet supported by the new devpod API; use the"
-            " web portal to view devpod logs"
+        response = self._get(
+            f"/devpods/{self._to_name(name_or_deployment)}/log",
+            stream=True,
+            timeout=timeout,
         )
+        if not response.ok:
+            raise RuntimeError(
+                f"API call failed with status code {response.status_code}. Details:"
+                f" {response.text}"
+            )
+        for chunk in response.iter_content(chunk_size=None):
+            if chunk:
+                yield chunk.decode("utf8")

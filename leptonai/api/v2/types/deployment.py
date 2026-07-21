@@ -355,6 +355,10 @@ class LeptonDeploymentStatus(BaseModel):
     endpoint: DeploymentEndpoint
     container_port_status: Optional[List[ContainerPortStatus]] = None
     autoscaler_status: Optional[AutoScalerStatus] = None
+    # Bare public IP of the (single) pod, surfaced from the new devpod API's
+    # status.public_ip. Legacy /deployments responses do not carry this field
+    # (the CLI reads the per-replica public_ip there instead), so it stays None.
+    public_ip: Optional[str] = None
     is_system: Optional[bool] = None
 
 
