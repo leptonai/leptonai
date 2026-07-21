@@ -322,11 +322,18 @@ def _get_only_replica_public_ip(name: str):
     # is surfaced directly on the devpod status as a bare IP (status.public_ip),
     # carried through by the response translation. In legacy mode, read it from
     # the single replica as before.
+    #
+    # Snapshot the flag once and call the matching backing implementation
+    # directly: a transient /workspace failure is no longer cached (client.py),
+    # so reading the flag twice within one operation could disagree and route
+    # this pod to the mismatched API (e.g. GET /endpoints/<pod>/replicas, which
+    # does not exist for a devpod). Resolving once keeps the whole operation on
+    # one API.
     if client.new_deployment_api_enabled:
-        pod = client.pod.get(name)
+        pod = client._devpod_api.get(name)
         status = pod.status
         return status.public_ip if status else None
-    replicas = client.deployment.get_replicas(name)
+    replicas = client._deployment_legacy.get_replicas(name)
     logger.trace(f"Replicas for {name}:\n{replicas}")
 
     if len(replicas) != 1:

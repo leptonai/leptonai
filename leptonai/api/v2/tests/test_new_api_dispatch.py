@@ -642,6 +642,33 @@ class TestReadyReplicasFallback(unittest.TestCase):
         self.assertEqual(model.status.ready_replicas, 3)
 
 
+class TestPortsEmptyVsUnspecified(unittest.TestCase):
+    def _patch_ports(self, legacy_container):
+        from leptonai.api.v2 import translation
+
+        raw = {
+            "spec": {
+                "components": [{
+                    "name": "default",
+                    "ports": [{"container_port": 8080, "protocol": "TCP"}],
+                }]
+            }
+        }
+        legacy = {"metadata": {}, "spec": {"container": legacy_container}}
+        patch = translation.legacy_to_http_endpoint_patch(raw, legacy)
+        return patch["spec"]["components"][0]
+
+    def test_absent_ports_preserve_live_ports(self):
+        # No ports key -> not carried -> merge keeps the live port.
+        comp = self._patch_ports({"image": "svc"})
+        self.assertEqual(comp["ports"], [{"container_port": 8080, "protocol": "TCP"}])
+
+    def test_empty_ports_clear_live_ports(self):
+        # Explicit [] -> sent verbatim -> RFC7386 replaces the live ports with [].
+        comp = self._patch_ports({"image": "svc", "ports": []})
+        self.assertEqual(comp["ports"], [])
+
+
 class TestLogRoutingDispatch(unittest.TestCase):
     @responses.activate
     def test_timeseries_uses_endpoint_key_when_flag_on(self):

@@ -58,8 +58,14 @@ def _prune_none(d: Dict[str, Any]) -> Dict[str, Any]:
 def _legacy_ports_to_component(
     container: Dict[str, Any]
 ) -> Optional[List[Dict[str, Any]]]:
-    ports = _get(container, "ports")
-    if not ports:
+    # Distinguish "ports not specified" (absent -> None -> pruned so a patch
+    # preserves the live ports) from an explicit empty list (clear all ports).
+    # Under RFC7386 the backend replaces the whole ports array, so an explicit
+    # `[]` must reach the wire to clear ports, matching the legacy /deployments
+    # update which sends `ports: []` verbatim. Collapsing both to None would
+    # silently retain ports on an intended clear.
+    ports = container.get("ports") if isinstance(container, dict) else None
+    if ports is None:
         return None
     # HTTPComponentSpec ports carry container_port + protocol + app_protocol
     # (api-server/httpapi/endpoint/types.go EndpointContainerPort projection).
