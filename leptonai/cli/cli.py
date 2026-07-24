@@ -23,7 +23,6 @@ from . import deployment, node
 from . import job
 from . import pod
 from . import secret
-from . import storage
 from . import workspace
 from . import ingress
 from . import log
@@ -71,7 +70,6 @@ deployment.add_command(lep)
 job.add_command(lep)
 pod.add_command(lep)
 secret.add_command(lep)
-storage.add_command(lep)
 workspace.add_command(lep)
 node.add_command(lep)
 
@@ -174,7 +172,7 @@ def login(
                 # multiple workspaces. login to one of them.
                 console.print("You have multiple workspaces. Please select one:")
                 for i, ws in enumerate(candidates):
-                    console.print(f"{i+1}. {ws.id_} ({ws.display_name})")
+                    console.print(f"{i + 1}. {ws.id_} ({ws.display_name})")
                 choice = None
                 while not choice:
                     choice = input("choice: ")

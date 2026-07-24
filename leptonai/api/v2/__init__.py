@@ -11,7 +11,7 @@ the platform. Typical usage::
     client.deployment.list_all()
 
 Resource groups (``client.deployment``, ``client.job``, ``client.pod``,
-``client.secret``, ``client.ingress``, ``client.storage``, ``client.log``,
+``client.secret``, ``client.ingress``, ``client.log``,
 ``client.raycluster``, ``client.nodegroup``, ``client.template``) each expose
 the operations for that resource. Data types live under
 :mod:`leptonai.api.v2.types`.
