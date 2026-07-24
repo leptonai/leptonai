@@ -20,7 +20,8 @@ from . import readiness
 from . import replica
 from . import secret
 from . import shape
-from . import storage
+from . import storage_data_source
+from . import storage_permission
 from . import template
 from . import termination
 from . import workspace
