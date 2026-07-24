@@ -109,6 +109,8 @@ class DedicatedNodeGroupAPI(APIResourse):
         volume_name: str,
         path_prefix: str,
     ) -> bool:
+        if not path_prefix.startswith("/"):
+            path_prefix = "/" + path_prefix
         response = self._delete(
             f"/storage-permission/{quote(volume_name, safe='')}"
             f"{quote(path_prefix, safe='/')}",
