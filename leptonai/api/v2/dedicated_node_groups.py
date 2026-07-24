@@ -1,11 +1,14 @@
 # todo
 from typing import List, Union
 from concurrent.futures import ThreadPoolExecutor
+from urllib.parse import quote
 
 from .api_resource import APIResourse
 
-from .types.dedicated_node_group import DedicatedNodeGroup, Node
+from .types.dedicated_node_group import DedicatedNodeGroup, Node, Volume
 from .types.node_reservation import NodeReservation
+from .types.storage_data_source import StorageDataSource, StorageDataSourceSpec
+from .types.storage_permission import StoragePermission
 
 
 class DedicatedNodeGroupAPI(APIResourse):
@@ -42,6 +45,122 @@ class DedicatedNodeGroupAPI(APIResourse):
             f"/dedicated-node-groups/{self._to_name(name_or_ng)}/reservations"
         )
         return self.ensure_list(response, NodeReservation)
+
+    def list_storage_data_sources(
+        self, name_or_ng: Union[str, DedicatedNodeGroup]
+    ) -> List[StorageDataSource]:
+        response = self._get(
+            f"/dedicated-node-groups/{self._to_name(name_or_ng)}/datasources"
+        )
+        return self.ensure_list(response, StorageDataSource, list_key="items")
+
+    def get_storage_data_source(
+        self,
+        name_or_ng: Union[str, DedicatedNodeGroup],
+        data_source_name: str,
+    ) -> StorageDataSource:
+        response = self._get(
+            f"/dedicated-node-groups/{self._to_name(name_or_ng)}/datasources/"
+            f"{quote(data_source_name, safe='')}"
+        )
+        return self.ensure_type(response, StorageDataSource)
+
+    def create_storage_data_source(
+        self,
+        node_group: Union[str, DedicatedNodeGroup],
+        spec: StorageDataSourceSpec,
+    ) -> StorageDataSource:
+        response = self._post(
+            f"/dedicated-node-groups/{self._to_name(node_group)}/datasources",
+            json=self.safe_json(spec),
+        )
+        return self.ensure_type(response, StorageDataSource)
+
+    def list_storage_permissions(
+        self,
+        node_group: Union[str, DedicatedNodeGroup],
+        volume_name: str,
+    ) -> List[StoragePermission]:
+        response = self._get(
+            f"/storage-permission/{quote(volume_name, safe='')}",
+            params={"nodegroup_id": self._to_name(node_group)},
+        )
+        return self.ensure_list(response, StoragePermission)
+
+    def set_storage_permission(
+        self,
+        node_group: Union[str, DedicatedNodeGroup],
+        volume_name: str,
+        permission: StoragePermission,
+    ) -> bool:
+        payload = self.safe_json(permission)
+        if not isinstance(payload, dict):
+            raise TypeError("Storage permission payload must be an object.")
+        payload["nodegroup_id"] = self._to_name(node_group)
+        response = self._post(
+            f"/storage-permission/{quote(volume_name, safe='')}",
+            json=payload,
+        )
+        return self.ensure_ok(response)
+
+    def delete_storage_permission(
+        self,
+        node_group: Union[str, DedicatedNodeGroup],
+        volume_name: str,
+        path_prefix: str,
+    ) -> bool:
+        response = self._delete(
+            f"/storage-permission/{quote(volume_name, safe='')}"
+            f"{quote(path_prefix, safe='/')}",
+            params={"nodegroup_id": self._to_name(node_group)},
+        )
+        return self.ensure_ok(response)
+
+    def update_storage_data_source(
+        self,
+        node_group: Union[str, DedicatedNodeGroup],
+        data_source_name: str,
+        spec: StorageDataSourceSpec,
+    ) -> StorageDataSource:
+        response = self._patch(
+            f"/dedicated-node-groups/{self._to_name(node_group)}/datasources/"
+            f"{quote(data_source_name, safe='')}",
+            json=self.safe_json(spec),
+        )
+        return self.ensure_type(response, StorageDataSource)
+
+    def delete_storage_data_source(
+        self,
+        node_group: Union[str, DedicatedNodeGroup],
+        data_source_name: str,
+    ) -> bool:
+        response = self._delete(
+            f"/dedicated-node-groups/{self._to_name(node_group)}/datasources/"
+            f"{quote(data_source_name, safe='')}"
+        )
+        return self.ensure_ok(response)
+
+    def add_volume(
+        self,
+        node_group: Union[str, DedicatedNodeGroup],
+        volume: Volume,
+    ) -> DedicatedNodeGroup:
+        response = self._post(
+            f"/dedicated-node-groups/{self._to_name(node_group)}/volumes",
+            json=self.safe_json(volume),
+        )
+        return self.ensure_type(response, DedicatedNodeGroup)
+
+    def delete_volume(
+        self,
+        node_group: Union[str, DedicatedNodeGroup],
+        volume_name: str,
+    ) -> DedicatedNodeGroup:
+        response = self._delete(
+            f"/dedicated-node-groups/{self._to_name(node_group)}/volumes/"
+            f"{quote(volume_name, safe='')}"
+        )
+        return self.ensure_type(response, DedicatedNodeGroup)
 
     # todo: implement more node management and monitoring APIs
 

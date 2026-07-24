@@ -1,3 +1,5 @@
+import re
+
 import click
 
 from rich.table import Table
@@ -11,6 +13,18 @@ from .util import (
     resolve_node_groups,
 )
 from ..api.v2.client import APIClient
+from ..api.v2.types.dedicated_node_group import (
+    Volume,
+    VolumeCreationMode,
+    VolumeFrom,
+)
+from ..api.v2.types.storage_data_source import (
+    DataSourcePermissions,
+    ObjectStorageConfig,
+    ObjectStorageProviderConfig,
+    StorageDataSourceSpec,
+)
+from ..api.v2.types.storage_permission import StoragePermission
 
 
 @click_group()
@@ -670,7 +684,142 @@ def resource_shape_command(node_group=None, purpose=None):
     console.print(table)
 
 
-@node.command(name="storage")
+_NODE_STORAGE_NAME_PATTERN = re.compile(r"^[a-z]([-a-z0-9]*[a-z0-9])?$")
+_OBJECT_STORAGE_NAME_PATTERN = re.compile(r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$")
+_RESERVED_NODE_STORAGE_PATH = "/mnt/lepton-shared-fs"
+
+
+def _node_storage_type(volume):
+    from_source = getattr(volume, "from_", None)
+    if from_source is None:
+        return None
+
+    source_str = str(
+        from_source.value if hasattr(from_source, "value") else from_source
+    ).lower()
+    return f"node-{source_str}"
+
+
+def _format_storage_type(volume):
+    storage_type = _node_storage_type(volume)
+    if storage_type is None:
+        return "-"
+
+    source_str = storage_type.removeprefix("node-")
+    if source_str == "local":
+        return f"[green]{storage_type}[/green]"
+    if source_str == "nfs":
+        return f"[cyan]{storage_type}[/cyan]"
+    return storage_type
+
+
+def _format_object_storage_path(data_source):
+    object_storage = data_source.spec.object_
+    bucket = object_storage.bucket
+    provider_type = object_storage.provider.type_.lower()
+    scheme = {
+        "aws": "s3",
+        "s3": "s3",
+        "gcs": "gs",
+    }.get(provider_type, provider_type)
+    return f"{scheme}://{bucket}" if scheme and bucket else bucket or "-"
+
+
+def _list_object_storage_data_sources(client, node_group):
+    if not getattr(node_group.spec, "enable_object_storage", False):
+        return []
+    return client.nodegroup.list_storage_data_sources(node_group)
+
+
+def _resolve_storage_node_group(client, node_group):
+    node_groups = client.nodegroup.list_all()
+    matches = [
+        ng for ng in node_groups if node_group in (ng.metadata.id_, ng.metadata.name)
+    ]
+
+    if not matches:
+        available = ", ".join(
+            sorted(f"{ng.metadata.name} ({ng.metadata.id_})" for ng in node_groups)
+        )
+        message = f"Node group '{node_group}' was not found."
+        if available:
+            message += f" Available node groups: {available}."
+        raise click.ClickException(message)
+    if len(matches) > 1:
+        matched = ", ".join(
+            sorted(f"{ng.metadata.name} ({ng.metadata.id_})" for ng in matches)
+        )
+        raise click.ClickException(
+            f"Node group '{node_group}' is ambiguous: {matched}. Use its ID."
+        )
+    return matches[0]
+
+
+def _list_storage_volumes(node_group=None):
+    client = APIClient()
+    node_groups = client.nodegroup.list_all()
+
+    if node_group:
+        filters = node_group
+        node_groups = [
+            ng
+            for ng in node_groups
+            if any((f in ng.metadata.id_) or (f in ng.metadata.name) for f in filters)
+        ]
+
+    table = Table(title="Storage by Node Group", show_lines=True)
+    table.add_column("Node Group")
+    table.add_column("Type")
+    table.add_column("Storage Name")
+    table.add_column("Path")
+
+    for ng in node_groups:
+        ng_name = ng.metadata.name
+        ng_id = ng.metadata.id_
+        volumes = getattr(ng.spec, "volumes", None) or []
+        data_sources = _list_object_storage_data_sources(client, ng)
+
+        if not volumes and not data_sources:
+            nodegroup_text = f"[bold]{ng_name}[/bold]\n[dim]{ng_id}[/dim]"
+            table.add_row(nodegroup_text, "", "None", "")
+            continue
+
+        volume_name_lines = []
+        volume_type_lines = []
+        volume_path_lines = []
+        for volume in volumes:
+            volume_name_lines.append(getattr(volume, "name", None) or "-")
+            volume_type_lines.append(_format_storage_type(volume))
+            volume_path_lines.append(getattr(volume, "from_path", None) or "-")
+
+        for data_source in data_sources:
+            volume_name_lines.append(data_source.metadata.name or "-")
+            volume_type_lines.append("[magenta]object-storage[/magenta]")
+            volume_path_lines.append(_format_object_storage_path(data_source))
+
+        nodegroup_text = f"[bold]{ng_name}[/bold]\n[dim]{ng_id}[/dim]"
+        table.add_row(
+            nodegroup_text,
+            "\n".join(volume_type_lines),
+            "\n".join(volume_name_lines),
+            "\n".join(volume_path_lines),
+        )
+
+    console.print(table)
+
+    console.print(
+        "[dim]Note:[/dim] Node volume mount syntax: "
+        "`--mount FROM_PATH:MOUNT_PATH:VOLUME` "
+        "(split on the first two colons, so `VOLUME` may itself contain a "
+        "colon).\n"
+        "[dim]`VOLUME` is `node-local`, or `node-<type>:<storage_name>` for "
+        "a named volume (e.g. `node-nfs:my-nfs`). Example: "
+        "`/hf-cache:/root/.cache/huggingface:node-nfs:my-nfs`. Object Storage "
+        "is a data source attachment and does not use this mount syntax.[/dim]"
+    )
+
+
+@node.group(name="storage", invoke_without_command=True)
 @click.option(
     "--node-group",
     "-ng",
@@ -683,79 +832,1259 @@ def resource_shape_command(node_group=None, purpose=None):
     required=False,
     multiple=True,
 )
-def storage_command(node_group=None):
+@click.pass_context
+def storage_group(ctx, node_group=None):
     """
-    List storage volumes configured for node groups.
+    Manage storage configured for node groups.
 
-    Shows the volumes attached to each node group including their size,
-    source, mount path, and creation mode.
+    With no subcommand, lists each storage's name, type, and path.
+    """
+    if ctx.invoked_subcommand is None:
+        _list_storage_volumes(node_group)
+
+
+def _validate_node_storage_name(storage_name):
+    if not _NODE_STORAGE_NAME_PATTERN.fullmatch(storage_name):
+        raise click.BadParameter(
+            "must start with a lowercase letter, contain only lowercase letters, "
+            "numbers, and hyphens, and end with a letter or number.",
+            param_hint="'--name' / '-n'",
+        )
+
+
+def _validate_object_storage_name(storage_name):
+    if len(storage_name) > 63 or not _OBJECT_STORAGE_NAME_PATTERN.fullmatch(
+        storage_name
+    ):
+        raise click.BadParameter(
+            "must be no more than 63 characters, contain only lowercase letters, "
+            "numbers, and hyphens, and start and end with a letter or number.",
+            param_hint="'--name' / '-n'",
+        )
+
+
+def _required_object_storage_option(value, option, provider):
+    if value is None or not value.strip():
+        raise click.UsageError(
+            f"Option '{option}' is required for {provider} Object Storage."
+        )
+    return value.strip()
+
+
+def _build_object_storage_provider(
+    provider,
+    region,
+    endpoint,
+    project_id,
+):
+    provider = provider.lower()
+    if provider in ("aws", "s3"):
+        if project_id is not None:
+            raise click.UsageError(
+                "Option '--project-id' is only valid with provider 'gcs'."
+            )
+        region = _required_object_storage_option(
+            region,
+            "--region",
+            provider,
+        )
+        if provider == "aws":
+            config = {"region": region}
+            if endpoint is not None:
+                config["endpointUrl"] = endpoint.strip()
+            return ObjectStorageProviderConfig(**{
+                "type": provider,
+                "aws": config,
+            })
+
+        endpoint = _required_object_storage_option(
+            endpoint,
+            "--endpoint",
+            provider,
+        )
+        return ObjectStorageProviderConfig(**{
+            "type": provider,
+            "s3": {
+                "region": region,
+                "endpoint": endpoint,
+            },
+        })
+
+    if region is not None or endpoint is not None:
+        raise click.UsageError(
+            "Options '--region' and '--endpoint' are only valid with providers "
+            "'aws' and 's3'."
+        )
+    project_id = _required_object_storage_option(
+        project_id,
+        "--project-id",
+        provider,
+    )
+    return ObjectStorageProviderConfig(**{
+        "type": provider,
+        "gcs": {"projectId": project_id},
+    })
+
+
+def _build_object_storage_credentials(
+    provider,
+    wif,
+    access_key_secret_name,
+    secret_key_secret_name,
+):
+    provider = provider.lower()
+    has_access_key = access_key_secret_name is not None
+    has_secret_key = secret_key_secret_name is not None
+
+    if provider == "gcs":
+        if has_access_key or has_secret_key:
+            raise click.UsageError(
+                "GCS requires WIF; do not provide secret credential options."
+            )
+        return {"type": "wif"}
+
+    if wif and (has_access_key or has_secret_key):
+        raise click.UsageError(
+            "Use either '--wif' or both secret credential options, not both."
+        )
+    if wif:
+        return {"type": "wif"}
+    if has_access_key != has_secret_key:
+        raise click.UsageError(
+            "Options '--access-key-secret-name' and '--secret-key-secret-name' "
+            "must be provided together."
+        )
+    if not has_access_key:
+        raise click.UsageError(
+            "Use '--wif' or provide both '--access-key-secret-name' and "
+            "'--secret-key-secret-name'."
+        )
+
+    access_key_secret_name = access_key_secret_name.strip()
+    secret_key_secret_name = secret_key_secret_name.strip()
+    if not access_key_secret_name or not secret_key_secret_name:
+        raise click.BadParameter(
+            "must not be empty.",
+            param_hint="'--access-key-secret-name' / '--secret-key-secret-name'",
+        )
+    return {
+        "type": "leptonSecret",
+        "leptonSecret": {
+            "s3Credentials": {
+                "accessKeySecretName": access_key_secret_name,
+                "secretKeySecretName": secret_key_secret_name,
+            },
+        },
+    }
+
+
+@storage_group.command(name="add")
+@click.option(
+    "--node-group",
+    "-ng",
+    type=str,
+    required=True,
+    help="Exact node group name or ID.",
+)
+@click.option(
+    "--type",
+    "-t",
+    "storage_type",
+    type=click.Choice(
+        ["node-local", "node-nfs", "object-storage"],
+        case_sensitive=False,
+    ),
+    required=True,
+    help="Storage type.",
+)
+@click.option(
+    "--name",
+    "-n",
+    "storage_name",
+    type=str,
+    required=True,
+    help="Storage name.",
+)
+@click.option(
+    "--path",
+    "--from-path",
+    "-p",
+    "from_path",
+    type=str,
+    required=False,
+    help="Node Local path or the path where NFS is already mounted on each node.",
+)
+@click.option(
+    "--provider",
+    type=click.Choice(["aws", "s3", "gcs"], case_sensitive=False),
+    required=False,
+    help="Object Storage provider: AWS S3, S3 Compatible, or GCS.",
+)
+@click.option("--bucket", type=str, help="Object Storage bucket name.")
+@click.option("--region", type=str, help="AWS or S3 Compatible region.")
+@click.option(
+    "--endpoint",
+    type=str,
+    help="Optional AWS endpoint or required S3 Compatible endpoint.",
+)
+@click.option("--project-id", type=str, help="GCP project ID for GCS.")
+@click.option(
+    "--wif",
+    is_flag=True,
+    help="Use Workload Identity Federation instead of secret credentials.",
+)
+@click.option(
+    "--access-key-secret-name",
+    "--access-key-secret",
+    type=str,
+    help="Workspace secret containing the access key ID.",
+)
+@click.option(
+    "--secret-key-secret-name",
+    "--secret-key-secret",
+    type=str,
+    help="Workspace secret containing the secret access key.",
+)
+@click.option(
+    "--enable-aistore",
+    is_flag=True,
+    help="Enable AIStore fast caching. Always enabled for GCS.",
+)
+@click.option(
+    "--user",
+    "-u",
+    "allowed_users",
+    type=str,
+    multiple=True,
+    help=(
+        "Restrict Object Storage to this workspace member. Can be repeated; "
+        "omit for default workspace-wide access."
+    ),
+)
+def add_storage_command(
+    node_group,
+    storage_type,
+    storage_name,
+    from_path,
+    provider,
+    bucket,
+    region,
+    endpoint,
+    project_id,
+    wif,
+    access_key_secret_name,
+    secret_key_secret_name,
+    enable_aistore,
+    allowed_users,
+):
+    """Add Node Local, NFS, or Object Storage to a node group."""
+    storage_type = storage_type.lower()
+    if storage_type in ("node-local", "node-nfs"):
+        _validate_node_storage_name(storage_name)
+        if any(
+            value is not None
+            for value in (
+                provider,
+                bucket,
+                region,
+                endpoint,
+                project_id,
+                access_key_secret_name,
+                secret_key_secret_name,
+            )
+        ) or any((wif, enable_aistore, allowed_users)):
+            raise click.UsageError(
+                "Object Storage options can only be used with '--type object-storage'."
+            )
+        if from_path is None:
+            raise click.UsageError(
+                "Option '--path' / '--from-path' / '-p' is required for "
+                "node-local and node-nfs storage."
+            )
+        from_path = from_path.strip()
+        if not from_path.startswith("/"):
+            raise click.BadParameter(
+                "must be an absolute path starting with '/'.",
+                param_hint="'--path' / '--from-path' / '-p'",
+            )
+        if from_path == _RESERVED_NODE_STORAGE_PATH:
+            raise click.BadParameter(
+                f"'{_RESERVED_NODE_STORAGE_PATH}' is reserved for "
+                "Lepton-managed storage.",
+                param_hint="'--path' / '--from-path' / '-p'",
+            )
+
+        client = APIClient()
+        matched_node_group = _resolve_storage_node_group(client, node_group)
+        existing_volumes = list(getattr(matched_node_group.spec, "volumes", None) or [])
+        data_sources = _list_object_storage_data_sources(
+            client,
+            matched_node_group,
+        )
+        if any(volume.name == storage_name for volume in existing_volumes) or any(
+            data_source.metadata.name == storage_name for data_source in data_sources
+        ):
+            raise click.ClickException(
+                f"Storage '{storage_name}' already exists in node group "
+                f"'{matched_node_group.metadata.name}'."
+            )
+        if any(
+            (getattr(volume, "from_path", None) or "").strip() == from_path
+            for volume in existing_volumes
+        ):
+            raise click.ClickException(
+                f"Storage path '{from_path}' already exists in node group "
+                f"'{matched_node_group.metadata.name}'."
+            )
+
+        from_source, creation_mode = {
+            "node-local": (VolumeFrom.Local, VolumeCreationMode.Mkdir),
+            "node-nfs": (VolumeFrom.NFS, VolumeCreationMode.NoneValue),
+        }[storage_type]
+        volume = Volume(**{
+            "from": from_source,
+            "name": storage_name,
+            "size_in_gb": 0,
+            "creation_mode": creation_mode,
+            "from_path": from_path,
+        })
+        client.nodegroup.add_volume(matched_node_group, volume)
+        console.print(
+            f"Added [green]{storage_type}[/green] storage "
+            f"[bold]{storage_name}[/bold] at [cyan]{from_path}[/cyan] to node group "
+            f"[bold]{matched_node_group.metadata.name}[/bold]."
+        )
+        return
+
+    _validate_object_storage_name(storage_name)
+    if from_path is not None:
+        raise click.UsageError(
+            "Option '--path' is not used with '--type object-storage'."
+        )
+    if provider is None:
+        raise click.UsageError("Option '--provider' is required for Object Storage.")
+    bucket = _required_object_storage_option(
+        bucket,
+        "--bucket",
+        provider.lower(),
+    )
+    provider_config = _build_object_storage_provider(
+        provider,
+        region,
+        endpoint,
+        project_id,
+    )
+    credentials = _build_object_storage_credentials(
+        provider,
+        wif,
+        access_key_secret_name,
+        secret_key_secret_name,
+    )
+    users = _permission_users(allowed_users)
+
+    client = APIClient()
+    matched_node_group = _resolve_storage_node_group(client, node_group)
+    if not getattr(matched_node_group.spec, "enable_object_storage", False):
+        raise click.ClickException(
+            "Object Storage is not enabled for node group "
+            f"'{matched_node_group.metadata.name}'."
+        )
+    existing_volumes = list(getattr(matched_node_group.spec, "volumes", None) or [])
+    data_sources = _list_object_storage_data_sources(
+        client,
+        matched_node_group,
+    )
+    if any(volume.name == storage_name for volume in existing_volumes) or any(
+        data_source.metadata.name == storage_name for data_source in data_sources
+    ):
+        raise click.ClickException(
+            f"Storage '{storage_name}' already exists in node group "
+            f"'{matched_node_group.metadata.name}'."
+        )
+
+    object_storage = ObjectStorageConfig(
+        bucket=bucket,
+        provider=provider_config,
+        credentials=credentials,
+        aistore=(
+            {"enabled": True} if provider.lower() == "gcs" or enable_aistore else None
+        ),
+    )
+    spec = StorageDataSourceSpec(**{
+        "name": storage_name,
+        "workspace": client.workspace_id,
+        "description": "",
+        "object": object_storage,
+        "permissions": DataSourcePermissions(allowed_users=users) if users else None,
+    })
+    client.nodegroup.create_storage_data_source(
+        matched_node_group,
+        spec,
+    )
+    scheme = "gs" if provider.lower() == "gcs" else "s3"
+    console.print(
+        "Added [magenta]object-storage[/magenta] "
+        f"[bold]{storage_name}[/bold] at [cyan]{scheme}://{bucket}[/cyan] "
+        f"to node group [bold]{matched_node_group.metadata.name}[/bold]."
+    )
+
+
+@storage_group.command(name="edit")
+@click.option(
+    "--node-group",
+    "-ng",
+    type=str,
+    required=True,
+    help="Exact node group name or ID.",
+)
+@click.option(
+    "--name",
+    "-n",
+    "storage_name",
+    type=str,
+    required=True,
+    help="Object Storage name.",
+)
+@click.option(
+    "--wif",
+    is_flag=True,
+    help="Switch authentication to Workload Identity Federation.",
+)
+@click.option(
+    "--access-key-secret-name",
+    "--access-key-secret",
+    type=str,
+    help="Switch authentication using this access key ID secret.",
+)
+@click.option(
+    "--secret-key-secret-name",
+    "--secret-key-secret",
+    type=str,
+    help="Switch authentication using this secret access key secret.",
+)
+@click.option(
+    "--user",
+    "-u",
+    "allowed_users",
+    type=str,
+    multiple=True,
+    help="Replace the bucket allowlist with this member. Can be repeated.",
+)
+@click.option(
+    "--all-members",
+    is_flag=True,
+    help="Clear the bucket allowlist and restore workspace-wide access.",
+)
+def edit_storage_command(
+    node_group,
+    storage_name,
+    wif,
+    access_key_secret_name,
+    secret_key_secret_name,
+    allowed_users,
+    all_members,
+):
+    """
+    Edit Object Storage authentication or its bucket allowlist.
+
+    Provider, bucket, region/endpoint/project ID, and AIStore settings are
+    immutable after creation, matching the web UI.
+    """
+    users = _permission_users(allowed_users)
+    if users and all_members:
+        raise click.UsageError(
+            "Use either '--user' / '-u' or '--all-members', not both."
+        )
+    credentials_requested = (
+        wif or access_key_secret_name is not None or secret_key_secret_name is not None
+    )
+    permissions_requested = bool(users) or all_members
+    if not credentials_requested and not permissions_requested:
+        raise click.UsageError(
+            "Specify authentication options, '--user' / '-u', or '--all-members'."
+        )
+
+    client = APIClient()
+    matched_node_group = _resolve_storage_node_group(client, node_group)
+    storage_kind, storage = _resolve_permission_storage(
+        client,
+        matched_node_group,
+        storage_name,
+    )
+    if storage_kind != "object":
+        raise click.ClickException(
+            f"Storage '{storage_name}' is {_node_storage_type(storage)}; "
+            "only Object Storage can be edited."
+        )
+
+    data_source = client.nodegroup.get_storage_data_source(
+        matched_node_group,
+        storage.metadata.name,
+    )
+    updated_spec = _copy_pydantic_model(data_source.spec)
+    provider = updated_spec.object_.provider.type_.lower()
+    if credentials_requested:
+        updated_spec.object_.credentials = _build_object_storage_credentials(
+            provider,
+            wif,
+            access_key_secret_name,
+            secret_key_secret_name,
+        )
+    if permissions_requested:
+        updated_spec.permissions = (
+            None if all_members else DataSourcePermissions(allowed_users=users)
+        )
+
+    client.nodegroup.update_storage_data_source(
+        matched_node_group,
+        data_source.metadata.name,
+        updated_spec,
+    )
+    changes = []
+    if credentials_requested:
+        changes.append("authentication")
+    if permissions_requested:
+        changes.append("bucket allowlist")
+    console.print(
+        f"Updated {' and '.join(changes)} for Object Storage "
+        f"[bold]{storage_name}[/bold]."
+    )
+
+
+@storage_group.command(name="delete")
+@click.option(
+    "--node-group",
+    "-ng",
+    type=str,
+    required=True,
+    help="Exact node group name or ID.",
+)
+@click.option(
+    "--name",
+    "-n",
+    "storage_name",
+    type=str,
+    required=True,
+    help="Storage name.",
+)
+@click.option(
+    "--yes",
+    "-y",
+    is_flag=True,
+    help="Delete without asking for confirmation.",
+)
+def delete_storage_command(node_group, storage_name, yes):
+    """Delete Node Local, NFS, or Object Storage from a node group."""
+    client = APIClient()
+    matched_node_group = _resolve_storage_node_group(client, node_group)
+    storage_kind, storage = _resolve_permission_storage(
+        client,
+        matched_node_group,
+        storage_name,
+    )
+
+    if storage_kind == "object":
+        if not yes:
+            confirmed = click.confirm(
+                f"Delete Object Storage '{storage_name}' from node group "
+                f"'{matched_node_group.metadata.name}'? This removes the data "
+                "source configuration, not objects in the bucket, and will be "
+                "rejected if a workload is using it.",
+            )
+            if not confirmed:
+                console.print("Deletion cancelled.")
+                return
+        client.nodegroup.delete_storage_data_source(
+            matched_node_group,
+            storage.metadata.name,
+        )
+        console.print(
+            "Deleted [magenta]object-storage[/magenta] "
+            f"[bold]{storage_name}[/bold] from node group "
+            f"[bold]{matched_node_group.metadata.name}[/bold]."
+        )
+        return
+
+    storage_type = _node_storage_type(storage)
+    if storage_type not in ("node-local", "node-nfs"):
+        raise click.ClickException(
+            f"Storage '{storage_name}' has unsupported type '{storage_type}'."
+        )
+    if getattr(storage, "managed_by_lepton", False):
+        raise click.ClickException(
+            f"Storage '{storage_name}' is managed by Lepton and cannot be deleted "
+            "directly."
+        )
+
+    if not yes:
+        confirmed = click.confirm(
+            f"Delete {storage_type} storage '{storage_name}' from node group "
+            f"'{matched_node_group.metadata.name}'? This detaches the volume but "
+            "does not delete its data and may affect running workloads.",
+        )
+        if not confirmed:
+            console.print("Deletion cancelled.")
+            return
+
+    client.nodegroup.delete_volume(matched_node_group, storage_name)
+    console.print(
+        f"Deleted [green]{storage_type}[/green] storage "
+        f"[bold]{storage_name}[/bold] from node group "
+        f"[bold]{matched_node_group.metadata.name}[/bold]."
+    )
+
+
+@storage_group.command(name="get")
+@click.option(
+    "--node-group",
+    "-ng",
+    type=str,
+    required=True,
+    help="Node group name or ID containing the storage.",
+)
+@click.option(
+    "--name",
+    "-n",
+    "storage_name",
+    type=str,
+    required=True,
+    help="Storage name.",
+)
+def get_storage_command(node_group, storage_name):
+    """Get storage by node group and name."""
+    client = APIClient()
+    matched_node_group = _resolve_storage_node_group(client, node_group)
+    volumes = getattr(matched_node_group.spec, "volumes", None) or []
+    storage = next(
+        (candidate for candidate in volumes if candidate.name == storage_name),
+        None,
+    )
+    data_sources = _list_object_storage_data_sources(client, matched_node_group)
+    if storage is None:
+        storage = next(
+            (
+                candidate
+                for candidate in data_sources
+                if candidate.metadata.name == storage_name
+            ),
+            None,
+        )
+    if storage is None:
+        available_names = [candidate.name for candidate in volumes]
+        available_names.extend(
+            candidate.metadata.name
+            for candidate in data_sources
+            if candidate.metadata.name
+        )
+        available = ", ".join(sorted(available_names))
+        message = (
+            f"Storage '{storage_name}' was not found in node group "
+            f"'{matched_node_group.metadata.name}'."
+        )
+        if available:
+            message += f" Available storage: {available}."
+        raise click.ClickException(message)
+
+    if hasattr(storage, "model_dump"):
+        storage_data = storage.model_dump(
+            mode="json",
+            by_alias=True,
+            exclude_none=True,
+        )
+    else:
+        storage_data = storage.dict(by_alias=True, exclude_none=True)
+
+    console.print_json(
+        data={
+            "node_group": {
+                "id": matched_node_group.metadata.id_,
+                "name": matched_node_group.metadata.name,
+            },
+            "storage": storage_data,
+        }
+    )
+
+
+@storage_group.group(name="permission", invoke_without_command=True)
+@click.option(
+    "--node-group",
+    "-ng",
+    type=str,
+    required=False,
+    help="Exact node group name or ID containing the storage.",
+)
+@click.option(
+    "--name",
+    "-n",
+    "storage_name",
+    type=str,
+    required=False,
+    help="Storage name. Omit to list permissions for all storage in the node group.",
+)
+@click.pass_context
+def storage_permission_group(ctx, node_group, storage_name):
+    """
+    Manage storage permissions.
+
+    With no subcommand, lists permissions. Node Local and NFS volumes use
+    path-scoped rules; Object Storage uses a bucket-wide member allowlist.
+    """
+    if ctx.invoked_subcommand is not None:
+        return
+    if not node_group:
+        raise click.UsageError(
+            "Option '--node-group' / '-ng' is required when listing permissions."
+        )
+    _list_storage_permissions(node_group, storage_name)
+
+
+def _list_storage_permissions(node_group, storage_name):
+    """
+    List storage permissions.
+
+    Node Local and NFS volumes use path-scoped rules. Object Storage uses a
+    bucket-wide member allowlist.
     """
     client = APIClient()
-    node_groups = client.nodegroup.list_all()
+    matched_node_group = _resolve_storage_node_group(client, node_group)
+    all_volumes = list(getattr(matched_node_group.spec, "volumes", None) or [])
+    all_data_sources = _list_object_storage_data_sources(
+        client,
+        matched_node_group,
+    )
+    volumes = all_volumes
+    data_sources = all_data_sources
 
-    if node_group:
-        filters = node_group
-        node_groups = [
-            ng
-            for ng in node_groups
-            if any((f in ng.metadata.id_) or (f in ng.metadata.name) for f in filters)
+    if storage_name:
+        volumes = [volume for volume in volumes if volume.name == storage_name]
+        data_sources = [
+            data_source
+            for data_source in data_sources
+            if data_source.metadata.name == storage_name
         ]
 
-    table = Table(title="Storage Volumes by Node Group", show_lines=True)
-    table.add_column("Node Group")
-    table.add_column("Storage Name")
-    table.add_column("Type")
+    matching_storage_count = len(volumes) + len(data_sources)
+    if matching_storage_count == 0:
+        available_names = [volume.name for volume in all_volumes]
+        available_names.extend(
+            data_source.metadata.name
+            for data_source in all_data_sources
+            if data_source.metadata.name
+        )
+        if storage_name:
+            message = (
+                f"Storage '{storage_name}' was not found in node group "
+                f"'{matched_node_group.metadata.name}'."
+            )
+            if available_names:
+                message += f" Available storage: {', '.join(sorted(available_names))}."
+            raise click.ClickException(message)
+        raise click.ClickException(
+            f"No storage was found in node group '{matched_node_group.metadata.name}'."
+        )
+    if storage_name and matching_storage_count > 1:
+        raise click.ClickException(
+            f"Storage name '{storage_name}' is used by more than one storage type in "
+            f"node group '{matched_node_group.metadata.name}'."
+        )
 
-    for ng in node_groups:
-        ng_name = ng.metadata.name
-        ng_id = ng.metadata.id_
-        volumes = getattr(ng.spec, "volumes", None) or []
+    table = Table(
+        title=(
+            f"Storage Permissions for {matched_node_group.metadata.name} "
+            f"({matched_node_group.metadata.id_})"
+        ),
+        show_lines=True,
+    )
+    table.add_column("Storage", overflow="fold")
+    table.add_column("Type", overflow="fold")
+    table.add_column("Permission", overflow="fold")
 
-        if not volumes:
-            nodegroup_text = f"[bold]{ng_name}[/bold]\n[dim]{ng_id}[/dim]"
-            table.add_row(nodegroup_text, "None", "")
+    for volume in volumes:
+        permissions = client.nodegroup.list_storage_permissions(
+            matched_node_group,
+            volume.name,
+        )
+        if not permissions:
+            table.add_row(
+                volume.name,
+                _format_storage_type(volume),
+                "[dim]Scope:[/dim] All paths\n"
+                "[dim]Model:[/dim] [green]Default access[/green]\n"
+                "[dim]Members:[/dim] All workspace members",
+            )
             continue
 
-        volume_name_lines = []
-        volume_type_lines = []
-        for vol in volumes:
-            volume_name = getattr(vol, "name", "-")
-            from_source = getattr(vol, "from_", None)
-
-            if from_source is not None and from_source != "-":
-                source_str = str(
-                    from_source.value if hasattr(from_source, "value") else from_source
-                ).lower()
-                if source_str == "local":
-                    type_text = f"[green]node-{source_str}[/green]"
-                elif source_str == "nfs":
-                    type_text = f"[cyan]node-{source_str}[/cyan]"
-                else:
-                    type_text = f"node-{source_str}"
+        for permission in permissions:
+            if permission.subfolder_policy == "by_user":
+                scope = f"{permission.path_prefix.rstrip('/')}/<email_username>"
+                permission_model = "Username subfolder rule"
+                members = "Matching workspace member"
             else:
-                type_text = "-"
+                scope = permission.path_prefix
+                permission_model = "Path allow rule"
+                members = (
+                    "All workspace members"
+                    if "*" in permission.allowed_users
+                    else "\n".join(permission.allowed_users) or "-"
+                )
+            table.add_row(
+                volume.name,
+                _format_storage_type(volume),
+                f"[dim]Scope:[/dim] {scope}\n"
+                f"[dim]Model:[/dim] {permission_model}\n"
+                f"[dim]Members:[/dim] {members}",
+            )
 
-            volume_name_lines.append(volume_name)
-            volume_type_lines.append(type_text)
-
-        nodegroup_text = f"[bold]{ng_name}[/bold]\n[dim]{ng_id}[/dim]"
+    for data_source in data_sources:
+        permissions = data_source.spec.permissions
+        allowed_users = permissions.allowed_users if permissions else None
         table.add_row(
-            nodegroup_text,
-            "\n".join(volume_name_lines),
-            "\n".join(volume_type_lines),
+            data_source.metadata.name or "-",
+            "[magenta]object-storage[/magenta]",
+            f"[dim]Bucket:[/dim] {_format_object_storage_path(data_source)}\n"
+            "[dim]Model:[/dim] "
+            + (
+                "Bucket allowlist\n"
+                if allowed_users
+                else "[green]Default access[/green]\n"
+            )
+            + "[dim]Members:[/dim] "
+            + (
+                "All workspace members"
+                if not allowed_users or "*" in allowed_users
+                else "\n".join(allowed_users)
+            ),
         )
 
     console.print(table)
-
     console.print(
-        "[dim]Note:[/dim] Mount syntax: "
-        "`--mount FROM_PATH:MOUNT_PATH:VOLUME` "
-        "(split on the first two colons, so `VOLUME` may itself contain a "
-        "colon).\n"
-        "[dim]`VOLUME` is `node-local`, or `node-<type>:<storage_name>` for "
-        "a named volume (e.g. `node-nfs:my-nfs`). Example: "
-        "`/hf-cache:/root/.cache/huggingface:node-nfs:my-nfs`.[/dim]"
+        "[dim]Note:[/dim] Node Local/NFS rules apply to paths within a volume. "
+        "Object Storage permissions apply to the whole bucket. With no rules or "
+        "allowlist, all workspace members have access."
     )
+
+
+def _resolve_permission_storage(client, node_group, storage_name):
+    volumes = list(getattr(node_group.spec, "volumes", None) or [])
+    data_sources = _list_object_storage_data_sources(client, node_group)
+    matches = [("volume", volume) for volume in volumes if volume.name == storage_name]
+    matches.extend(
+        ("object", data_source)
+        for data_source in data_sources
+        if data_source.metadata.name == storage_name
+    )
+
+    if not matches:
+        available_names = [volume.name for volume in volumes]
+        available_names.extend(
+            data_source.metadata.name
+            for data_source in data_sources
+            if data_source.metadata.name
+        )
+        message = (
+            f"Storage '{storage_name}' was not found in node group "
+            f"'{node_group.metadata.name}'."
+        )
+        if available_names:
+            message += f" Available storage: {', '.join(sorted(available_names))}."
+        raise click.ClickException(message)
+    if len(matches) > 1:
+        raise click.ClickException(
+            f"Storage name '{storage_name}' is used by more than one storage type in "
+            f"node group '{node_group.metadata.name}'."
+        )
+    return matches[0]
+
+
+def _permission_users(allowed_users, all_members=False):
+    users = []
+    for user in allowed_users:
+        user = user.strip()
+        if not user:
+            raise click.BadParameter(
+                "must not be empty.",
+                param_hint="'--user' / '-u'",
+            )
+        if user not in users:
+            users.append(user)
+
+    if all_members and users:
+        raise click.UsageError(
+            "Use either '--user' / '-u' or '--all-members', not both."
+        )
+    return ["*"] if all_members else users
+
+
+def _permission_path(path_prefix):
+    if path_prefix is None:
+        return None
+    path_prefix = path_prefix.strip()
+    if not path_prefix.startswith("/"):
+        raise click.BadParameter(
+            "must be an absolute path starting with '/'.",
+            param_hint="'--path' / '-p'",
+        )
+    return path_prefix
+
+
+def _copy_pydantic_model(model):
+    if hasattr(model, "model_copy"):
+        return model.model_copy(deep=True)
+    return model.copy(deep=True)
+
+
+@storage_permission_group.command(name="add")
+@click.option(
+    "--node-group",
+    "-ng",
+    type=str,
+    required=True,
+    help="Exact node group name or ID containing the storage.",
+)
+@click.option(
+    "--name",
+    "-n",
+    "storage_name",
+    type=str,
+    required=True,
+    help="Storage name.",
+)
+@click.option(
+    "--path",
+    "-p",
+    "path_prefix",
+    type=str,
+    required=False,
+    help="Path prefix for Node Local/NFS. Not used by Object Storage.",
+)
+@click.option(
+    "--user",
+    "-u",
+    "allowed_users",
+    type=str,
+    multiple=True,
+    help="Allowed workspace member. Can be repeated.",
+)
+@click.option(
+    "--all-members",
+    is_flag=True,
+    help="Allow every workspace member.",
+)
+@click.option(
+    "--by-user",
+    is_flag=True,
+    help="Allow each member only under a matching <email_username> subfolder.",
+)
+def add_storage_permission_command(
+    node_group,
+    storage_name,
+    path_prefix,
+    allowed_users,
+    all_members,
+    by_user,
+):
+    """Add a path rule or members to an Object Storage allowlist."""
+    client = APIClient()
+    matched_node_group = _resolve_storage_node_group(client, node_group)
+    storage_kind, storage = _resolve_permission_storage(
+        client,
+        matched_node_group,
+        storage_name,
+    )
+    users = _permission_users(allowed_users, all_members)
+    path_prefix = _permission_path(path_prefix)
+
+    if storage_kind == "volume":
+        if path_prefix is None:
+            raise click.UsageError(
+                "Option '--path' / '-p' is required for node-local and node-nfs "
+                "permissions."
+            )
+        if by_user and users:
+            raise click.UsageError(
+                "Use either '--by-user' or member options, not both."
+            )
+        if not by_user and not users:
+            raise click.UsageError(
+                "Use '--user' / '-u', '--all-members', or '--by-user'."
+            )
+
+        permissions = client.nodegroup.list_storage_permissions(
+            matched_node_group,
+            storage.name,
+        )
+        if any(permission.path_prefix == path_prefix for permission in permissions):
+            raise click.ClickException(
+                f"Permission for path '{path_prefix}' already exists on storage "
+                f"'{storage_name}'."
+            )
+
+        permission = StoragePermission(
+            path_prefix=path_prefix,
+            allowed_users=[] if by_user else users,
+            subfolder_policy="by_user" if by_user else "",
+            nodegroup_id=matched_node_group.metadata.id_,
+        )
+        client.nodegroup.set_storage_permission(
+            matched_node_group,
+            storage.name,
+            permission,
+        )
+        console.print(
+            f"Added permission for [cyan]{path_prefix}[/cyan] on "
+            f"[bold]{_node_storage_type(storage)}:{storage_name}[/bold]."
+        )
+        if not permissions:
+            console.print(
+                "[yellow]Note:[/yellow] This is the first path rule, so storage "
+                "access is now restricted to explicitly permitted paths."
+            )
+        return
+
+    if path_prefix is not None or by_user:
+        raise click.UsageError(
+            "Object Storage permissions are bucket-wide; do not use '--path' or "
+            "'--by-user'."
+        )
+    if not users:
+        raise click.UsageError(
+            "Use '--user' / '-u' or '--all-members' for Object Storage."
+        )
+
+    data_source = client.nodegroup.get_storage_data_source(
+        matched_node_group,
+        storage.metadata.name,
+    )
+    current_permissions = data_source.spec.permissions
+    current_users = (
+        list(current_permissions.allowed_users or []) if current_permissions else []
+    )
+    if "*" in users:
+        updated_users = ["*"]
+    elif "*" in current_users:
+        raise click.ClickException(
+            f"Object Storage '{storage_name}' already allows all workspace members."
+        )
+    else:
+        updated_users = current_users + [
+            user for user in users if user not in current_users
+        ]
+    if updated_users == current_users:
+        raise click.ClickException(
+            "Every specified member is already in the bucket allowlist."
+        )
+
+    updated_spec = _copy_pydantic_model(data_source.spec)
+    updated_spec.permissions = DataSourcePermissions(
+        allowed_users=updated_users,
+    )
+    client.nodegroup.update_storage_data_source(
+        matched_node_group,
+        data_source.metadata.name,
+        updated_spec,
+    )
+    console.print(
+        "Updated bucket allowlist for Object Storage "
+        f"[bold]{storage_name}[/bold]: {', '.join(updated_users)}."
+    )
+    if not current_users and "*" not in updated_users:
+        console.print(
+            "[yellow]Note:[/yellow] The bucket previously had default workspace-wide "
+            "access and is now restricted to the listed members."
+        )
+
+
+@storage_permission_group.command(name="delete")
+@click.option(
+    "--node-group",
+    "-ng",
+    type=str,
+    required=True,
+    help="Exact node group name or ID containing the storage.",
+)
+@click.option(
+    "--name",
+    "-n",
+    "storage_name",
+    type=str,
+    required=True,
+    help="Storage name.",
+)
+@click.option(
+    "--path",
+    "-p",
+    "path_prefix",
+    type=str,
+    required=False,
+    help="Path rule to delete from Node Local/NFS.",
+)
+@click.option(
+    "--user",
+    "-u",
+    "allowed_users",
+    type=str,
+    multiple=True,
+    help="Member to remove from an Object Storage allowlist. Can be repeated.",
+)
+@click.option(
+    "--clear",
+    is_flag=True,
+    help="Clear the entire Object Storage allowlist.",
+)
+@click.option(
+    "--yes",
+    "-y",
+    is_flag=True,
+    help="Delete without asking for confirmation.",
+)
+def delete_storage_permission_command(
+    node_group,
+    storage_name,
+    path_prefix,
+    allowed_users,
+    clear,
+    yes,
+):
+    """Delete a path rule or members from an Object Storage allowlist."""
+    client = APIClient()
+    matched_node_group = _resolve_storage_node_group(client, node_group)
+    storage_kind, storage = _resolve_permission_storage(
+        client,
+        matched_node_group,
+        storage_name,
+    )
+    users = _permission_users(allowed_users)
+    path_prefix = _permission_path(path_prefix)
+
+    if storage_kind == "volume":
+        if path_prefix is None:
+            raise click.UsageError(
+                "Option '--path' / '-p' is required for node-local and node-nfs "
+                "permissions."
+            )
+        if users or clear:
+            raise click.UsageError(
+                "Node Local/NFS deletion removes an entire path rule; do not use "
+                "'--user' or '--clear'."
+            )
+
+        permissions = client.nodegroup.list_storage_permissions(
+            matched_node_group,
+            storage.name,
+        )
+        if not any(permission.path_prefix == path_prefix for permission in permissions):
+            raise click.ClickException(
+                f"Permission for path '{path_prefix}' was not found on storage "
+                f"'{storage_name}'."
+            )
+        restores_default_access = len(permissions) == 1
+        if not yes:
+            prompt = (
+                f"Delete permission for path '{path_prefix}' from '{storage_name}'?"
+            )
+            if restores_default_access:
+                prompt += (
+                    " This is the final rule, so all workspace members will regain "
+                    "default access to all paths."
+                )
+            if not click.confirm(prompt):
+                console.print("Permission deletion cancelled.")
+                return
+
+        client.nodegroup.delete_storage_permission(
+            matched_node_group,
+            storage.name,
+            path_prefix,
+        )
+        console.print(
+            f"Deleted permission for [cyan]{path_prefix}[/cyan] from "
+            f"[bold]{_node_storage_type(storage)}:{storage_name}[/bold]."
+        )
+        if restores_default_access:
+            console.print(
+                "[yellow]Note:[/yellow] No path rules remain; all workspace members "
+                "now have default access."
+            )
+        return
+
+    if path_prefix is not None:
+        raise click.UsageError(
+            "Object Storage permissions are bucket-wide; do not use '--path'."
+        )
+    if clear and users:
+        raise click.UsageError("Use either '--user' / '-u' or '--clear', not both.")
+    if not clear and not users:
+        raise click.UsageError(
+            "Use '--user' / '-u' to remove members or '--clear' to clear the "
+            "Object Storage allowlist."
+        )
+
+    data_source = client.nodegroup.get_storage_data_source(
+        matched_node_group,
+        storage.metadata.name,
+    )
+    current_permissions = data_source.spec.permissions
+    current_users = (
+        list(current_permissions.allowed_users or []) if current_permissions else []
+    )
+    if not current_users:
+        raise click.ClickException(
+            f"Object Storage '{storage_name}' has no bucket allowlist and already "
+            "uses default workspace-wide access."
+        )
+
+    if clear:
+        updated_users = []
+    else:
+        missing_users = [user for user in users if user not in current_users]
+        if missing_users:
+            raise click.ClickException(
+                "Member(s) not found in the bucket allowlist: "
+                f"{', '.join(missing_users)}."
+            )
+        users_to_remove = set(users)
+        updated_users = [user for user in current_users if user not in users_to_remove]
+    restores_default_access = not updated_users
+
+    if not yes:
+        if clear:
+            prompt = f"Clear the bucket allowlist for '{storage_name}'?"
+        else:
+            prompt = (
+                f"Remove {', '.join(users)} from the bucket allowlist for "
+                f"'{storage_name}'?"
+            )
+        if restores_default_access:
+            prompt += (
+                " No allowlist will remain, so all workspace members will regain "
+                "default access."
+            )
+        if not click.confirm(prompt):
+            console.print("Permission deletion cancelled.")
+            return
+
+    updated_spec = _copy_pydantic_model(data_source.spec)
+    updated_spec.permissions = (
+        DataSourcePermissions(allowed_users=updated_users) if updated_users else None
+    )
+    client.nodegroup.update_storage_data_source(
+        matched_node_group,
+        data_source.metadata.name,
+        updated_spec,
+    )
+    if updated_users:
+        console.print(
+            "Updated bucket allowlist for Object Storage "
+            f"[bold]{storage_name}[/bold]: {', '.join(updated_users)}."
+        )
+    else:
+        console.print(
+            "Cleared the bucket allowlist for Object Storage "
+            f"[bold]{storage_name}[/bold]."
+        )
+        console.print(
+            "[yellow]Note:[/yellow] All workspace members now have default access."
+        )
 
 
 def add_command(cli_group):
