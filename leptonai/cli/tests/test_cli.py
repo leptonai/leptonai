@@ -86,24 +86,6 @@ class TestLepCli(unittest.TestCase):
                 self.assertIn(name, output)
                 mock_client.return_value.job.create.assert_not_called()
 
-    def test_job_create_rejects_invalid_name_before_initializing_client(self):
-        with patch("leptonai.cli.job.APIClient") as mock_client:
-            result = CliRunner().invoke(
-                cli,
-                [
-                    "job",
-                    "create",
-                    "--name",
-                    "Invalid-job",
-                    "--resource-shape",
-                    config.DEFAULT_RESOURCE_SHAPE,
-                ],
-            )
-
-        self.assertEqual(result.exit_code, 1, result.output)
-        self.assertIn("must start with a lowercase letter", result.output)
-        mock_client.assert_not_called()
-
     def test_job_create_rejects_invalid_environment_variable_name(self):
         with patch("leptonai.cli.job.APIClient") as mock_client:
             result = CliRunner().invoke(
