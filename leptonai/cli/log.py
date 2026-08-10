@@ -524,7 +524,6 @@ def log_command(
             sys.exit(1)
 
         if limit is None:
-
             time_range = unix_end - unix_start
             MIN_SLOT_NS = 1_000_000_000
             time_slot = max(MIN_SLOT_NS, time_range // 1600)
@@ -561,7 +560,6 @@ def log_command(
                     futures = []
                     future_to_index = {}
                     for index, (time_start, time_end) in enumerate(time_windows):
-
                         future = executor.submit(
                             fetch_all_within_time_slot,
                             deployment,

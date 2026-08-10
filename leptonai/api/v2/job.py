@@ -1,6 +1,7 @@
 from typing import Union, List, Iterator, Optional
 
 from .api_resource import APIResourse
+from .job_validation import validate_job_create
 from .types.events import LeptonEvent
 
 from .types.job import LeptonJob, LeptonJobQueryMode
@@ -82,6 +83,7 @@ class JobAPI(APIResourse):
         """
         Create a job with the given job spec.
         """
+        validate_job_create(spec)
         response = self._post("/jobs", json=self.safe_json(spec))
         return self.ensure_type(response, LeptonJob)
 

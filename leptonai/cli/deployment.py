@@ -2044,7 +2044,6 @@ def update(
             lepton_deployment.metadata.semantic_version,
         ])
         if will_restart:
-
             replicas = client.deployment.get_replicas(lepton_deployment)
 
             # "Update in progress" is inferred from a replica whose major version
