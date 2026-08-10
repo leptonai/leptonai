@@ -4,6 +4,7 @@ import posixpath
 import re
 from typing import Optional
 
+from .spec_utils import validate_environment_variable_name
 from .types.job import LeptonJob
 
 
@@ -108,6 +109,9 @@ def validate_job_create(job: LeptonJob) -> None:
     """Validate Job fields immediately before creation."""
     name = job.metadata.id_ if job.metadata.id_ is not None else job.metadata.name or ""
     validate_job_name(name)
+
+    for env_var in job.spec.envs or []:
+        validate_environment_variable_name(env_var.name)
 
     for mount in job.spec.mounts or []:
         validate_mount_path(mount.mount_path)

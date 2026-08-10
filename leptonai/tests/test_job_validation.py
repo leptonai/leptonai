@@ -15,7 +15,7 @@ from leptonai.api.v2.spec_utils import (
     validate_environment_variable_name,
 )
 from leptonai.api.v2.types.common import Metadata
-from leptonai.api.v2.types.deployment import Mount
+from leptonai.api.v2.types.deployment import EnvVar, Mount
 from leptonai.api.v2.types.job import LeptonJob, LeptonJobUserSpec
 
 
@@ -26,6 +26,7 @@ def _make_mount(mount_path):
 def _make_job(
     name="valid-job",
     *,
+    envs=None,
     mounts=None,
     labels=None,
     completions=1,
@@ -34,6 +35,7 @@ def _make_job(
     return LeptonJob(
         metadata=Metadata(id=name, labels=labels),
         spec=LeptonJobUserSpec(
+            envs=envs,
             mounts=mounts,
             completions=completions,
             parallelism=parallelism,
@@ -178,6 +180,15 @@ class TestJobCreateValidation(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             api.create(_make_job(name="Invalid-job"))
+
+        client._post.assert_not_called()
+
+    def test_job_api_validates_environment_variables_before_posting(self):
+        client = Mock()
+        api = JobAPI(client)
+
+        with self.assertRaisesRegex(ValueError, "cannot start with a digit"):
+            api.create(_make_job(envs=[EnvVar(name="1INVALID", value="value")]))
 
         client._post.assert_not_called()
 
