@@ -87,7 +87,7 @@ class TestEnvironmentVariableNameValidation(unittest.TestCase):
     def test_preserves_reserved_environment_variable_error(self):
         expected = (
             "You have used a reserved environment variable name that is "
-            "used by Lepton internally: {k}. Please use a different name. "
+            "used by Lepton internally: LEPTON_JOB_NAME. Please use a different name. "
             "Here is a list of all reserved environment variable names:\n"
             f"{LEPTON_RESERVED_ENV_NAMES}"
         )
@@ -100,7 +100,7 @@ class TestEnvironmentVariableNameValidation(unittest.TestCase):
     def test_preserves_reserved_secret_error(self):
         expected = (
             "You have used a reserved secret name that is "
-            "used by Lepton internally: {k}. Please use a different name. "
+            "used by Lepton internally: LEPTON_JOB_NAME. Please use a different name. "
             "Here is a list of all reserved environment variable names:\n"
             f"{LEPTON_RESERVED_ENV_NAMES}"
         )

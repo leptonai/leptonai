@@ -30,7 +30,7 @@ def validate_environment_variable_name(name: str, *, is_secret: bool = False) ->
         name_type = "secret" if is_secret else "environment variable"
         raise ValueError(
             f"You have used a reserved {name_type} name that is "
-            "used by Lepton internally: {k}. Please use a different name. "
+            f"used by Lepton internally: {name}. Please use a different name. "
             "Here is a list of all reserved environment variable names:\n"
             f"{LEPTON_RESERVED_ENV_NAMES}"
         )
