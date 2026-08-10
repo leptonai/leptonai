@@ -105,7 +105,10 @@ def _validate_positive_worker_count(name: str, value: Optional[int]) -> None:
 
 
 def validate_job_create(job: LeptonJob) -> None:
-    """Validate mount, label, and worker fields before Job creation."""
+    """Validate Job fields immediately before creation."""
+    name = job.metadata.id_ if job.metadata.id_ is not None else job.metadata.name or ""
+    validate_job_name(name)
+
     for mount in job.spec.mounts or []:
         validate_mount_path(mount.mount_path)
 

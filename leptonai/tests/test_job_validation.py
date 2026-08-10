@@ -172,12 +172,12 @@ class TestJobCreateValidation(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "positive integer"):
                     validate_job_create(_make_job(**kwargs))
 
-    def test_job_api_validates_before_posting(self):
+    def test_job_api_validates_name_before_posting(self):
         client = Mock()
         api = JobAPI(client)
 
         with self.assertRaises(ValueError):
-            api.create(_make_job(mounts=[_make_mount("/etc")]))
+            api.create(_make_job(name="Invalid-job"))
 
         client._post.assert_not_called()
 
