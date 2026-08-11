@@ -578,7 +578,7 @@ def _filter_nodes(
     cpu_types=(),
     unschedulable=False,
 ):
-    """Apply the same node-filtering semantics as the node-group WebUI."""
+    """Apply node filters, with CLI prefix matching for providers and labels."""
     normalized_keyword = keyword.strip().lower() if keyword else ""
     wanted_statuses = set(statuses)
     wanted_stages = set(stages)
@@ -629,16 +629,20 @@ def _filter_nodes(
                 getattr(metadata, "labels", None) if metadata else None
             ) or {}
             for label_filter in labels:
-                key, separator, value = label_filter.partition(":")
-                if separator:
-                    if node_labels.get(key) != value:
-                        return False
-                elif key not in node_labels:
+                key_prefix, separator, value_prefix = label_filter.partition(":")
+                if not key_prefix or not any(
+                    label_key.startswith(key_prefix)
+                    and (not separator or str(label_value).startswith(value_prefix))
+                    for label_key, label_value in node_labels.items()
+                ):
                     return False
 
         if wanted_providers:
-            provider = getattr(spec, "provider", None) if spec else None
-            if provider not in wanted_providers:
+            provider = (getattr(spec, "provider", None) if spec else None) or ""
+            if not any(
+                provider.lower().startswith(prefix.lower())
+                for prefix in wanted_providers
+            ):
                 return False
 
         if wanted_gpu_types:
@@ -680,7 +684,10 @@ def _filter_nodes(
     "labels",
     type=str,
     multiple=True,
-    help="Filter by label KEY (exists) or KEY:VALUE (exact match). Repeat for AND.",
+    help=(
+        "Filter by case-sensitive label KEY_PREFIX or KEY_PREFIX:VALUE_PREFIX."
+        " Repeat for AND."
+    ),
 )
 @click.option(
     "--status",
@@ -701,7 +708,7 @@ def _filter_nodes(
     "providers",
     type=str,
     multiple=True,
-    help="Filter by exact provider. Repeat for OR.",
+    help="Filter by case-insensitive provider prefix. Repeat for OR.",
 )
 @click.option(
     "--gpu-type",

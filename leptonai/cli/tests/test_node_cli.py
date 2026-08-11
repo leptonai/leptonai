@@ -1227,16 +1227,28 @@ def test_filter_nodes_status_matches_machine_status_or_status_array(nodes):
     assert [item.metadata.id_ for item in secondary] == ["node-2"]
 
 
-def test_filter_nodes_requires_every_label_condition(nodes):
-    filtered = _filter_nodes(nodes, labels=("env:prod", "rack:r2", "paused"))
+def test_filter_nodes_requires_every_label_prefix_condition(nodes):
+    filtered = _filter_nodes(nodes, labels=("en:pro", "ra:r2", "pa"))
 
     assert [item.metadata.id_ for item in filtered] == ["node-2"]
 
 
-def test_filter_nodes_label_with_empty_value_is_an_exact_match(nodes):
-    filtered = _filter_nodes(nodes, labels=("paused:",))
+def test_filter_nodes_label_prefix_is_case_sensitive(nodes):
+    filtered = _filter_nodes(nodes, labels=("EN:pro",))
 
-    assert [item.metadata.id_ for item in filtered] == ["node-2"]
+    assert filtered == []
+
+
+def test_filter_nodes_label_with_empty_value_prefix_matches_any_value(nodes):
+    filtered = _filter_nodes(nodes, labels=("env:",))
+
+    assert [item.metadata.id_ for item in filtered] == ["node-1", "node-2", "node-3"]
+
+
+def test_filter_nodes_provider_prefix_is_case_insensitive(nodes):
+    filtered = _filter_nodes(nodes, providers=("AW",))
+
+    assert [item.metadata.id_ for item in filtered] == ["node-1"]
 
 
 def test_filter_nodes_unschedulable_only(nodes):
@@ -1347,9 +1359,9 @@ def test_list_nodes_command_applies_repeatable_filters(nodes):
                     "--status",
                     "Offline",
                     "--provider",
-                    "gcp",
+                    "gc",
                     "--label",
-                    "env:prod",
+                    "en:pro",
                     "--unschedulable",
                 ],
             )
