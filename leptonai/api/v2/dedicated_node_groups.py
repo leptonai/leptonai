@@ -5,7 +5,7 @@ from urllib.parse import quote
 
 from .api_resource import APIResourse
 
-from .types.dedicated_node_group import DedicatedNodeGroup, Node, Volume
+from .types.dedicated_node_group import DedicatedNodeGroup, Machine, Node, Volume
 from .types.node_reservation import NodeReservation
 from .types.storage_data_source import StorageDataSource, StorageDataSourceSpec
 from .types.storage_permission import StoragePermission
@@ -30,6 +30,14 @@ class DedicatedNodeGroupAPI(APIResourse):
             f"/dedicated-node-groups/{self._to_name(name_or_ng)}/nodes"
         )
         return self.ensure_list(response, Node)
+
+    def list_machines(
+        self, name_or_ng: Union[str, DedicatedNodeGroup]
+    ) -> List[Machine]:
+        response = self._get(
+            f"/dedicated-node-groups/{self._to_name(name_or_ng)}/machines"
+        )
+        return self.ensure_list(response, Machine)
 
     def list_idle_nodes(self, name_or_ng: Union[str, DedicatedNodeGroup]) -> List[Node]:
         response = self._get(

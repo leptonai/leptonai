@@ -1,4 +1,5 @@
 import re
+from copy import deepcopy
 
 import click
 
@@ -14,6 +15,9 @@ from .util import (
 )
 from ..api.v2.client import APIClient
 from ..api.v2.types.dedicated_node_group import (
+    Node,
+    NodeSpec,
+    NodeStatus,
     Volume,
     VolumeCreationMode,
     VolumeFrom,
@@ -25,6 +29,46 @@ from ..api.v2.types.storage_data_source import (
     StorageDataSourceSpec,
 )
 from ..api.v2.types.storage_permission import StoragePermission
+
+
+NODE_STATUS_FILTER_VALUES = (
+    "Healthy",
+    "Unhealthy",
+    "Degraded",
+    "Rebooting",
+    "Registered",
+    "CheckingIn",
+    "Bootstrapping",
+    "Initializing",
+    "Launching",
+    "Booting",
+    "Draining",
+    "Leaving",
+    "Terminating",
+    "Offline",
+    "Failed",
+    "WaitForDraining",
+    "Verifying",
+    "Rejected",
+    "Terminated",
+    "RemoveFromNodeGroup",
+)
+
+NODE_STAGE_FILTER_VALUES = (
+    "production",
+    "ready-to-repair",
+    "repairing",
+    "recalled",
+    "verifying",
+)
+
+LEAVING_NODE_STATUS_VALUES = {
+    "Draining",
+    "Leaving",
+    "Terminating",
+    "Terminated",
+    "RemoveFromNodeGroup",
+}
 
 
 @click_group()
@@ -373,15 +417,332 @@ def _format_disk_cell(disk):
     return f"{used} / {total}"
 
 
+def _format_labels_cell(labels):
+    if not labels:
+        return "[dim]-[/dim]"
+    return "\n".join(
+        f"{key}={value}" if value else key for key, value in sorted(labels.items())
+    )
+
+
+def _format_node_status_cell(status):
+    if not status:
+        return "-"
+    values = []
+    for value in [status.machine_status, *(status.status or [])]:
+        if value and value not in values:
+            values.append(value)
+    return ", ".join(_colorize_status(value) for value in values) or "-"
+
+
+def _format_node_cell(metadata):
+    node_name = getattr(metadata, "name", None)
+    node_id = getattr(metadata, "id_", None)
+    value = make_name_id_cell(
+        node_name or node_id,
+        node_id if node_id and node_id != node_name else None,
+    )
+    labels = getattr(metadata, "labels", None)
+    if labels:
+        value += f"\n[dim]{_format_labels_cell(labels)}[/dim]"
+    return value
+
+
+def _format_provider_cell(spec):
+    provider = (getattr(spec, "provider", None) if spec else None) or "-"
+    region = (getattr(spec, "provider_region", None) if spec else None) or "-"
+    value = f"{provider} / {region}"
+    gpu_clique_id = getattr(spec, "gpu_clique_id", None) if spec else None
+    if gpu_clique_id:
+        value += f"\n[dim]clique: {gpu_clique_id}[/dim]"
+    return value
+
+
+def _format_state_cell(node):
+    value = _format_node_status_cell(node.status)
+    stage = (
+        getattr(node.status, "machine_stage", None) if node.status else None
+    ) or "-"
+    scheduling = (
+        "[yellow]unschedulable[/yellow]"
+        if node.spec and getattr(node.spec, "unschedulable", False)
+        else "[dim]schedulable[/dim]"
+    )
+    return f"{value}\n[dim]stage: {stage}[/dim]\n{scheduling}"
+
+
+def _format_network_cell(node):
+    spec = node.spec
+    hostname = (
+        (getattr(spec, "hostname", None) if spec else None)
+        or (getattr(node.status, "hostname", None) if node.status else None)
+        or "-"
+    )
+    public_ip = (getattr(spec, "public_ip", None) if spec else None) or "-"
+    local_ip = (getattr(spec, "local_ip", None) if spec else None) or "-"
+    return f"{hostname}\n[dim]public: {public_ip}[/dim]\n[dim]local: {local_ip}[/dim]"
+
+
+def _merge_nodes_with_machines(nodes, machines):
+    """Merge node and machine responses using the WebUI's machine_id rules."""
+    machines_by_id = {
+        machine.status.machine_id: machine
+        for machine in machines
+        if machine.status and machine.status.machine_id
+    }
+    matched_machine_ids = set()
+    merged = []
+
+    for original in nodes:
+        node = deepcopy(original)
+        spec = node.spec
+        machine_id = getattr(spec, "machine_id", None) if spec else None
+        machine = machines_by_id.get(machine_id)
+        if not machine:
+            merged.append(node)
+            continue
+
+        matched_machine_ids.add(machine_id)
+        machine_status = machine.status
+        if spec:
+            spec.hostname = machine_status.hostname or spec.hostname
+            spec.provider = spec.provider or machine_status.provider
+            spec.provider_region = (
+                spec.provider_region or machine_status.provider_region
+            )
+            spec.public_ip = spec.public_ip or machine_status.public_ip
+            spec.local_ip = spec.local_ip or machine_status.private_ip
+
+        status = node.status
+        if status and not status.hostname:
+            status.hostname = machine_status.hostname
+        if (
+            status
+            and machine_status.status == "Failed"
+            and status.machine_status not in LEAVING_NODE_STATUS_VALUES
+        ):
+            old_status = status.machine_status
+            status.machine_status = "Failed"
+            status.status = [
+                value for value in (status.status or []) if value != old_status
+            ]
+            if "Failed" not in status.status:
+                status.status.append("Failed")
+
+        merged.append(node)
+
+    for machine in machines:
+        machine_status = machine.status
+        machine_id = machine_status.machine_id
+        if machine_id and machine_id in matched_machine_ids:
+            continue
+
+        metadata = deepcopy(machine.metadata)
+        metadata.id_ = metadata.name or metadata.id_
+        metadata.name = machine_status.node_name or metadata.name or metadata.id_
+        phase = machine_status.status
+        merged.append(
+            Node(
+                metadata=metadata,
+                spec=NodeSpec(
+                    machine_id=machine_id,
+                    capacity_type=machine_status.capacity_type,
+                    hostname=machine_status.hostname,
+                    public_ip=machine_status.public_ip,
+                    local_ip=machine_status.private_ip,
+                    provider=machine_status.provider,
+                    provider_region=machine_status.provider_region,
+                    resource=deepcopy(machine_status.resource),
+                    unschedulable=False,
+                ),
+                status=NodeStatus(
+                    status=[phase] if phase else [],
+                    machine_status=phase,
+                    hostname=machine_status.hostname,
+                ),
+            )
+        )
+
+    return merged
+
+
+def _filter_nodes(
+    nodes,
+    *,
+    keyword=None,
+    labels=(),
+    statuses=(),
+    stages=(),
+    providers=(),
+    gpu_types=(),
+    cpu_types=(),
+    unschedulable=False,
+):
+    """Apply the same node-filtering semantics as the node-group WebUI."""
+    normalized_keyword = keyword.strip().lower() if keyword else ""
+    wanted_statuses = set(statuses)
+    wanted_stages = set(stages)
+    wanted_providers = set(providers)
+    wanted_gpu_types = set(gpu_types)
+    wanted_cpu_types = set(cpu_types)
+
+    def matches(node):
+        metadata = getattr(node, "metadata", None)
+        spec = getattr(node, "spec", None)
+        status = getattr(node, "status", None)
+        resource = getattr(spec, "resource", None) if spec else None
+
+        if normalized_keyword:
+            keyword_fields = (
+                getattr(metadata, "name", None) if metadata else None,
+                getattr(status, "hostname", None) if status else None,
+                getattr(spec, "hostname", None) if spec else None,
+                getattr(spec, "public_ip", None) if spec else None,
+                getattr(spec, "local_ip", None) if spec else None,
+                getattr(spec, "gpu_clique_id", None) if spec else None,
+                getattr(spec, "provider", None) if spec else None,
+                getattr(spec, "provider_region", None) if spec else None,
+            )
+            if not any(
+                normalized_keyword in str(value).lower()
+                for value in keyword_fields
+                if value is not None
+            ):
+                return False
+
+        if wanted_statuses:
+            machine_status = getattr(status, "machine_status", None) if status else None
+            status_values = (getattr(status, "status", None) if status else None) or []
+            if (
+                machine_status not in wanted_statuses
+                and not wanted_statuses.intersection(status_values)
+            ):
+                return False
+
+        if wanted_stages:
+            machine_stage = getattr(status, "machine_stage", None) if status else None
+            if machine_stage not in wanted_stages:
+                return False
+
+        if labels:
+            node_labels = (
+                getattr(metadata, "labels", None) if metadata else None
+            ) or {}
+            for label_filter in labels:
+                key, separator, value = label_filter.partition(":")
+                if separator:
+                    if node_labels.get(key) != value:
+                        return False
+                elif key not in node_labels:
+                    return False
+
+        if wanted_providers:
+            provider = getattr(spec, "provider", None) if spec else None
+            if provider not in wanted_providers:
+                return False
+
+        if wanted_gpu_types:
+            gpu = getattr(resource, "gpu", None) if resource else None
+            if getattr(gpu, "product", None) not in wanted_gpu_types:
+                return False
+
+        if wanted_cpu_types:
+            cpu = getattr(resource, "cpu", None) if resource else None
+            if getattr(cpu, "type_", None) not in wanted_cpu_types:
+                return False
+
+        if unschedulable and (
+            not spec or getattr(spec, "unschedulable", None) is not True
+        ):
+            return False
+
+        return True
+
+    return [item for item in nodes if matches(item)]
+
+
 @node.command(name="list-nodes")
 @click.argument("name", type=str)
-def list_nodes_command(name):
+@click.option(
+    "--search",
+    "--keyword",
+    "-q",
+    "keyword",
+    type=str,
+    help=(
+        "Case-insensitive substring search across node name, hostnames, public/local"
+        " IPs, GPU clique ID, provider, and provider region."
+    ),
+)
+@click.option(
+    "--label",
+    "--labels",
+    "labels",
+    type=str,
+    multiple=True,
+    help="Filter by label KEY (exists) or KEY:VALUE (exact match). Repeat for AND.",
+)
+@click.option(
+    "--status",
+    "statuses",
+    type=click.Choice(NODE_STATUS_FILTER_VALUES),
+    multiple=True,
+    help="Filter by machine/node status. Repeat for OR.",
+)
+@click.option(
+    "--stage",
+    "stages",
+    type=click.Choice(NODE_STAGE_FILTER_VALUES),
+    multiple=True,
+    help="Filter by machine stage. Repeat for OR.",
+)
+@click.option(
+    "--provider",
+    "providers",
+    type=str,
+    multiple=True,
+    help="Filter by exact provider. Repeat for OR.",
+)
+@click.option(
+    "--gpu-type",
+    "gpu_types",
+    type=str,
+    multiple=True,
+    help="Filter by exact GPU product. Repeat for OR.",
+)
+@click.option(
+    "--cpu-type",
+    "cpu_types",
+    type=str,
+    multiple=True,
+    help="Filter by exact CPU type. Repeat for OR.",
+)
+@click.option(
+    "--unschedulable",
+    is_flag=True,
+    help="Show only nodes with unschedulable=true.",
+)
+def list_nodes_command(
+    name,
+    keyword=None,
+    labels=(),
+    statuses=(),
+    stages=(),
+    providers=(),
+    gpu_types=(),
+    cpu_types=(),
+    unschedulable=False,
+):
     """
     List the nodes under a node group with per-node resource detail.
 
     NAME is the node group name or ID (partial match supported, e.g. 'h100').
-    For each node it shows the node ID, provider/region, status, GPU
-    availability, and the used/total split for GPU, CPU, memory, and disk.
+    For each node it shows name/ID/labels, provider/region/GPU clique ID,
+    status/stage/scheduling state, resources, hostname, and public/local IPs.
+
+    Repeat values within status, stage, provider, GPU type, or CPU type to OR
+    them together. Different filter categories and repeated label filters are
+    combined with AND.
     """
     node_groups = resolve_node_groups([name], is_exact_match=False)
     if not node_groups:
@@ -401,14 +762,26 @@ def list_nodes_command(name):
             )
             continue
 
+        try:
+            machines = client.nodegroup.list_machines(node_group)
+        except Exception as e:
+            console.print(
+                "[dim]Warning:[/dim] Failed to fetch machine details for"
+                f" {ng_name} ({ng_id}); hostname and provisioning nodes may be"
+                f" unavailable: {e}"
+            )
+            machines = []
+        nodes = _merge_nodes_with_machines(nodes, machines)
+
         table = Table(title=f"Nodes in {ng_name} ({ng_id})", show_lines=True)
-        table.add_column("Node ID")
-        table.add_column("Provider / Region")
-        table.add_column("Status")
+        table.add_column("Node\n[dim](name / ID / labels)[/dim]")
+        table.add_column("Provider / Region\n[dim](GPU clique ID)[/dim]")
+        table.add_column("Status\n[dim](stage / scheduling)[/dim]")
         table.add_column("GPU\n[dim](avail · used/total)[/dim]")
         table.add_column("CPU\n[dim](used / total)[/dim]")
         table.add_column("Memory\n[dim](used / total)[/dim]")
         table.add_column("Disk\n[dim](used / total)[/dim]")
+        table.add_column("Network\n[dim](hostname / public / local)[/dim]")
 
         if not nodes:
             console.print(
@@ -416,18 +789,32 @@ def list_nodes_command(name):
             )
             continue
 
+        nodes = _filter_nodes(
+            nodes,
+            keyword=keyword,
+            labels=labels,
+            statuses=statuses,
+            stages=stages,
+            providers=providers,
+            gpu_types=gpu_types,
+            cpu_types=cpu_types,
+            unschedulable=unschedulable,
+        )
+        if not nodes:
+            console.print(
+                "[yellow]No nodes match the specified filters in node group"
+                f" {ng_name} ({ng_id}).[/yellow]"
+            )
+            continue
+
         for node in nodes:
             spec = node.spec
             resource = spec.resource if spec else None
-            provider = (getattr(spec, "provider", None) if spec else None) or "-"
-            region = (getattr(spec, "provider_region", None) if spec else None) or "-"
-            statuses = (node.status.status if node.status else None) or []
-            status_cell = ", ".join(_colorize_status(s) for s in statuses) or "-"
 
             table.add_row(
-                make_name_id_cell(node.metadata.id_, None),
-                f"{provider} / {region}",
-                status_cell,
+                _format_node_cell(node.metadata),
+                _format_provider_cell(spec),
+                _format_state_cell(node),
                 _format_gpu_cell(
                     resource.gpu if resource else None,
                     usable=_is_node_usable(node),
@@ -435,6 +822,7 @@ def list_nodes_command(name):
                 _format_cpu_cell(resource.cpu if resource else None),
                 _format_memory_cell(resource.memory if resource else None),
                 _format_disk_cell(resource.disk if resource else None),
+                _format_network_cell(node),
             )
 
         console.print(table)

@@ -157,17 +157,45 @@ class NodeResource(BaseModel):
     system: Optional[NodeResourceSystem] = None
 
 
+class MachineStatus(BaseModel):
+    machine_id: Optional[str] = None
+    node_name: Optional[str] = None
+    capacity_type: Optional[str] = None
+    provider: Optional[str] = None
+    provider_region: Optional[str] = None
+    status: Optional[str] = None
+    resource: Optional[NodeResource] = None
+    public_ip: Optional[str] = None
+    private_ip: Optional[str] = None
+    hostname: Optional[str] = None
+
+
+class Machine(BaseModel):
+    metadata: Metadata
+    status: MachineStatus
+
+
 class NodeSpec(BaseModel):
     dedicated_node_group: Optional[str] = None
+    machine_id: Optional[str] = None
+    capacity_type: Optional[str] = None
+    hostname: Optional[str] = None
+    public_ip: Optional[str] = None
+    local_ip: Optional[str] = None
+    # Kept for compatibility with callers that used the old misspelled field.
     public_op: Optional[str] = None
     provider: Optional[str] = None
     provider_region: Optional[str] = None
     resource: Optional[NodeResource] = None
     unschedulable: bool
+    gpu_clique_id: Optional[str] = None
 
 
 class NodeStatus(BaseModel):
     status: Optional[List[str]] = None
+    machine_stage: Optional[str] = None
+    machine_status: Optional[str] = None
+    hostname: Optional[str] = None
     workloads: Optional[List[NodeResourceWorkload]] = None
 
 
