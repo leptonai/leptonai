@@ -2,6 +2,7 @@ import json
 from datetime import datetime
 import re
 import sys
+import time
 from typing import List, Optional
 
 import click
@@ -40,6 +41,33 @@ def _exit_if_no_changes_to_update(e, name):
         )
         sys.exit(0)
     raise e
+
+
+def _create_after_new_api_rerun(
+    dep_api, spec, name: str, timeout_seconds: float = 60.0
+):
+    """Retry a new workload create while asynchronous deletion finishes.
+
+    Endpoint and DevPod deletion return after initiating CR deletion. An
+    immediate create can therefore receive 409 from the old CR or dependent
+    resources. Only a ``--rerun`` invocation that actually deleted the old
+    workload may safely retry this conflict; ordinary duplicates fail at once.
+    """
+    deadline = time.monotonic() + timeout_seconds
+    announced_wait = False
+    while True:
+        try:
+            return dep_api.create(spec)
+        except ClientError as e:
+            if e.response.status_code != 409 or time.monotonic() >= deadline:
+                raise
+            if not announced_wait:
+                console.print(
+                    f"Waiting for the previous workload [green]{name}[/] deletion"
+                    " to finish."
+                )
+                announced_wait = True
+            time.sleep(0.5)
 
 
 def _parse_container_port(container_port: Optional[str]) -> Optional["ContainerPort"]:
@@ -83,6 +111,8 @@ from leptonai.config import (
 )
 from ..api.v2.client import APIClient
 from ..api.v2.api_resource import ClientError
+from ..api.v2.devpod import DevPodAPI
+from ..api.v2.endpoint import EndpointAPI, NewEndpointAPIUnsupported
 from ..api.v2.deployment import make_token_vars_from_config
 from ..api.v2.spec_utils import make_mounts_from_strings, make_env_vars_from_strings
 from ..api.v2.workspace_record import WorkspaceRecord
@@ -117,7 +147,10 @@ def _same_major_version(version_str_list: List[str]) -> bool:
         return True
 
     def validate(v: str) -> bool:
-        return bool(re.match(r"^\d+\.\d+$", v))
+        # Replicas from the new /endpoints API do not carry a semantic_version
+        # (only legacy /deployments replicas do), so treat a missing/None value
+        # as "not a comparable version" rather than letting re.match raise.
+        return bool(v) and bool(re.match(r"^\d+\.\d+$", v))
 
     if not all(validate(version_str) for version_str in version_str_list):
         return False
@@ -411,6 +444,14 @@ def _print_deployments_table(
             and d.status.autoscaler_status.desired_replicas is not None
             else None
         )
+        # For a static endpoint the configured minimum is its desired capacity;
+        # ready_replicas is only current observed readiness and may be lower
+        # during startup or degradation. Use readiness only when the response
+        # lacks the configured target entirely.
+        if desired is None and rr and rr.min_replicas is not None:
+            desired = rr.min_replicas
+        if desired is None and d.status and d.status.ready_replicas is not None:
+            desired = d.status.ready_replicas
         desired_disp = str(desired if desired is not None else 0)
 
         shape = rr.resource_shape if rr and rr.resource_shape else "-"
@@ -956,21 +997,26 @@ def create(
     else:
         spec = LeptonDeploymentUserSpec()
 
-    existing_deployments = client.deployment.list_all()
-    if name in [d.metadata.name for d in existing_deployments]:
-        if rerun:
-            console.print(
-                f"Endpoint [green]{name}[/] already exists. Shutting down the"
-                " existing endpoint and rerunning."
-            )
-            client.deployment.delete(name)
-        else:
-            console.print(
-                f"Endpoint [green]{name}[/] already exists. Use `lep endpoint"
-                f" update -n {name}` to update the endpoint, or add `--rerun` to"
-                " shutdown the existing endpoint and rerun it."
-            )
-            sys.exit(1)
+    # Bind one resource family for the whole operation (preflight list ->
+    # optional --rerun delete -> create). Deprecated endpoint-create spec files
+    # may still carry is_pod=True; those must use the pod dispatcher throughout
+    # so a same-named endpoint is never deleted before creating a DevPod.
+    dep_api = client.pod if spec.is_pod else client.deployment
+    deleted_for_rerun = False
+    already_exists = False
+    if not rerun:
+        existing_deployments = dep_api.list_all()
+        already_exists = name in [d.metadata.name for d in existing_deployments]
+    if already_exists:
+        # Preserve the legacy command's early duplicate short-circuit. In
+        # particular, do not create workspace-token secrets or prompt for a
+        # replacement that will never be submitted.
+        console.print(
+            f"Endpoint [green]{name}[/] already exists. Use `lep endpoint"
+            f" update -n {name}` to update the endpoint, or add `--rerun` to"
+            " shutdown the existing endpoint and rerun it."
+        )
+        sys.exit(1)
 
     # Determine the container details for the deployment.
     if container_image is not None or container_command is not None:
@@ -1275,7 +1321,29 @@ def create(
         spec=spec,
     )
     logger.trace(json.dumps(lepton_deployment.model_dump(), indent=2))
-    client.deployment.create(lepton_deployment)
+
+    # Validate the fully assembled replacement before deleting anything. New
+    # API translation is stricter than the legacy wire; without this preflight,
+    # ``--rerun`` could delete a healthy workload and then fail locally.
+    validate_create = getattr(dep_api, "validate_create", None)
+    if validate_create is not None:
+        validate_create(lepton_deployment)
+
+    if rerun:
+        existing_deployments = dep_api.list_all()
+        already_exists = name in [d.metadata.name for d in existing_deployments]
+    if already_exists:
+        console.print(
+            f"Endpoint [green]{name}[/] already exists. Shutting down the"
+            " existing endpoint and rerunning."
+        )
+        dep_api.delete(name)
+        deleted_for_rerun = True
+
+    if deleted_for_rerun and isinstance(dep_api, (EndpointAPI, DevPodAPI)):
+        _create_after_new_api_rerun(dep_api, lepton_deployment, name)
+    else:
+        dep_api.create(lepton_deployment)
     console.print(
         "🎉 [green]Endpoint Created Successfully![/]\n"
         f"Name: [blue]{name}[/]\n"
@@ -1423,6 +1491,12 @@ def status(name, show_tokens, detail):
     if show_tokens and dep_info.spec.api_tokens:
 
         def stringfy_token(x):
+            # The new /endpoints API redacts literal token values to "***" on
+            # read (secret references via value_from are returned intact). Make
+            # the redaction explicit rather than printing a bare "***" that looks
+            # like a usable token.
+            if x.value == "***":
+                return "*** (literal value hidden by server; not retrievable)"
             return x.value or f"[{x.value_from.token_name_ref}]"
 
         console.print(f"Tokens:     {stringfy_token(dep_info.spec.api_tokens[0])}")
@@ -1431,31 +1505,43 @@ def status(name, show_tokens, detail):
 
     console.print("Replicas List:")
 
-    reading_issue_root = client.deployment.get_readiness(name).root
-    # Print a table of readiness information.
-    table = Table(show_lines=False)
-    table.add_column("replica id")
-    table.add_column("status")
-    table.add_column("message")
-    ready_count = 0
-    for id, value in reading_issue_root.items():
-        reason = value[0].reason
-        message = value[0].message
-        # Do we need to display red?
-        if reason == "Ready":
-            reason = f"[green]{reason}[/]"
-            ready_count += 1
-        else:
-            reason = f"[yellow]{reason}[/]"
-        if message == "":
-            message = "(empty)"
-        table.add_row(id, reason, message)
-    console.print(table)
-    console.print(
-        f"[green]{ready_count}[/] out of {len(reading_issue_root)} replicas ready."
-    )
+    # The new /endpoints API folds readiness/termination into per-replica status
+    # and exposes no standalone readiness/termination route, so in new-API mode
+    # these degrade to a clear note rather than a 404. Legacy mode is unchanged.
+    try:
+        reading_issue_root = client.deployment.get_readiness(name).root
+    except NewEndpointAPIUnsupported as e:
+        reading_issue_root = None
+        console.print(f"[yellow]Readiness summary unavailable: {e}[/]")
 
-    deployment_terminations_root = client.deployment.get_termination(name).root
+    if reading_issue_root is not None:
+        # Print a table of readiness information.
+        table = Table(show_lines=False)
+        table.add_column("replica id")
+        table.add_column("status")
+        table.add_column("message")
+        ready_count = 0
+        for id, value in reading_issue_root.items():
+            reason = value[0].reason
+            message = value[0].message
+            # Do we need to display red?
+            if reason == "Ready":
+                reason = f"[green]{reason}[/]"
+                ready_count += 1
+            else:
+                reason = f"[yellow]{reason}[/]"
+            if message == "":
+                message = "(empty)"
+            table.add_row(id, reason, message)
+        console.print(table)
+        console.print(
+            f"[green]{ready_count}[/] out of {len(reading_issue_root)} replicas ready."
+        )
+
+    try:
+        deployment_terminations_root = client.deployment.get_termination(name).root
+    except NewEndpointAPIUnsupported:
+        deployment_terminations_root = {}
 
     if len(deployment_terminations_root):
         console.print("There are earlier terminations. Detailed Info:")
@@ -1961,11 +2047,24 @@ def update(
 
             replicas = client.deployment.get_replicas(lepton_deployment)
 
-            version_str_list = [lepton_deployment.metadata.semantic_version] + [
-                replica.metadata.semantic_version for replica in replicas
+            # "Update in progress" is inferred from a replica whose major version
+            # differs from the deployment's. New /endpoints replicas carry no
+            # semantic_version (only ID + created_at), so a missing value is
+            # "unknown", not evidence of an overlap — otherwise every disruptive
+            # endpoint update would falsely warn. Only compare replicas that
+            # actually report a version.
+            replica_versions = [
+                replica.metadata.semantic_version
+                for replica in replicas
+                if replica.metadata.semantic_version
             ]
-
-            updating_ongoing = not _same_major_version(version_str_list)
+            if replica_versions:
+                version_str_list = [
+                    lepton_deployment.metadata.semantic_version
+                ] + replica_versions
+                updating_ongoing = not _same_major_version(version_str_list)
+            else:
+                updating_ongoing = False
 
             confirmation_prompt = (
                 "Warning: another update is currently in progress for this"
@@ -2084,14 +2183,20 @@ def stop(name):
     """
     client = APIClient()
     endpoint = client.deployment.get(name)
-    if endpoint.status.state in [
+    phase = endpoint.status.phase
+    terminal_state = phase or endpoint.status.state
+    already_stopped = terminal_state in [
         LeptonDeploymentState.Stopped,
         LeptonDeploymentState.Stopping,
         LeptonDeploymentState.Deleting,
-        LeptonDeploymentState.NotReady,
-    ]:
+    ]
+    # Older servers may omit phase and expose a stopped deployment only through
+    # the historical state="Not Ready" compatibility collapse.
+    if phase is None and terminal_state == LeptonDeploymentState.NotReady:
+        already_stopped = True
+    if already_stopped:
         console.print(
-            f"[yellow]⚠ Endpoint [green]{name}[/] is {endpoint.status.state}. No"
+            f"[yellow]⚠ Endpoint [green]{name}[/] is {terminal_state}. No"
             " action taken.[/]"
         )
         sys.exit(0)

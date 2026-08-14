@@ -61,8 +61,15 @@ class PodAPI(APIResourse):
         response = self._post("/deployments", json=self.safe_json(spec))
         return self.ensure_ok(response)
 
+    # Implementation note: this legacy pod API delegates through an internal
+    # accessor that honors an explicitly injected deployment wrapper while
+    # otherwise returning ``_deployment_legacy`` directly. It intentionally does
+    # not read the dispatching ``client.deployment`` property: in a flag-on
+    # workspace that property returns EndpointAPI, not the legacy API PodAPI was
+    # built around. When the flag is on, ordinary callers reach DevPodAPI instead
+    # of this class entirely.
     def get(self, name_or_pod: Union[str, LeptonDeployment]) -> LeptonDeployment:
-        return self._client.deployment.get(name_or_pod)
+        return self._client._deployment_api_for_legacy_pod().get(name_or_pod)
 
     def update(
         self, name_or_deployment: Union[str, LeptonDeployment], spec: LeptonDeployment
@@ -74,22 +81,31 @@ class PodAPI(APIResourse):
         )
 
     def delete(self, name_or_deployment: Union[str, LeptonDeployment]) -> bool:
-        return self._client.deployment.delete(name_or_deployment)
+        return self._client._deployment_api_for_legacy_pod().delete(name_or_deployment)
+
+    def stop(
+        self, name_or_deployment: Union[str, LeptonDeployment]
+    ) -> LeptonDeployment:
+        return self._client._deployment_api_for_legacy_pod().stop(name_or_deployment)
 
     def restart(
         self, name_or_deployment: Union[str, LeptonDeployment]
     ) -> LeptonDeployment:
-        return self._client.deployment.restart(name_or_deployment)
+        return self._client._deployment_api_for_legacy_pod().restart(name_or_deployment)
 
     def get_readiness(
         self, name_or_deployment: Union[str, LeptonDeployment]
     ) -> ReadinessIssue:
-        return self._client.deployment.get_readiness(name_or_deployment)
+        return self._client._deployment_api_for_legacy_pod().get_readiness(
+            name_or_deployment
+        )
 
     def get_termination(
         self, name_or_deployment: Union[str, LeptonDeployment]
     ) -> DeploymentTerminations:
-        return self._client.deployment.get_termination(name_or_deployment)
+        return self._client._deployment_api_for_legacy_pod().get_termination(
+            name_or_deployment
+        )
 
     # Implementation note: pod does not support get_replicas.
 
@@ -104,13 +120,14 @@ class PodAPI(APIResourse):
         streamed indefinitely, although you should not rely on this behavior as connections
         can be dropped when streamed for a long time.
         """
-        replicas = self._client.deployment.get_replicas(name_or_deployment)
+        deployment_api = self._client._deployment_api_for_legacy_pod()
+        replicas = deployment_api.get_replicas(name_or_deployment)
         if len(replicas) != 1:
             raise RuntimeError(
                 "You encountered a programming error: number of replicas should be 1"
                 " for pods."
             )
-        return self._client.deployment.get_log(name_or_deployment, replicas[0], timeout)
+        return deployment_api.get_log(name_or_deployment, replicas[0], timeout)
 
     # TODO: implement api for the various metrics, but for now we will simply ask users
     # to view the metrics from the web portal.

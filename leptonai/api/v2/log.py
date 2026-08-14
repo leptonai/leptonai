@@ -8,6 +8,17 @@ from leptonai.api.v2.types.job import LeptonJobQueryMode
 
 
 class LogAPI(APIResourse):
+    def _workload_log_param(self) -> str:
+        """The query key the shared ``/logs*`` routes use for a deployment/endpoint.
+
+        When the new deployment API is enabled the workload is a LeptonEndpoint,
+        and the backend keys its logs under ``endpoint=`` (a distinct branch in
+        ``api-server/httpapi/log/handler_log.go``); the legacy ``deployment=``
+        key resolves a /deployments resource that does not exist in that mode, so
+        the query would silently return no logs. Off, the legacy key is correct.
+        """
+        return "endpoint" if self._client.new_deployment_api_enabled else "deployment"
+
     def get_log_time_series(
         self,
         name_or_deployment: Union[str, LeptonDeployment] = None,
@@ -62,7 +73,7 @@ class LogAPI(APIResourse):
                 if isinstance(name_or_deployment, str)
                 else name_or_deployment.metadata.id_
             )
-            query_kwargs["deployment"] = deployment_id
+            query_kwargs[self._workload_log_param()] = deployment_id
         elif name_or_job:
             job_id = (
                 name_or_job
@@ -119,7 +130,7 @@ class LogAPI(APIResourse):
                 if isinstance(name_or_deployment, str)
                 else name_or_deployment.metadata.id_
             )
-            query_kwargs["deployment"] = deployment_id
+            query_kwargs[self._workload_log_param()] = deployment_id
 
         elif name_or_job:
             job_id = (

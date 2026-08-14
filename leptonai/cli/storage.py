@@ -25,6 +25,31 @@ custom_theme = Theme({
 console = Console(highlight=False, theme=custom_theme)
 
 
+def _get_rsync_host_port(lepton_deployment) -> int:
+    """Return the allocated host port for the storage helper pod.
+
+    New DevPods report allocations in status.container_port_status; their spec
+    intentionally retains only the requested container port. Legacy pods may
+    still expose the host port on the spec, so keep that as a compatibility
+    fallback.
+    """
+    status = getattr(lepton_deployment, "status", None)
+    for port in getattr(status, "container_port_status", None) or []:
+        if port.host_port:
+            return port.host_port
+
+    spec = getattr(lepton_deployment, "spec", None)
+    container = getattr(spec, "container", None)
+    for port in getattr(container, "ports", None) or []:
+        if port.host_port:
+            return port.host_port
+
+    raise ValueError(
+        "The storage rsync helper pod has no allocated host port yet. Wait for"
+        " the pod to become ready and retry."
+    )
+
+
 def print_dir_contents(dir_path, dir_infos):
     """
     Format the contents of a directory for printing.
@@ -308,9 +333,12 @@ def upload(
 
         name = "storage-rsync-by-lepton"
 
-        lepton_deployment = client.deployment.get(name)
-        port = lepton_deployment.spec.container.ports[0].host_port
-        ip = _get_only_replica_public_ip(name)
+        # storage-rsync-by-lepton is a pod (devpod under the new API). Read it via
+        # the pod dispatcher, not client.deployment: in a flag-on workspace the
+        # latter routes to GET /endpoints/<name>, which 404s for a devpod.
+        lepton_deployment = client.pod.get(name)
+        port = _get_rsync_host_port(lepton_deployment)
+        ip = _get_only_replica_public_ip(name, client)
 
         workspace_id = client.get_workspace_id()
 

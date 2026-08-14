@@ -20,7 +20,7 @@ Note that the web API is primarily intended for the ``lep`` CLI and the web
 console; there is no SLA guarantee for high-frequency programmatic use.
 """
 
-from .client import APIClient
+from .client import APIClient, reset_new_deployment_api_flag_cache
 from .workspace_record import WorkspaceRecord
 from .api_resource import APIResourse, ClientError, ServerError
 from .utils import (
@@ -35,6 +35,7 @@ from . import types
 
 __all__ = [
     "APIClient",
+    "reset_new_deployment_api_flag_cache",
     "WorkspaceRecord",
     "APIResourse",
     "ClientError",
