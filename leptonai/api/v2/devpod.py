@@ -9,8 +9,9 @@ exposes the same method surface and returns the same
 Route coverage (verified against api-server refs/base/main devpod/handler.go):
 - list/create/get/update/delete + ``/:did/restart`` + ``/:did/history``
 - ``/:did/shell``, ``/:did/network-connectivity``
-- ``/:did/log`` (api-server/httpapi/log/handler_log.go) — a devpod runs a single
-  pod, so logs stream by devpod id with no replica id required.
+- ``/:did/log`` (api-server/httpapi/log/handler_log.go) — historical Loki JSON
+  is available by DevPod ID, but the legacy live-text stream requires a replica
+  ID that the DevPod API does not expose.
 
 Deliberately NOT available (no route exists on the devpod surface):
 - ``/devpods/:did/events`` — verified missing; ``get_events`` is unsupported.
@@ -18,6 +19,7 @@ Deliberately NOT available (no route exists on the devpod surface):
 Stop/start uses the ``spec.stopped`` boolean switch (PATCH), not scale-to-zero.
 """
 
+import sys
 from typing import Union, List, Iterator, Optional
 import warnings
 
@@ -41,7 +43,12 @@ class DevPodAPI(APIResourse):
         )
 
     def _http_devpod_to_model(self, raw: dict) -> LeptonDeployment:
-        return LeptonDeployment(**translation.http_devpod_to_legacy(raw))
+        if not isinstance(raw, dict):
+            raise TypeError(f"expected a DevPod object, got {type(raw).__name__}")
+        model = LeptonDeployment(**translation.http_devpod_to_legacy(raw))
+        if model.metadata is None or not (model.metadata.name or model.metadata.id_):
+            raise ValueError("DevPod response is missing metadata.name")
+        return model
 
     def _sanity_check_pod_spec(self, spec: Optional[LeptonDeploymentUserSpec]):
         """Mirror the legacy PodAPI sanity checks so behavior is identical
@@ -78,10 +85,31 @@ class DevPodAPI(APIResourse):
         return spec
 
     def list_all(self) -> List[LeptonDeployment]:
-        # GET /devpods returns a bare array of HTTPDevPod by default.
+        # GET /devpods returns a bare array of HTTPDevPod by default. Preserve
+        # ensure_list's per-item tolerance for compatibility with legacy lists.
         response = self._get("/devpods")
         items = self.ensure_json(response)
-        return [self._http_devpod_to_model(item) for item in items]
+        valid_items = []
+        errors = []
+        for index, item in enumerate(items):
+            try:
+                valid_items.append(self._http_devpod_to_model(item))
+            except Exception as e:
+                errors.append(f"\n index {index}: {e}\nitem: {item}")
+        if errors:
+            sys.stderr.write(
+                f"[lepton-error] Skipped {len(errors)} invalid devpod(s) when parsing"
+                " list response:"
+                + "".join(errors)
+                + "\n"
+            )
+        return valid_items
+
+    def validate_create(self, spec: LeptonDeployment) -> None:
+        """Validate a create locally without mutating the supplied model."""
+        if spec.spec is not None and spec.spec.is_pod is not True:
+            raise ValueError("The spec is not a pod spec.")
+        translation.legacy_to_http_devpod(self.safe_json(spec))
 
     def create(self, spec: LeptonDeployment) -> bool:
         """Create a devpod from a legacy pod deployment spec.
@@ -154,22 +182,15 @@ class DevPodAPI(APIResourse):
         name_or_deployment: Union[str, LeptonDeployment],
         timeout: Optional[int] = None,
     ) -> Iterator[str]:
-        """Stream the devpod's logs.
+        """Reject the unavailable legacy live-text stream explicitly.
 
-        The new devpod API serves logs at ``GET /devpods/:did/log`` (devpod runs a
-        single pod, so no replica id is needed — the backend streams the pod's
-        logs by name). Mirrors :meth:`EndpointAPI.get_log`'s streaming behavior.
+        ``GET /devpods/:did/log`` without ``replica=`` returns a bounded Loki
+        JSON response. The backend selects its live kubelet stream only when a
+        replica ID is supplied, but no DevPod replica-list/status contract
+        exposes that ID. Yielding the JSON transport as if it were live log text
+        would silently violate :meth:`PodAPI.get_log` semantics.
         """
-        response = self._get(
-            f"/devpods/{self._to_name(name_or_deployment)}/log",
-            stream=True,
-            timeout=timeout,
+        raise NewDevPodAPIUnsupported(
+            "live DevPod log streaming is not yet supported by the new DevPod API; "
+            "the dedicated route only exposes bounded historical logs"
         )
-        if not response.ok:
-            raise RuntimeError(
-                f"API call failed with status code {response.status_code}. Details:"
-                f" {response.text}"
-            )
-        for chunk in response.iter_content(chunk_size=None):
-            if chunk:
-                yield chunk.decode("utf8")

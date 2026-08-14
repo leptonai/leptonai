@@ -329,10 +329,10 @@ def _get_only_replica_public_ip(name: str, client: Optional[APIClient] = None):
     # the single replica as before. The dispatch flag is stable process-wide, so
     # this branch cannot disagree with the caller's pod routing.
     if client.new_deployment_api_enabled:
-        pod = client._devpod_api.get(name)
+        pod = client.pod.get(name)
         status = pod.status
         return status.public_ip if status else None
-    replicas = client._deployment_legacy.get_replicas(name)
+    replicas = client._deployment_api_for_legacy_pod().get_replicas(name)
     logger.trace(f"Replicas for {name}:\n{replicas}")
 
     if len(replicas) != 1:

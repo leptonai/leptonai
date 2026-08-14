@@ -35,6 +35,12 @@ from typing import Any, Dict, List, Optional
 # sole component as the frontend. Matches CANONICAL_COMPONENT_NAME in the TS.
 CANONICAL_COMPONENT_NAME = "default"
 
+# The legacy /deployments handler injects this service port for every non-pod
+# container whose port list is absent or empty.  The new endpoint controller
+# does not inject a port and creates no frontend Service when the component has
+# none, so the compatibility translator must reproduce the legacy default.
+LEGACY_DEFAULT_ENDPOINT_PORT = 40000
+
 
 def _get(d: Optional[Dict[str, Any]], key: str, default: Any = None) -> Any:
     if not isinstance(d, dict):
@@ -56,17 +62,39 @@ def _prune_none(d: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _legacy_ports_to_component(
-    container: Dict[str, Any]
+    container: Dict[str, Any], *, for_create: bool = False
 ) -> Optional[List[Dict[str, Any]]]:
-    # Distinguish "ports not specified" (absent -> None -> pruned so a patch
-    # preserves the live ports) from an explicit empty list (clear all ports).
-    # Under RFC7386 the backend replaces the whole ports array, so an explicit
-    # `[]` must reach the wire to clear ports, matching the legacy /deployments
-    # update which sends `ports: []` verbatim. Collapsing both to None would
-    # silently retain ports on an intended clear.
+    # Reproduce the legacy backend's 40000 default on create. On update,
+    # distinguish an omitted field (preserve live ports) from an explicit empty
+    # list (clear ports), which is part of this compatibility layer's contract.
     ports = container.get("ports") if isinstance(container, dict) else None
     if ports is None:
-        return None
+        if not for_create:
+            return None
+        ports = []
+    if not ports:
+        return [{"container_port": LEGACY_DEFAULT_ENDPOINT_PORT}] if for_create else []
+
+    # Several legacy exposure controls have no equivalent on
+    # EndpointContainerPort.  Dropping them can turn a host-only port into an
+    # ingress-exposed port, so fail explicitly instead of changing reachability.
+    unsupported_fields = (
+        "name",
+        "expose_strategies",
+        "host_port",
+        "enable_load_balancer",
+    )
+    for index, port in enumerate(ports):
+        unsupported = [
+            field
+            for field in unsupported_fields
+            if field in port and port[field] is not None
+        ]
+        if unsupported:
+            raise ValueError(
+                "The new Endpoint API cannot represent legacy container port"
+                f" field(s) {', '.join(unsupported)} on port index {index}."
+            )
     # HTTPComponentSpec ports carry container_port + protocol + app_protocol
     # (api-server/httpapi/endpoint/types.go EndpointContainerPort projection).
     # app_protocol ("http"/"grpc") selects ingress routing and must survive the
@@ -81,6 +109,26 @@ def _legacy_ports_to_component(
     ]
 
 
+def _reject_unrepresentable_direct_resources(
+    rr: Dict[str, Any], resource_kind: str
+) -> None:
+    unsupported_fields = (
+        "cpu",
+        "memory",
+        "ephemeral_storage_in_gb",
+        "accelerator_type",
+        "accelerator_num",
+        "resourse_affinity",
+    )
+    unsupported = [field for field in unsupported_fields if _get(rr, field) is not None]
+    if unsupported:
+        raise ValueError(
+            f"The new {resource_kind} API accepts resource_shape rather than legacy"
+            " direct"
+            f" resource field(s): {', '.join(unsupported)}."
+        )
+
+
 def _legacy_spec_to_component(spec: Dict[str, Any]) -> Dict[str, Any]:
     """Build a single HTTPComponentSpec dict from a legacy deployment spec.
 
@@ -89,12 +137,13 @@ def _legacy_spec_to_component(spec: Dict[str, Any]) -> Dict[str, Any]:
     :func:`legacy_to_http_endpoint`).
     """
     rr = _get(spec, "resource_requirement", {})
+    _reject_unrepresentable_direct_resources(rr, "Endpoint")
     container = _get(spec, "container", {})
     component: Dict[str, Any] = {
         "name": CANONICAL_COMPONENT_NAME,
         "image": _get(container, "image"),
         "command": _get(container, "command"),
-        "ports": _legacy_ports_to_component(container),
+        "ports": _legacy_ports_to_component(container, for_create=True),
         "envs": _get(spec, "envs"),
         "mounts": _get(spec, "mounts"),
         "resource_shape": _get(rr, "resource_shape"),
@@ -124,6 +173,7 @@ def _legacy_endpoint_level_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
     (api-server/httpapi/endpoint/types.go).
     """
     return _prune_none({
+        "ingress_enabled": _get(spec, "ingress_enabled"),
         "ingress_timeout_seconds": _get(spec, "ingress_timeout_seconds"),
         "access_config": _get(spec, "auth_config"),
         "api_tokens": _get(spec, "api_tokens"),
@@ -136,12 +186,30 @@ def _legacy_endpoint_level_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _legacy_metadata_to_endpoint(metadata: Dict[str, Any]) -> Dict[str, Any]:
+    _reject_unrepresentable_labels(metadata, "Endpoint")
     md: Dict[str, Any] = {}
-    if _get(metadata, "name"):
-        md["name"] = _get(metadata, "name")
-    if _get(metadata, "visibility"):
-        md["lepton_metadata"] = {"visibility": _get(metadata, "visibility")}
+    name = _get(metadata, "name") or _get(metadata, "id")
+    if name:
+        md["name"] = name
+    lepton_metadata = _prune_none({
+        "owner": _get(metadata, "owner"),
+        "visibility": _get(metadata, "visibility"),
+    })
+    if lepton_metadata:
+        md["lepton_metadata"] = lepton_metadata
     return md
+
+
+def _reject_unrepresentable_labels(
+    metadata: Dict[str, Any], resource_kind: str
+) -> None:
+    # An empty mapping has no effect and is equivalent to omission. Only reject
+    # labels whose loss would change the caller's requested metadata.
+    if isinstance(metadata, dict) and metadata.get("labels"):
+        raise ValueError(
+            f"The new {resource_kind} API does not expose metadata labels; remove"
+            " metadata.labels before creating or updating this resource."
+        )
 
 
 def legacy_to_http_endpoint(legacy: Dict[str, Any]) -> Dict[str, Any]:
@@ -153,6 +221,10 @@ def legacy_to_http_endpoint(legacy: Dict[str, Any]) -> Dict[str, Any]:
     """
     spec = _get(legacy, "spec", {})
     metadata = _get(legacy, "metadata", {})
+    if _get(spec, "is_pod") is True:
+        raise ValueError(
+            "A pod-flavoured deployment must be created through the DevPod API."
+        )
     endpoint_spec = {"components": [_legacy_spec_to_component(spec)]}
     endpoint_spec.update(_legacy_endpoint_level_spec(spec))
     return {
@@ -189,6 +261,55 @@ def _frontend_index(components: List[Dict[str, Any]]) -> int:
     return 0
 
 
+def _require_endpoint_component_snapshot(
+    raw: Dict[str, Any],
+) -> List[Dict[str, Any]]:
+    """Return a safe live component snapshot for a destructive merge patch.
+
+    Endpoint PATCH replaces the complete component array. A missing or malformed
+    GET snapshot must therefore fail closed; fabricating a fallback component
+    could delete every live component. The checks mirror the structural
+    invariants guaranteed by the Endpoint backend for a valid response.
+    """
+    if not isinstance(raw, dict):
+        raise ValueError("Endpoint preflight response must be an object.")
+    raw_spec = raw.get("spec")
+    if not isinstance(raw_spec, dict):
+        raise ValueError("Endpoint preflight response is missing spec.components.")
+    components = raw_spec.get("components")
+    if not isinstance(components, list) or not components:
+        raise ValueError(
+            "Endpoint preflight response spec.components must be a non-empty list."
+        )
+
+    names = set()
+    frontend_count = 0
+    for index, component in enumerate(components):
+        if not isinstance(component, dict):
+            raise ValueError(
+                f"Endpoint preflight component at index {index} must be an object."
+            )
+        name = component.get("name")
+        if not isinstance(name, str) or not name:
+            raise ValueError(
+                f"Endpoint preflight component at index {index} is missing name."
+            )
+        if name in names:
+            raise ValueError(
+                f"Endpoint preflight response contains duplicate component {name!r}."
+            )
+        names.add(name)
+        if component.get("frontend") is True:
+            frontend_count += 1
+
+    if len(components) > 1 and frontend_count != 1:
+        raise ValueError(
+            "Endpoint preflight response must contain exactly one frontend component"
+            " when multiple components are present."
+        )
+    return components
+
+
 def legacy_to_http_endpoint_patch(
     raw: Dict[str, Any], legacy: Dict[str, Any]
 ) -> Dict[str, Any]:
@@ -204,6 +325,7 @@ def legacy_to_http_endpoint_patch(
     """
     spec = _get(legacy, "spec", {})
     rr = _get(spec, "resource_requirement", {})
+    _reject_unrepresentable_direct_resources(rr, "Endpoint")
     container = _get(spec, "container", {})
 
     # Component-level fields the form carries. Fields left as None are pruned so
@@ -228,26 +350,25 @@ def legacy_to_http_endpoint_patch(
         "user_security_context": _get(spec, "user_security_context"),
     })
 
-    components = _get(_get(raw, "spec", {}), "components", [])
-    if components:
-        fi = _frontend_index(components)
-        next_components = [
-            _merge_rfc7386(c, component_changes) if i == fi else c
-            for i, c in enumerate(components)
-        ]
-    else:
-        next_components = [
-            _merge_rfc7386({"name": CANONICAL_COMPONENT_NAME}, component_changes)
-        ]
+    components = _require_endpoint_component_snapshot(raw)
+    fi = _frontend_index(components)
+    next_components = [
+        _merge_rfc7386(c, component_changes) if i == fi else c
+        for i, c in enumerate(components)
+    ]
 
     endpoint_spec = {"components": next_components}
     endpoint_spec.update(_legacy_endpoint_level_spec(spec))
 
+    legacy_metadata = _get(legacy, "metadata", {})
+    _reject_unrepresentable_labels(legacy_metadata, "Endpoint")
+    lepton_metadata = _prune_none({
+        "owner": _get(legacy_metadata, "owner"),
+        "visibility": _get(legacy_metadata, "visibility"),
+    })
     metadata: Dict[str, Any] = {}
-    if _get(_get(legacy, "metadata", {}), "visibility"):
-        metadata["lepton_metadata"] = {
-            "visibility": _get(_get(legacy, "metadata", {}), "visibility")
-        }
+    if lepton_metadata:
+        metadata["lepton_metadata"] = lepton_metadata
     return {"metadata": metadata, "spec": endpoint_spec}
 
 
@@ -259,12 +380,38 @@ def build_endpoint_stop_patch(raw: Dict[str, Any]) -> Dict[str, Any]:
     propagate to EVERY component. Resends the full component array (RFC7386
     replaces it) built from the live endpoint ``raw``.
     """
-    components = _get(_get(raw, "spec", {}), "components", [])
-    source = components if components else [{"name": CANONICAL_COMPONENT_NAME}]
+    source = _require_endpoint_component_snapshot(raw)
     next_components = []
     for c in source:
         updated = dict(c)
         updated["min_replicas"] = 0
+
+        # Endpoint validation requires min_replicas >= 1 while either the GPU
+        # or throughput target is active.  Match the dashboard's terminate path
+        # by disabling those targets before scaling to zero.  Scale-down-only
+        # autoscaling remains valid and is left unchanged.
+        autoscaling = c.get("autoscaling")
+        if isinstance(autoscaling, dict):
+            throughput = autoscaling.get("target_throughput")
+            qpm = throughput.get("qpm") if isinstance(throughput, dict) else None
+            gpu_target = autoscaling.get("target_gpu_utilization_percentage")
+            if gpu_target not in (None, 0) or qpm not in (None, 0):
+                next_autoscaling = dict(autoscaling)
+                next_autoscaling["target_gpu_utilization_percentage"] = 0
+
+                next_throughput = (
+                    dict(throughput) if isinstance(throughput, dict) else {}
+                )
+                next_throughput.update({"qpm": 0, "paths": [], "methods": []})
+                next_autoscaling["target_throughput"] = next_throughput
+
+                scale_down = autoscaling.get("scale_down")
+                next_scale_down = (
+                    dict(scale_down) if isinstance(scale_down, dict) else {}
+                )
+                next_scale_down["no_traffic_timeout"] = 0
+                next_autoscaling["scale_down"] = next_scale_down
+                updated["autoscaling"] = next_autoscaling
         next_components.append(updated)
     return {"metadata": {}, "spec": {"components": next_components}}
 
@@ -370,6 +517,7 @@ def http_endpoint_to_legacy(ep: Dict[str, Any]) -> Dict[str, Any]:
         "health": _get(component, "health"),
         "log": _get(_get(ep, "spec", {}), "log"),
         "metrics": _get(_get(ep, "spec", {}), "metrics"),
+        "ingress_enabled": _get(_get(ep, "spec", {}), "ingress_enabled"),
         "ingress_timeout_seconds": _get(
             _get(ep, "spec", {}), "ingress_timeout_seconds"
         ),
@@ -394,6 +542,7 @@ def http_endpoint_to_legacy(ep: Dict[str, Any]) -> Dict[str, Any]:
     })
     legacy_status = {
         "state": state,
+        "phase": phase,
         # The legacy LeptonDeploymentStatus.endpoint is a required object with an
         # external_endpoint field; always provide it so the pydantic model that
         # marks endpoint required does not reject the response.
@@ -419,6 +568,33 @@ def http_endpoint_to_legacy(ep: Dict[str, Any]) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+def _reject_unrepresentable_devpod_fields(spec: Dict[str, Any]) -> None:
+    """Reject effective legacy pod settings absent from the DevPod wire.
+
+    Health and replica spread fail validation on the legacy pod backend. The
+    remaining fields affect legacy pod ingress/Envoy behavior. Silently dropping
+    any of them would therefore make flag-on behavior materially different.
+    """
+    unsupported = []
+    if "health" in spec and spec["health"] is not None:
+        unsupported.append("health")
+
+    scheduling = spec.get("scheduling_policy")
+    if isinstance(scheduling, dict) and scheduling.get("replica_spread") is not None:
+        unsupported.append("scheduling_policy")
+
+    for field in ("routing_policy", "auth_config", "load_balance_config"):
+        if spec.get(field):
+            unsupported.append(field)
+
+    if unsupported:
+        raise ValueError(
+            "The new DevPod API cannot represent legacy pod field(s): "
+            + ", ".join(unsupported)
+            + ". Remove them before creating this DevPod."
+        )
+
+
 def legacy_to_http_devpod(legacy: Dict[str, Any]) -> Dict[str, Any]:
     """Legacy pod create payload -> HTTPDevPod create body.
 
@@ -429,7 +605,9 @@ def legacy_to_http_devpod(legacy: Dict[str, Any]) -> Dict[str, Any]:
     non-TCP/UDP ports, matching the new DevPod API.
     """
     spec = _get(legacy, "spec", {})
+    _reject_unrepresentable_devpod_fields(spec)
     rr = _get(spec, "resource_requirement", {})
+    _reject_unrepresentable_direct_resources(rr, "DevPod")
     container = _get(spec, "container", {})
     for port in _get(container, "ports", []) or []:
         proto = _get(port, "protocol")
@@ -457,14 +635,18 @@ def legacy_to_http_devpod(legacy: Dict[str, Any]) -> Dict[str, Any]:
         "ingress_timeout_seconds": _get(spec, "ingress_timeout_seconds"),
     })
     legacy_metadata = _get(legacy, "metadata", {})
+    _reject_unrepresentable_labels(legacy_metadata, "DevPod")
     metadata: Dict[str, Any] = {}
-    if _get(legacy_metadata, "name"):
-        metadata["name"] = _get(legacy_metadata, "name")
+    name = _get(legacy_metadata, "name") or _get(legacy_metadata, "id")
+    if name:
+        metadata["name"] = name
     # HTTPDevPodMetadata inlines LeptonMetadata, so visibility sits directly on
     # metadata (unlike the endpoint's nested lepton_metadata). Carry it through
     # or a create with visibility=private is silently made public server-side.
     if _get(legacy_metadata, "visibility"):
         metadata["visibility"] = _get(legacy_metadata, "visibility")
+    if _get(legacy_metadata, "owner"):
+        metadata["owner"] = _get(legacy_metadata, "owner")
     return {"metadata": metadata, "spec": devpod_spec}
 
 
@@ -529,21 +711,26 @@ def http_devpod_to_legacy(dp: Dict[str, Any]) -> Dict[str, Any]:
     container_port_status = None
     port_statuses = _get(status, "port_statuses")
     if port_statuses:
+        # Port status omits protocol/name and the controller emits entries only
+        # for HostPortMapping ports. Pair those eligible spec ports by number
+        # and occurrence; including an IngressProxy port with the same number
+        # would attach the allocated host port to the wrong protocol/name.
+        ports_by_number: Dict[Any, List[Dict[str, Any]]] = {}
+        for port in ports:
+            strategies = _get(port, "expose_strategies", []) or []
+            if "HostPortMapping" in strategies:
+                ports_by_number.setdefault(_get(port, "container_port"), []).append(
+                    port
+                )
         container_port_status = []
         for ps in port_statuses:
-            matched = next(
-                (
-                    p
-                    for p in ports
-                    if _get(p, "container_port") == _get(ps, "container_port")
-                ),
-                {},
-            )
+            candidates = ports_by_number.get(_get(ps, "container_port"), [])
+            matched = candidates.pop(0) if candidates else {}
             container_port_status.append(
                 _prune_none({
                     "container_port": _get(ps, "container_port"),
                     "protocol": _get(matched, "protocol", "TCP"),
-                    "host_port": _get(ps, "host_port", 0),
+                    "host_port": _get(ps, "host_port"),
                     "external_endpoint": _get(ps, "external_url"),
                     "name": _get(matched, "name"),
                 })
@@ -551,6 +738,7 @@ def http_devpod_to_legacy(dp: Dict[str, Any]) -> Dict[str, Any]:
 
     legacy_status = _prune_none({
         "state": state or "UNK",
+        "phase": state or "UNK",
         "endpoint": {
             "internal_endpoint": "",
             "external_endpoint": external_url or "",

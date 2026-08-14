@@ -524,7 +524,12 @@ def list_command(pattern, detail):
         if not ports:
             continue
 
-        port_pairs = [(p.container_port, p.host_port) for p in ports]
+        # A requested container port is present before the platform allocates a
+        # host port. Do not render commands containing the literal string
+        # ``None`` while that allocation is still pending.
+        port_pairs = [
+            (p.container_port, p.host_port) for p in ports if p.host_port is not None
+        ]
 
         for port_pair in port_pairs:
             if port_pair[0] == SSH_PORT:
@@ -711,10 +716,10 @@ def ssh(name):
 
     pod = client.pod.get(name)
     logger.trace(json.dumps(pod.model_dump(), indent=2))
-    ports = pod.status.container_port_status
-    if pod.status.state not in ("Running", "Ready"):
+    if pod.status is None or pod.status.state not in ("Running", "Ready"):
         console.print("This pod is not running or is not ready.")
         sys.exit(1)
+    ports = pod.status.container_port_status or []
 
     notice_msg = (
         "[yellow]Notice[/]: lep pod output may only work for default image and default"
@@ -738,7 +743,7 @@ def ssh(name):
 
     ssh_flag = False
     for port in ports:
-        if port.container_port == SSH_PORT:
+        if port.container_port == SSH_PORT and port.host_port:
             ssh_flag = True
             try:
                 logger.trace(f"ssh -p {port.host_port} root@{public_ip}")
@@ -787,15 +792,18 @@ def stop(name):
     """
     client = APIClient()
     endpoint = client.pod.get(name)
-    if endpoint.status.state in [
+    phase = endpoint.status.phase
+    terminal_state = phase or endpoint.status.state
+    already_stopped = terminal_state in [
         LeptonDeploymentState.Stopped,
         LeptonDeploymentState.Stopping,
         LeptonDeploymentState.Deleting,
-        LeptonDeploymentState.NotReady,
-    ]:
+    ]
+    if phase is None and terminal_state == LeptonDeploymentState.NotReady:
+        already_stopped = True
+    if already_stopped:
         console.print(
-            f"[yellow]⚠ Pod [green]{name}[/] is {endpoint.status.state}. No"
-            " action taken.[/]"
+            f"[yellow]⚠ Pod [green]{name}[/] is {terminal_state}. No action taken.[/]"
         )
         sys.exit(0)
     client.pod.stop(name)

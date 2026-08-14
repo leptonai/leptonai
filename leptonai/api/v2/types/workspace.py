@@ -1,5 +1,5 @@
 from enum import Enum
-from pydantic import BaseModel
+from pydantic import BaseModel, StrictBool
 from typing import Dict, Optional
 
 from loguru import logger
@@ -52,7 +52,7 @@ class WorkspaceFeatures(BaseModel):
     ``/deployments`` routes to the new ``/endpoints`` and ``/devpods`` routes.
     """
 
-    enable_new_deployment_api: Optional[bool] = None
+    enable_new_deployment_api: Optional[StrictBool] = None
 
 
 class WorkspaceInfo(BaseModel):

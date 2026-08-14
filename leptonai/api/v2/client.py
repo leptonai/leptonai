@@ -4,12 +4,13 @@ information such as the url auth token, as well as caching runtime objects
 such as http sessions.
 """
 
+import hashlib
 import os
-import time
 import re
 import threading
+import time
 import requests
-from typing import Optional, Union, Dict, Tuple
+from typing import Dict, Optional, Set, Tuple, Union
 
 from .log import LogAPI
 
@@ -49,24 +50,28 @@ from loguru import logger
 HAS_WARNED_TOKEN_EXPIRE: bool = False
 
 
-# Process-wide memo of the resolved new-deployment-API flag, keyed by workspace
-# URL. A single `lep` invocation targets exactly one workspace, but it may build
-# several short-lived `APIClient` instances (e.g. the parallel `lep log get`
-# workers each construct their own). Keying the resolved flag on the workspace
-# URL commits one dispatch decision for the whole invocation, so no two clients —
-# and no two reads on one client — can disagree and split a logical operation
-# across the legacy /deployments and the new /endpoints|/devpods APIs.
-_NEW_DEPLOYMENT_API_FLAG_CACHE: Dict[str, bool] = {}
+# Process-wide memo of the resolved new-deployment-API flag. The credential is
+# part of the key because /workspace is authenticated: an expired or otherwise
+# unauthorized token must not commit the legacy fallback for a different token
+# targeting the same workspace URL. Only a one-way digest is retained in this
+# cache; raw credentials never become cache keys.
+_FlagCacheKey = Tuple[str, str]
+_NEW_DEPLOYMENT_API_FLAG_CACHE: Dict[_FlagCacheKey, bool] = {}
 
-# Guards the check-resolve-commit sequence in `new_deployment_api_enabled`. The
-# GIL makes each individual dict op atomic, but not the read-then-/workspace-
-# resolve-then-write span: without this lock, two threads that hit a cold memo
-# concurrently (e.g. `lep log get` workers, each with its own APIClient) could
-# each issue their own /workspace call, get different transient outcomes, and
-# route their in-flight requests to different API families before last-write-wins
-# settles the memo. Single-flight under this lock guarantees exactly one
-# resolution per workspace URL and one committed dispatch decision.
-_FLAG_CACHE_LOCK = threading.Lock()
+# Condition-protected single-flight state. The condition is held only for cache
+# bookkeeping, never across /workspace I/O or retry sleeps. Therefore unrelated
+# workspaces/credentials can resolve concurrently while callers sharing an exact
+# key wait for one committed result.
+_FLAG_CACHE_CONDITION = threading.Condition()
+_FLAG_CACHE_RESOLVING: Set[_FlagCacheKey] = set()
+
+# A reset registers its scope before waiting for matching in-flight resolutions.
+# New readers in that scope wait until the old result has been committed and
+# removed, preventing a pre-reset resolution from repopulating the cache after
+# reset returns. Counters allow overlapping reset calls without releasing
+# readers early.
+_FLAG_CACHE_RESETTING_URLS: Dict[str, int] = {}
+_FLAG_CACHE_RESETTING_ALL: int = 0
 
 # Bounded retry for the one-time flag resolution. The CLI is a short-lived
 # process: a couple of quick retries smooth over a transient /workspace blip
@@ -74,6 +79,47 @@ _FLAG_CACHE_LOCK = threading.Lock()
 # committed False after retries are exhausted) then holds for the process.
 _FLAG_RESOLVE_RETRIES: int = 2
 _FLAG_RESOLVE_BACKOFF_SECONDS: float = 0.25
+# Feature discovery is on the critical path for every first deployment/pod API
+# access. Keep each /workspace attempt short rather than inheriting the 120-second
+# timeout intended for ordinary (potentially long-running) API operations.
+_FLAG_RESOLVE_REQUEST_TIMEOUT_SECONDS: float = 5.0
+_API_RESOURCE_OVERRIDE_UNSET = object()
+
+
+def _new_deployment_api_credential_fingerprint(
+    auth_token: Optional[str],
+) -> str:
+    """Return a deterministic, one-way cache identity for a credential."""
+    digest = hashlib.sha256()
+    if auth_token is None:
+        digest.update(b"leptonai:new-deployment-api:unauthenticated")
+    else:
+        digest.update(b"leptonai:new-deployment-api:authenticated\0")
+        digest.update(auth_token.encode("utf-8"))
+    return digest.hexdigest()
+
+
+def _reset_new_deployment_api_flag_cache_after_fork() -> None:
+    """Reinitialize inherited synchronization state in a forked child.
+
+    A lock held by a non-forking thread can never be released in the child.
+    Replacing the condition and dropping inherited in-flight/reset markers makes
+    the first child access safe. Completed cache entries remain valid and are
+    intentionally preserved.
+    """
+    global _FLAG_CACHE_CONDITION
+    global _FLAG_CACHE_RESOLVING
+    global _FLAG_CACHE_RESETTING_URLS
+    global _FLAG_CACHE_RESETTING_ALL
+
+    _FLAG_CACHE_CONDITION = threading.Condition()
+    _FLAG_CACHE_RESOLVING = set()
+    _FLAG_CACHE_RESETTING_URLS = {}
+    _FLAG_CACHE_RESETTING_ALL = 0
+
+
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=_reset_new_deployment_api_flag_cache_after_fork)
 
 
 def reset_new_deployment_api_flag_cache(url: Optional[str] = None) -> None:
@@ -88,11 +134,38 @@ def reset_new_deployment_api_flag_cache(url: Optional[str] = None) -> None:
 
     :param url: clear only the entry for this workspace URL; ``None`` clears all.
     """
-    with _FLAG_CACHE_LOCK:
+    global _FLAG_CACHE_RESETTING_ALL
+
+    with _FLAG_CACHE_CONDITION:
         if url is None:
-            _NEW_DEPLOYMENT_API_FLAG_CACHE.clear()
+            _FLAG_CACHE_RESETTING_ALL += 1
         else:
-            _NEW_DEPLOYMENT_API_FLAG_CACHE.pop(url, None)
+            _FLAG_CACHE_RESETTING_URLS[url] = _FLAG_CACHE_RESETTING_URLS.get(url, 0) + 1
+        _FLAG_CACHE_CONDITION.notify_all()
+
+        try:
+            _FLAG_CACHE_CONDITION.wait_for(
+                lambda: not any(
+                    url is None or cache_key[0] == url
+                    for cache_key in _FLAG_CACHE_RESOLVING
+                )
+            )
+            if url is None:
+                _NEW_DEPLOYMENT_API_FLAG_CACHE.clear()
+            else:
+                for cache_key in list(_NEW_DEPLOYMENT_API_FLAG_CACHE):
+                    if cache_key[0] == url:
+                        del _NEW_DEPLOYMENT_API_FLAG_CACHE[cache_key]
+        finally:
+            if url is None:
+                _FLAG_CACHE_RESETTING_ALL -= 1
+            else:
+                reset_count = _FLAG_CACHE_RESETTING_URLS[url] - 1
+                if reset_count:
+                    _FLAG_CACHE_RESETTING_URLS[url] = reset_count
+                else:
+                    del _FLAG_CACHE_RESETTING_URLS[url]
+            _FLAG_CACHE_CONDITION.notify_all()
 
 
 class APIClient(object):
@@ -270,9 +343,16 @@ class APIClient(object):
         self._endpoint_api = EndpointAPI(self)
         self._devpod_api = DevPodAPI(self)
 
+        # Preserve the historically writable public attributes for SDK users
+        # and tests that inject API doubles. The sentinel distinguishes "no
+        # override" from an intentional assignment of None.
+        self._deployment_override = _API_RESOURCE_OVERRIDE_UNSET
+        self._pod_override = _API_RESOURCE_OVERRIDE_UNSET
+
         # Per-instance mirror of the process-wide resolved flag (keyed by
-        # workspace URL in `_NEW_DEPLOYMENT_API_FLAG_CACHE`). None means "not yet
-        # read on this client"; it is populated from the memo on first access.
+        # workspace URL and credential fingerprint in
+        # `_NEW_DEPLOYMENT_API_FLAG_CACHE`). None means "not yet read on this
+        # client"; it is populated from the memo on first access.
         self._new_deployment_api_enabled: Optional[bool] = None
 
     @property
@@ -280,16 +360,16 @@ class APIClient(object):
         """Whether the workspace has the new endpoint/devpod API enabled.
 
         Resolved once, then committed for the lifetime of the *process* (not
-        just this client) via a workspace-URL-keyed memo. The first access on
-        the first client for a workspace does a single ``info()`` resolution
-        with a small bounded retry; the resulting bool — ``True`` OR ``False``,
+        just this client) via a workspace-URL-and-credential-keyed memo. The
+        first access for a cache key does a single ``info()`` resolution with a
+        small bounded retry; the resulting bool — ``True`` OR ``False``,
         including a ``False`` committed after the retries are exhausted — is
-        stored and returned unconditionally for every later access, on this
-        client and on any other client built for the same workspace in the same
-        invocation. The semantics mirror the dashboard's ``useEndpointApiMode``:
-        only an explicit ``true`` for ``features.enable_new_deployment_api``
-        switches to the new routes; an absent field, ``false``, or a missing
-        ``features`` object stays on the legacy routes.
+        stored and returned unconditionally for every later access using that
+        URL and credential. The semantics mirror the dashboard's
+        ``useEndpointApiMode``: only an explicit ``true`` for
+        ``features.enable_new_deployment_api`` switches to the new routes; an
+        absent field, ``false``, or a missing ``features`` object stays on the
+        legacy routes.
 
         Why commit unconditionally (superseding the earlier no-cache-on-failure
         design): the ``lep`` CLI is a short-lived process, and many operations
@@ -315,30 +395,53 @@ class APIClient(object):
         consumer that needs to pick up a flip can call
         :func:`reset_new_deployment_api_flag_cache` to force a re-resolution.
 
-        Concurrency: the cold-memo resolve-and-commit runs single-flight under
-        ``_FLAG_CACHE_LOCK`` (double-checked), so concurrent first accesses from
-        different threads/clients on the same workspace URL do exactly one
-        /workspace resolution and commit one dispatch decision — they cannot
-        split routing across API families.
+        Concurrency: cold-memo resolution is single-flight per workspace URL and
+        credential fingerprint. Concurrent callers for one key share exactly
+        one /workspace resolution, while unrelated keys resolve concurrently.
+        The global condition is never held during network I/O or retry sleeps.
 
         @implements LEP-5664, LEP-5665 (flag detection)
         """
-        cached = _NEW_DEPLOYMENT_API_FLAG_CACHE.get(self.url)
-        if cached is not None:
-            self._new_deployment_api_enabled = cached
-            return cached
-        with _FLAG_CACHE_LOCK:
-            # Re-check under the lock: another thread may have resolved and
-            # committed while we waited, in which case we adopt its decision
-            # rather than issuing a second /workspace call.
-            cached = _NEW_DEPLOYMENT_API_FLAG_CACHE.get(self.url)
-            if cached is not None:
-                self._new_deployment_api_enabled = cached
-                return cached
+        cache_key = (
+            self.url,
+            _new_deployment_api_credential_fingerprint(self.auth_token),
+        )
+
+        while True:
+            with _FLAG_CACHE_CONDITION:
+                _FLAG_CACHE_CONDITION.wait_for(
+                    lambda: not _FLAG_CACHE_RESETTING_ALL
+                    and not _FLAG_CACHE_RESETTING_URLS.get(self.url)
+                )
+
+                cached = _NEW_DEPLOYMENT_API_FLAG_CACHE.get(cache_key)
+                if cached is not None:
+                    self._new_deployment_api_enabled = cached
+                    return cached
+
+                if cache_key not in _FLAG_CACHE_RESOLVING:
+                    _FLAG_CACHE_RESOLVING.add(cache_key)
+                    break
+
+                # A caller for this exact URL/credential is already resolving.
+                # Wake on either its commit or a reset, then re-check all state.
+                _FLAG_CACHE_CONDITION.wait()
+
+        try:
             resolved = self._resolve_new_deployment_api()
-            _NEW_DEPLOYMENT_API_FLAG_CACHE[self.url] = resolved
-            self._new_deployment_api_enabled = resolved
-            return resolved
+        except BaseException:
+            with _FLAG_CACHE_CONDITION:
+                _FLAG_CACHE_RESOLVING.discard(cache_key)
+                _FLAG_CACHE_CONDITION.notify_all()
+            raise
+
+        with _FLAG_CACHE_CONDITION:
+            _NEW_DEPLOYMENT_API_FLAG_CACHE[cache_key] = resolved
+            _FLAG_CACHE_RESOLVING.discard(cache_key)
+            _FLAG_CACHE_CONDITION.notify_all()
+
+        self._new_deployment_api_enabled = resolved
+        return resolved
 
     def _resolve_new_deployment_api(self) -> bool:
         """Resolve the new-deployment-API flag from workspace info, once.
@@ -347,14 +450,14 @@ class APIClient(object):
         .enable_new_deployment_api is True`` yields ``True``; an absent flag,
         missing ``features``, or an unresolvable /workspace call (after a small
         bounded retry) all yield ``False``. This is called at most once per
-        workspace URL per process — the caller commits the result to the
-        process-wide memo — so a transient blip is retried here rather than
-        being re-litigated on every subsequent dispatch read.
+        workspace URL and credential per process — the caller commits the
+        result to the process-wide memo — so a transient blip is retried here
+        rather than being re-litigated on every subsequent dispatch read.
         """
         info = None
         for attempt in range(_FLAG_RESOLVE_RETRIES + 1):
             try:
-                info = self.info()
+                info = self.info(timeout=_FLAG_RESOLVE_REQUEST_TIMEOUT_SECONDS)
                 break
             except Exception as e:
                 if attempt < _FLAG_RESOLVE_RETRIES:
@@ -384,8 +487,41 @@ class APIClient(object):
         :class:`DeploymentAPI`. Both expose the same method surface and return
         :class:`LeptonDeployment`-shaped objects, so callers are unaffected.
         """
+        if self._deployment_override is not _API_RESOURCE_OVERRIDE_UNSET:
+            return self._deployment_override  # type: ignore[return-value]
         if self.new_deployment_api_enabled:
             return self._endpoint_api
+        return self._deployment_legacy
+
+    @deployment.setter
+    def deployment(self, value) -> None:
+        """Override the deployment API, preserving the legacy writable surface."""
+        self._deployment_override = value
+        # Keep a public-name mirror so unittest.mock.patch.object can tell an
+        # explicit instance override from the value produced dynamically by
+        # this property.  Without it, a nested patch sees the outer override
+        # only through getattr(), treats it as inherited, and drops it during
+        # cleanup instead of restoring it.
+        self.__dict__["deployment"] = value
+
+    @deployment.deleter
+    def deployment(self) -> None:
+        """Clear an injected deployment API override."""
+        self._deployment_override = _API_RESOURCE_OVERRIDE_UNSET
+        self.__dict__.pop("deployment", None)
+
+    def _deployment_api_for_legacy_pod(self):
+        """Return an injected deployment wrapper or the stable legacy API.
+
+        Legacy :class:`PodAPI` methods historically delegate to the deployment
+        wrapper. Tests and SDK callers can replace that wrapper through the
+        writable ``deployment`` property, so honor an explicit replacement.
+        In the normal case, avoid the public dispatching getter: resolving it in
+        a flag-on workspace would incorrectly send a legacy PodAPI call to the
+        new EndpointAPI.
+        """
+        if self._deployment_override is not _API_RESOURCE_OVERRIDE_UNSET:
+            return self._deployment_override
         return self._deployment_legacy
 
     @property
@@ -396,9 +532,25 @@ class APIClient(object):
         workspace flag is on, otherwise the legacy /deployments-based
         :class:`PodAPI`.
         """
+        if self._pod_override is not _API_RESOURCE_OVERRIDE_UNSET:
+            return self._pod_override  # type: ignore[return-value]
         if self.new_deployment_api_enabled:
             return self._devpod_api
         return self._pod_legacy
+
+    @pod.setter
+    def pod(self, value) -> None:
+        """Override the pod API, preserving the legacy writable surface."""
+        self._pod_override = value
+        # See the deployment setter: this mirror preserves an existing outer
+        # override across a temporary unittest.mock.patch.object assignment.
+        self.__dict__["pod"] = value
+
+    @pod.deleter
+    def pod(self) -> None:
+        """Clear an injected pod API override."""
+        self._pod_override = _API_RESOURCE_OVERRIDE_UNSET
+        self.__dict__.pop("pod", None)
 
     def _safe_add(self, kwargs: Dict) -> Dict:
         """
@@ -429,12 +581,19 @@ class APIClient(object):
     def _head(self, path: str, *args, **kwargs):
         return self._session.head(self.url + path, *args, **self._safe_add(kwargs))
 
-    def info(self) -> WorkspaceInfo:
+    def info(self, timeout: Optional[float] = None) -> WorkspaceInfo:
         """
         Returns the workspace info.
+
+        :param timeout: optional request timeout in seconds. When omitted, use
+            the client's normal request timeout.
         """
         ws_api = APIResourse(self)
-        response = self._get("/workspace")
+        response = (
+            self._get("/workspace", timeout=timeout)
+            if timeout is not None
+            else self._get("/workspace")
+        )
         auth_token_hint = (
             self.auth_token[:2] + "****" + self.auth_token[-2:]
             if self.auth_token

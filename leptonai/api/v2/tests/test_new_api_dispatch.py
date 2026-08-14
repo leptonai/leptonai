@@ -31,6 +31,7 @@ import responses
 
 from leptonai.api.v2 import client as client_module
 from leptonai.api.v2.client import APIClient
+from leptonai.api.v2.devpod import NewDevPodAPIUnsupported
 from leptonai.api.v2.types.common import Metadata
 from leptonai.api.v2.types.deployment import (
     LeptonDeployment,
@@ -399,6 +400,74 @@ class TestFlagOnEndpointRoutes(unittest.TestCase):
         self.assertIn(("PATCH", f"{BASE}/endpoints/my-ep"), methods)
 
     @responses.activate
+    def test_update_rejects_missing_or_empty_live_components_before_patch(self):
+        malformed_specs = {
+            "missing": {},
+            "empty": {"components": []},
+        }
+        for case, malformed_spec in malformed_specs.items():
+            with self.subTest(case=case):
+                responses.reset()
+                _register_workspace(enable_new_deployment_api=True)
+                responses.add(
+                    responses.GET,
+                    f"{BASE}/endpoints/my-ep",
+                    json={"metadata": {"name": "my-ep"}, "spec": malformed_spec},
+                    status=200,
+                )
+                responses.add(
+                    responses.PATCH,
+                    f"{BASE}/endpoints/my-ep",
+                    json=_endpoint_body(),
+                    status=200,
+                )
+
+                client = _make_client()
+                with self.assertRaises(ValueError):
+                    client.deployment.update("my-ep", _deployment_spec())
+
+                endpoint_methods = [
+                    call.request.method
+                    for call in responses.calls
+                    if call.request.url == f"{BASE}/endpoints/my-ep"
+                ]
+                self.assertEqual(endpoint_methods, ["GET"])
+
+    @responses.activate
+    def test_stop_rejects_missing_or_empty_live_components_before_patch(self):
+        malformed_specs = {
+            "missing": {},
+            "empty": {"components": []},
+        }
+        for case, malformed_spec in malformed_specs.items():
+            with self.subTest(case=case):
+                responses.reset()
+                _register_workspace(enable_new_deployment_api=True)
+                responses.add(
+                    responses.GET,
+                    f"{BASE}/endpoints/my-ep",
+                    json={"metadata": {"name": "my-ep"}, "spec": malformed_spec},
+                    status=200,
+                )
+                responses.add(
+                    responses.PATCH,
+                    f"{BASE}/endpoints/my-ep",
+                    json=_endpoint_body(),
+                    status=200,
+                )
+
+                client = _make_client()
+                with self.assertRaises(ValueError):
+                    client.deployment.stop("my-ep")
+
+                endpoint_methods = [
+                    call.request.method
+                    for call in responses.calls
+                    if call.request.url == f"{BASE}/endpoints/my-ep"
+                ]
+                self.assertEqual(endpoint_methods, ["GET"])
+
+    @responses.activate
     def test_restart_puts_to_endpoints(self):
         _register_workspace(enable_new_deployment_api=True)
         responses.add(
@@ -533,20 +602,12 @@ class TestFlagOnDevPodRoutes(unittest.TestCase):
         self.assertIn(f"{BASE}/devpods/my-pod/restart", _urls_called())
 
     @responses.activate
-    def test_log_streams_from_devpod_log_route(self):
-        # A devpod runs a single pod; logs stream by devpod id at
-        # GET /devpods/:did/log (no replica id required).
+    def test_live_log_stream_fails_explicitly_without_request(self):
         _register_workspace(enable_new_deployment_api=True)
-        responses.add(
-            responses.GET,
-            f"{BASE}/devpods/my-pod/log",
-            body="line1\nline2\n",
-            status=200,
-        )
         client = _make_client()
-        chunks = list(client.pod.get_log("my-pod"))
-        self.assertIn(f"{BASE}/devpods/my-pod/log", _urls_called())
-        self.assertEqual("".join(chunks), "line1\nline2\n")
+        with self.assertRaisesRegex(NewDevPodAPIUnsupported, "historical logs"):
+            client.pod.get_log("my-pod")
+        self.assertNotIn(f"{BASE}/devpods/my-pod/log", _urls_called())
 
 
 class TestTranslationFidelity(unittest.TestCase):
@@ -666,8 +727,32 @@ class TestTranslationFidelity(unittest.TestCase):
         }
         back = translation.http_devpod_to_legacy(dp)
         self.assertEqual(back["status"]["state"], "Not Ready")
+        self.assertEqual(back["status"]["phase"], "Not Ready")
         model = LeptonDeployment(**back)
         self.assertEqual(model.status.state, LeptonDeploymentState.NotReady)
+        self.assertEqual(model.status.phase, LeptonDeploymentState.NotReady)
+
+    def test_endpoint_phase_distinguishes_stopped_from_running_not_ready(self):
+        from leptonai.api.v2 import translation
+
+        base = {
+            "metadata": {"name": "ep"},
+            "spec": {"components": [{"name": "default", "min_replicas": 1}]},
+        }
+
+        stopped = translation.http_endpoint_to_legacy({
+            **base,
+            "status": {"state": "Stopped"},
+        })
+        self.assertEqual(stopped["status"]["state"], "Not Ready")
+        self.assertEqual(stopped["status"]["phase"], "Stopped")
+
+        not_ready = translation.http_endpoint_to_legacy({
+            **base,
+            "status": {"state": "NotReady"},
+        })
+        self.assertEqual(not_ready["status"]["state"], "Not Ready")
+        self.assertEqual(not_ready["status"]["phase"], "Not Ready")
 
     def test_endpoint_app_protocol_round_trips(self):
         from leptonai.api.v2 import translation
@@ -769,7 +854,7 @@ class TestPortsEmptyVsUnspecified(unittest.TestCase):
         self.assertEqual(comp["ports"], [{"container_port": 8080, "protocol": "TCP"}])
 
     def test_empty_ports_clear_live_ports(self):
-        # Explicit [] -> sent verbatim -> RFC7386 replaces the live ports with [].
+        # Explicit [] must reach the merge patch and replace the live list.
         comp = self._patch_ports({"image": "svc", "ports": []})
         self.assertEqual(comp["ports"], [])
 
