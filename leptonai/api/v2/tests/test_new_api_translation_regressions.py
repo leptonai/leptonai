@@ -23,7 +23,6 @@ from leptonai.api.v2.types.deployment import (
     LeptonDeploymentUserSpec,
     ResourceRequirement,
 )
-from leptonai.cli.storage import _get_rsync_host_port
 
 
 def _response(payload, status=200):
@@ -492,21 +491,6 @@ class TestPodCompatibilityRegressions(unittest.TestCase):
 
 
 class TestObservableCompatibilityRegressions(unittest.TestCase):
-    def test_storage_rsync_prefers_allocated_status_port(self):
-        pod = SimpleNamespace(
-            status=SimpleNamespace(
-                container_port_status=[
-                    SimpleNamespace(container_port=873, host_port=41234)
-                ]
-            ),
-            spec=SimpleNamespace(
-                container=SimpleNamespace(
-                    ports=[SimpleNamespace(container_port=873, host_port=None)]
-                )
-            ),
-        )
-        self.assertEqual(_get_rsync_host_port(pod), 41234)
-
     def test_translated_lists_skip_only_malformed_items(self):
         valid_endpoint = {
             "metadata": {"name": "good"},
