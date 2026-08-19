@@ -376,8 +376,11 @@ def test_storage_add_s3_compatible_object_storage():
         )
 
     assert result.exit_code == 0, result.output
+    normalized_output = " ".join(result.output.split())
     assert "Added object-storage training-data" in result.output
     assert "s3://training-bucket" in result.output
+    assert "immutable after creation" in result.output
+    assert "delete and recreate" in normalized_output
     assert len(fake_client.nodegroup.created_data_sources) == 1
     node_group, spec = fake_client.nodegroup.created_data_sources[0]
     assert node_group.metadata.id_ == "ng-123"
@@ -517,6 +520,59 @@ def test_storage_edit_object_storage_preserves_immutable_fields():
         fake_client.nodegroup.object_storage.spec.object_.credentials["type"]
         == "leptonSecret"
     )
+
+
+def test_storage_edit_rejects_immutable_fields_with_actionable_error():
+    runner = CliRunner()
+    fake_client = _FakeAPIClient()
+
+    with patch("leptonai.cli.node.APIClient", return_value=fake_client):
+        result = runner.invoke(
+            cli,
+            [
+                "node",
+                "storage",
+                "edit",
+                "-ng",
+                "ng-123",
+                "-n",
+                "model-data",
+                "--bucket",
+                "replacement-bucket",
+            ],
+        )
+
+    assert result.exit_code != 0
+    assert "Cannot change immutable Object Storage field(s): bucket" in result.output
+    assert "No changes were made" in result.output
+    assert "node storage delete" in result.output
+    assert "node storage add" in result.output
+    assert fake_client.nodegroup.updated_data_sources == []
+
+
+def test_storage_edit_help_marks_each_immutable_option():
+    runner = CliRunner()
+
+    result = runner.invoke(
+        cli,
+        ["node", "storage", "edit", "--help"],
+    )
+
+    assert result.exit_code == 0, result.output
+    normalized_output = " ".join(result.output.split())
+    for option in (
+        "--provider",
+        "--bucket",
+        "--region",
+        "--endpoint",
+        "--project-id",
+        "--enable-aistore",
+        "--disable-aistore",
+    ):
+        assert option in result.output
+    assert result.output.count("Immutable after creation") == 6
+    assert "Names cannot be changed" in normalized_output
+    assert "delete and recreate the Object" in normalized_output
 
 
 def test_storage_edit_all_members_clears_allowlist_only():

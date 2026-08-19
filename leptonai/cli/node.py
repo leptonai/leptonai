@@ -1227,6 +1227,11 @@ def add_storage_command(
         f"[bold]{storage_name}[/bold] at [cyan]{scheme}://{bucket}[/cyan] "
         f"to node group [bold]{matched_node_group.metadata.name}[/bold]."
     )
+    console.print(
+        "[yellow]Note:[/yellow] Object Storage name, provider, bucket, "
+        "region/endpoint/project ID, and AIStore setting are immutable after "
+        "creation. To change them, delete and recreate the Object Storage."
+    )
 
 
 @storage_group.command(name="edit")
@@ -1243,7 +1248,38 @@ def add_storage_command(
     "storage_name",
     type=str,
     required=True,
-    help="Object Storage name.",
+    help="Existing Object Storage name. Names cannot be changed.",
+)
+@click.option(
+    "--provider",
+    type=click.Choice(["aws", "s3", "gcs"], case_sensitive=False),
+    help="Immutable after creation; delete and recreate to change.",
+)
+@click.option(
+    "--bucket",
+    type=str,
+    help="Immutable after creation; delete and recreate to change.",
+)
+@click.option(
+    "--region",
+    type=str,
+    help="Immutable after creation; delete and recreate to change.",
+)
+@click.option(
+    "--endpoint",
+    type=str,
+    help="Immutable after creation; delete and recreate to change.",
+)
+@click.option(
+    "--project-id",
+    type=str,
+    help="Immutable after creation; delete and recreate to change.",
+)
+@click.option(
+    "--enable-aistore/--disable-aistore",
+    "aistore_setting",
+    default=None,
+    help="Immutable after creation; delete and recreate to change.",
 )
 @click.option(
     "--wif",
@@ -1278,6 +1314,12 @@ def add_storage_command(
 def edit_storage_command(
     node_group,
     storage_name,
+    provider,
+    bucket,
+    region,
+    endpoint,
+    project_id,
+    aistore_setting,
     wif,
     access_key_secret_name,
     secret_key_secret_name,
@@ -1287,9 +1329,29 @@ def edit_storage_command(
     """
     Edit Object Storage authentication or its bucket allowlist.
 
-    Provider, bucket, region/endpoint/project ID, and AIStore settings are
-    immutable after creation, matching the web UI.
+    Name, provider, bucket, region/endpoint/project ID, and AIStore settings
+    are immutable after creation. To change them, delete and recreate the
+    Object Storage.
     """
+    immutable_options = [
+        ("provider", provider is not None),
+        ("bucket", bucket is not None),
+        ("region", region is not None),
+        ("endpoint", endpoint is not None),
+        ("project ID", project_id is not None),
+        ("AIStore setting", aistore_setting is not None),
+    ]
+    requested_immutable_fields = [
+        name for name, requested in immutable_options if requested
+    ]
+    if requested_immutable_fields:
+        raise click.UsageError(
+            "Cannot change immutable Object Storage field(s): "
+            f"{', '.join(requested_immutable_fields)}. No changes were made. "
+            "Use `lep node storage delete` and `lep node storage add` to recreate "
+            "the Object Storage."
+        )
+
     users = _permission_users(allowed_users)
     if users and all_members:
         raise click.UsageError(
