@@ -27,7 +27,6 @@ from .job import JobAPI
 from .secret import SecretAPI
 from .pod import PodAPI
 from .ingress import IngressAPI
-from .storage import StorageAPI
 from .resource_shape import ResourceShapeAPI
 from .template import TemplateAPI
 from .finetune import FineTuneAPI
@@ -324,7 +323,6 @@ class APIClient(object):
         self.job = JobAPI(self)
         self.secret = SecretAPI(self)
         self.ingress = IngressAPI(self)
-        self.storage = StorageAPI(self)
         self.log = LogAPI(self)
         self.template = TemplateAPI(self)
         self.finetune = FineTuneAPI(self)

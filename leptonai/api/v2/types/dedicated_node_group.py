@@ -45,6 +45,7 @@ class Volume(BaseModel):
     creation_mode: Optional[VolumeCreationMode] = None
     from_path: Optional[str] = None
     default_mount_path: Optional[str] = None
+    managed_by_lepton: Optional[bool] = None
 
 
 class AllocationModeType(str, Enum):
@@ -80,6 +81,7 @@ class DedicatedNodeGroupSpec(BaseModel):
     # Inlined LepotnDedicatedNodeGroupUserSpec
     workspaces: Optional[List[str]] = None
     volumes: Optional[List[Volume]] = None
+    enable_object_storage: Optional[bool] = None
     allocation_mode: Optional[AllocationModeType] = None
     infini_band_enabled: Optional[bool] = None
     scheduling_policy: Optional[SchedulingPolicy] = None
