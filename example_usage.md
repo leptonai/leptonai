@@ -90,14 +90,17 @@ The sum of weights must be greater than zero (backend validation).
 
 The IP whitelist functionality now correctly follows this clean design:
 - **IP Access Control**: `--public` vs `--ip-whitelist` (network/ingress level)
-- **Authentication**: `--tokens` (application level, completely independent)
+- **Authentication**: generated/default tokens, explicit `--tokens`, or explicit
+  `--allow-unauthenticated-access` (application level, completely independent)
 
 ## Key Design Principles
 
 1. **`--public`**: Endpoint accessible from any IP address (equivalent to `--ip-whitelist` with empty array)
 2. **`--ip-whitelist`**: Endpoint only accessible from specified IP addresses/CIDR ranges
-3. **`--tokens`**: Authentication tokens required (completely independent of IP access control)
+3. **`--tokens`**: Replace authentication tokens (completely independent of IP access control)
 4. **Mutual Exclusivity**: `--public` and `--ip-whitelist` cannot be used together
+5. **Secure default**: Enabled workspaces generate a token unless authentication is
+   explicitly disabled with `--allow-unauthenticated-access`
 
 ## Valid Usage Examples
 
@@ -109,7 +112,8 @@ lep endpoint create \
   --container-image python:3.9-slim \
   --container-port 8080 \
   --container-command 'python3 -m http.server 8080' \
-  --public
+  --public \
+  --allow-unauthenticated-access
 ```
 
 ### 2. Public Endpoint with Authentication Tokens
@@ -125,7 +129,7 @@ lep endpoint create \
   --tokens my-token-2
 ```
 
-### 3. IP-Whitelisted Endpoint (Default: workspace token required)
+### 3. IP-Whitelisted Endpoint (secure-default workspaces generate a token)
 ```bash
 lep endpoint create \
   --name ip-restricted-endpoint \
@@ -161,10 +165,10 @@ lep endpoint create \
   --tokens my-token-2
 ```
 
-### 6. Private Endpoint (Default: workspace token required, no IP restrictions)
+### 6. Secure-Default Endpoint (generated token, no IP restrictions)
 ```bash
 lep endpoint create \
-  --name private-endpoint \
+  --name secure-default-endpoint \
   --resource-shape cpu.tiny \
   --container-image python:3.9-slim \
   --container-port 8080 \
@@ -172,10 +176,10 @@ lep endpoint create \
   # No --public or --ip-whitelist specified
 ```
 
-### 7. Private Endpoint with Additional Authentication Tokens
+### 7. Endpoint with Caller-Supplied Tokens and No IP Restrictions
 ```bash
 lep endpoint create \
-  --name private-endpoint-with-auth \
+  --name endpoint-with-auth \
   --resource-shape cpu.tiny \
   --container-image python:3.9-slim \
   --container-port 8080 \
@@ -219,19 +223,20 @@ The `--ip-whitelist` option supports two usage patterns:
 
 ## Generated JSON Structure
 
-### Public Endpoint (no IP restrictions)
+### Public Endpoint (no IP restrictions or token authentication)
 ```json
 {
   "spec": {
     "auth_config": {
       "ip_allowlist": []
     },
-    "api_tokens": []
+    "api_tokens": [],
+    "allow_unauthenticated_access": true
   }
 }
 ```
 
-### IP-Whitelisted Endpoint
+### IP-Whitelisted Endpoint with Caller-Supplied Tokens
 ```json
 {
   "spec": {
@@ -239,11 +244,6 @@ The `--ip-whitelist` option supports two usage patterns:
       "ip_allowlist": ["128.77.86.0/24", "192.168.1.0/24", "10.0.0.0/8"]
     },
     "api_tokens": [
-      {
-        "value_from": {
-          "token_name_ref": "WORKSPACE_TOKEN"
-        }
-      },
       {
         "value": "my-token-1"
       },
@@ -255,27 +255,24 @@ The `--ip-whitelist` option supports two usage patterns:
 }
 ```
 
-### Private Endpoint (default)
+### Secure-Default Endpoint (no IP restrictions)
 ```json
 {
-  "spec": {
-    "api_tokens": [
-      {
-        "value_from": {
-          "token_name_ref": "WORKSPACE_TOKEN"
-        }
-      }
-    ]
-  }
+  "spec": {}
 }
 ```
+
+With secure endpoint defaults enabled, omitting both authentication fields asks the
+server to generate a token. The successful create response returns that token for the
+caller to save. IP reachability remains a separate setting; an omitted allowlist does
+not make the endpoint token-free.
 
 ## Key Points
 
 1. **Clean Separation**: IP access control and authentication are completely independent
 2. **IP Access Control**: Choose either `--public` OR `--ip-whitelist`, not both
-3. **Authentication**: `--tokens` can be used with any IP access control method
-4. **Default Behavior**: If neither `--public` nor `--ip-whitelist` is specified, the endpoint is private (no IP restrictions)
+3. **Authentication**: `--tokens` can be used with any IP access control method; secure-default workspaces generate a token when authentication is unspecified
+4. **Default IP Behavior**: If neither `--public` nor `--ip-whitelist` is specified, no IP allowlist is added
 5. **IP Whitelist**: Stored in `auth_config.ip_allowlist` field
-6. **Workspace Token**: Always included for non-public endpoints to maintain internal access
+6. **Unauthenticated Access**: Requires the explicit `--allow-unauthenticated-access` opt-out and displays a warning
 7. **Flexible Input**: IP whitelist accepts both individual values and comma-separated lists

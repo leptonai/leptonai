@@ -1,4 +1,6 @@
-from pydantic import BaseModel
+import json
+
+from pydantic import BaseModel, ValidationError
 from requests import Response
 from typing import (
     Dict,
@@ -46,6 +48,24 @@ class APIResourse(object):
     """
 
     _client: Any
+
+    _REDACTED_DIAGNOSTIC = (
+        "API request failed. Response details were redacted because they may contain"
+        " sensitive authentication data."
+    )
+    _REDACTED_API_TOKEN_DIAGNOSTIC = (
+        "API request failed and the response referenced api_tokens. Raw response"
+        " details were redacted because they could contain credential material."
+    )
+    _SAFE_DIAGNOSTIC_HEADERS = frozenset({
+        "date",
+        "retry-after",
+        "traceparent",
+        "x-amzn-requestid",
+        "x-correlation-id",
+        "x-lepton-request-id",
+        "x-request-id",
+    })
 
     def __init__(self, _client: Any):
         """
@@ -110,59 +130,335 @@ class APIResourse(object):
             return False
         return "api_tokens" in folded_value or "apitokens" in folded_value
 
-    def _response_for_diagnostic(self, response: Response) -> Response:
-        """Return a response safe to attach to a rendered exception."""
-        if not self._contains_api_token_material(response.text):
-            return response
+    @staticmethod
+    def _normalized_field_name(value: Any) -> str:
+        return str(value).replace("_", "").casefold()
 
-        return self._redacted_response(response)
+    @classmethod
+    def _is_api_token_field(cls, value: Any) -> bool:
+        return cls._normalized_field_name(value) == "apitokens"
+
+    @classmethod
+    def _has_api_token_field(cls, value: Any) -> bool:
+        if isinstance(value, dict):
+            return any(
+                cls._is_api_token_field(key) or cls._has_api_token_field(child)
+                for key, child in value.items()
+            )
+        if isinstance(value, list):
+            return any(cls._has_api_token_field(child) for child in value)
+        return False
+
+    @classmethod
+    def _has_misplaced_api_token_field(
+        cls,
+        value: Any,
+        *,
+        path: tuple = (),
+    ) -> bool:
+        """Whether a token field occurs outside canonical ``spec.api_tokens``."""
+        if isinstance(value, dict):
+            for key, child in value.items():
+                field_name = cls._normalized_field_name(key)
+                if cls._is_api_token_field(key) and path != ("spec",):
+                    return True
+                if cls._has_misplaced_api_token_field(
+                    child,
+                    path=(*path, field_name),
+                ):
+                    return True
+        elif isinstance(value, list):
+            return any(
+                cls._has_misplaced_api_token_field(child, path=path) for child in value
+            )
+        return False
+
+    @classmethod
+    def _api_token_literal_values(cls, value: Any) -> List[str]:
+        """Collect literal credentials from snake/camel-case token containers."""
+        values: List[str] = []
+
+        def collect_value_strings(item: Any) -> None:
+            if isinstance(item, str):
+                if item and item != "***":
+                    values.append(item)
+            elif isinstance(item, dict):
+                for child in item.values():
+                    collect_value_strings(child)
+            elif isinstance(item, list):
+                for child in item:
+                    collect_value_strings(child)
+
+        def visit(
+            item: Any,
+            *,
+            in_token_container: bool = False,
+            direct_scalar_is_token: bool = False,
+        ) -> None:
+            if isinstance(item, dict):
+                for key, child in item.items():
+                    field_name = cls._normalized_field_name(key)
+                    if cls._is_api_token_field(key):
+                        visit(
+                            child,
+                            in_token_container=True,
+                            direct_scalar_is_token=True,
+                        )
+                    elif in_token_container and field_name == "valuefrom":
+                        # A secret reference names a server-side object; it is not a
+                        # literal credential and remains useful in diagnostics.
+                        continue
+                    elif in_token_container and field_name == "value":
+                        collect_value_strings(child)
+                    else:
+                        visit(
+                            child,
+                            in_token_container=in_token_container,
+                            direct_scalar_is_token=False,
+                        )
+            elif isinstance(item, list):
+                for child in item:
+                    visit(
+                        child,
+                        in_token_container=in_token_container,
+                        direct_scalar_is_token=direct_scalar_is_token,
+                    )
+            elif (
+                in_token_container
+                and direct_scalar_is_token
+                and isinstance(item, str)
+                and item != "***"
+            ):
+                values.append(item)
+
+        visit(value)
+        return values
+
+    @classmethod
+    def _redact_api_token_fields(
+        cls,
+        value: Any,
+        *,
+        in_token_container: bool = False,
+        direct_scalar_is_token: bool = False,
+    ) -> Any:
+        """Return JSON-compatible data with literal token values replaced."""
+        if isinstance(value, dict):
+            redacted = {}
+            for key, child in value.items():
+                field_name = cls._normalized_field_name(key)
+                if cls._is_api_token_field(key):
+                    redacted[key] = cls._redact_api_token_fields(
+                        child,
+                        in_token_container=True,
+                        direct_scalar_is_token=True,
+                    )
+                elif in_token_container and field_name == "valuefrom":
+                    redacted[key] = child
+                elif in_token_container and field_name == "value":
+                    redacted[key] = "***" if child else child
+                else:
+                    redacted[key] = cls._redact_api_token_fields(
+                        child,
+                        in_token_container=in_token_container,
+                        direct_scalar_is_token=False,
+                    )
+            return redacted
+        if isinstance(value, list):
+            return [
+                cls._redact_api_token_fields(
+                    child,
+                    in_token_container=in_token_container,
+                    direct_scalar_is_token=direct_scalar_is_token,
+                )
+                for child in value
+            ]
+        if (
+            in_token_container
+            and direct_scalar_is_token
+            and isinstance(value, str)
+            and value
+        ):
+            return "***"
+        return value
 
     @staticmethod
-    def _redacted_response(response: Response) -> Response:
-        """Copy only status into a response with a generic diagnostic body."""
-        redacted_response = Response()
-        redacted_response.status_code = response.status_code
-        redacted_response.encoding = "utf-8"
-        redacted_response._content = (
-            b"API request failed. Response details were redacted because they may"
-            b" contain sensitive authentication data."
+    def _redact_sensitive_values(text: str, sensitive_values) -> str:
+        redacted = text
+        values = {
+            value
+            for value in sensitive_values or []
+            if isinstance(value, str) and value and value != "***"
+        }
+        representations = set(values)
+        for value in values:
+            representations.add(json.dumps(value)[1:-1])
+            representations.add(json.dumps(value, ensure_ascii=False)[1:-1])
+            representations.add(repr(value)[1:-1])
+        for representation in sorted(representations, key=len, reverse=True):
+            redacted = redacted.replace(representation, "***")
+        return redacted
+
+    @classmethod
+    def _safe_exception_text(cls, error: Exception, sensitive_values=None) -> str:
+        """Format an exception without Pydantic's potentially truncated input repr."""
+        if isinstance(error, ValidationError):
+            details = []
+            for validation_error in error.errors(
+                include_url=False,
+                include_input=False,
+            ):
+                location = ".".join(
+                    str(part) for part in validation_error.get("loc", ())
+                )
+                message = validation_error.get("msg", "validation failed")
+                error_type = validation_error.get("type", "validation_error")
+                details.append(f"{location or '<root>'}: {message} [type={error_type}]")
+            count = error.error_count()
+            label = "error" if count == 1 else "errors"
+            text = f"{count} validation {label}\n" + "\n".join(details)
+        else:
+            text = str(error)
+        return cls._redact_sensitive_values(text, sensitive_values)
+
+    @classmethod
+    def _redact_sensitive_values_in_data(cls, value: Any, sensitive_values) -> Any:
+        """Redact decoded JSON strings before they are escaped for diagnostics."""
+        if isinstance(value, dict):
+            return {
+                (
+                    cls._redact_sensitive_values(key, sensitive_values)
+                    if isinstance(key, str)
+                    else key
+                ): cls._redact_sensitive_values_in_data(child, sensitive_values)
+                for key, child in value.items()
+            }
+        if isinstance(value, list):
+            return [
+                cls._redact_sensitive_values_in_data(child, sensitive_values)
+                for child in value
+            ]
+        if isinstance(value, str):
+            return cls._redact_sensitive_values(value, sensitive_values)
+        return value
+
+    @classmethod
+    def _response_with_diagnostic_body(
+        cls,
+        response: Response,
+        body: str,
+        *,
+        preserve_content_type: bool = False,
+    ) -> Response:
+        """Copy allowlisted response metadata without retaining request secrets."""
+        diagnostic = Response()
+        diagnostic.status_code = response.status_code
+        diagnostic.encoding = response.encoding or "utf-8"
+        diagnostic.url = response.url
+        diagnostic.reason = response.reason
+        diagnostic.elapsed = response.elapsed
+        for name, value in response.headers.items():
+            if name.casefold() in cls._SAFE_DIAGNOSTIC_HEADERS:
+                diagnostic.headers[name] = value
+        if preserve_content_type and "Content-Type" in response.headers:
+            diagnostic.headers["Content-Type"] = response.headers["Content-Type"]
+        diagnostic._content = body.encode(diagnostic.encoding, errors="replace")
+        return diagnostic
+
+    def _response_for_diagnostic(
+        self,
+        response: Response,
+        *,
+        sensitive_values=None,
+    ) -> Response:
+        """Return a response whose body is safe to attach to an exception."""
+        known_values = list(sensitive_values or [])
+        must_detach_request = bool(known_values)
+        parsed = None
+        try:
+            parsed = response.json()
+        except Exception:
+            pass
+
+        if parsed is not None:
+            has_token_field = self._has_api_token_field(parsed)
+            known_values.extend(self._api_token_literal_values(parsed))
+            redacted_payload = self._redact_api_token_fields(parsed)
+            redacted_payload = self._redact_sensitive_values_in_data(
+                redacted_payload,
+                known_values,
+            )
+            if not has_token_field and self._contains_api_token_material(
+                redacted_payload
+            ):
+                return self._response_with_diagnostic_body(
+                    response,
+                    self._REDACTED_API_TOKEN_DIAGNOSTIC,
+                )
+            if redacted_payload != parsed:
+                body = json.dumps(redacted_payload)
+            else:
+                body = response.text
+        else:
+            body = response.text
+
+        body = self._redact_sensitive_values(body, known_values)
+        if body == response.text:
+            if parsed is None and self._contains_api_token_material(body):
+                return self._response_with_diagnostic_body(
+                    response,
+                    self._REDACTED_API_TOKEN_DIAGNOSTIC,
+                )
+            if must_detach_request:
+                return self._response_with_diagnostic_body(
+                    response,
+                    body,
+                    preserve_content_type=True,
+                )
+            return response
+
+        return self._response_with_diagnostic_body(response, body)
+
+    @classmethod
+    def _redacted_response(cls, response: Response) -> Response:
+        """Return a generic body while retaining only safe response metadata."""
+        return cls._response_with_diagnostic_body(
+            response,
+            cls._REDACTED_DIAGNOSTIC,
         )
-        return redacted_response
 
     def _response_text_for_diagnostic(self, response: Response) -> str:
         return self._response_for_diagnostic(response).text
 
     def _format_list_item_error(self, index: int, error: Exception, item: Any) -> str:
-        if self._contains_api_token_material(item) or self._contains_api_token_material(
-            error
-        ):
-            return (
-                f"\n index {index}: response item details were redacted because they"
-                " may contain sensitive authentication data"
-            )
-        return f"\n index {index}: {error}\nitem: {item}"
+        literal_values = self._api_token_literal_values(item)
+        safe_error = self._safe_exception_text(error, literal_values)
+        safe_item = self._redact_api_token_fields(item)
+        return f"\n index {index}: {safe_error}\nitem: {safe_item}"
 
     def _print_programming_error(self, response: Response, e: Exception) -> NoReturn:
         """
         Print a programming error message. This should not happen in production.
         """
-        if self._contains_api_token_material(
-            response.text
-        ) or self._contains_api_token_material(e):
-            status_code = response.status_code
-            raise RuntimeError(
-                "You encountered a programming error. The API returned status"
-                f" {status_code}, but its response could not be decoded. Response"
-                " details were redacted because they may contain sensitive"
-                " authentication data."
-            ) from None
+        literal_values = []
+        try:
+            literal_values = self._api_token_literal_values(response.json())
+        except Exception:
+            pass
+        diagnostic_response = self._response_for_diagnostic(
+            response,
+            sensitive_values=literal_values,
+        )
+        safe_error = self._safe_exception_text(e, literal_values)
         raise RuntimeError(
             "You encountered a programming error. Please report this, and include the"
             " following debug info:\n*** begin of debug info ***\nresponse returned"
-            f" status {response.status_code}, but the content cannot be decoded as"
-            f" json.\nresponse.text: {response.text}\n\nexception details:\n{e}\n***"
+            f" status {diagnostic_response.status_code}, but the content cannot be"
+            " decoded as"
+            f" json.\nresponse.text: {diagnostic_response.text}\n\nexception"
+            f" details:\n{safe_error}\n***"
             " end of debug info ***"
-        )
+        ) from None
 
     T = TypeVar("T", bound=BaseModel)
 
@@ -195,6 +491,7 @@ class APIResourse(object):
 
         valid_items = []
         errors: List[str] = []
+        items_raw: Any = []
 
         try:
             if list_key:

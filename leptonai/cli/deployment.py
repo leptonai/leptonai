@@ -7,6 +7,8 @@ from typing import List, Optional
 
 import click
 from loguru import logger
+from requests.exceptions import ConnectionError as RequestsConnectionError
+from requests.exceptions import Timeout as RequestsTimeout
 from rich.pretty import Pretty
 from rich.table import Table
 from rich.prompt import Confirm
@@ -95,14 +97,23 @@ def _secure_endpoint_defaults_enabled(client: "APIClient") -> bool:
     could otherwise generate a credential that this CLI would unknowingly
     discard through the legacy boolean create path.
     """
+    feature_snapshot = getattr(client, "deployment_feature_snapshot", None)
     info = getattr(client, "info", None)
-    if not callable(info):
+    if not callable(feature_snapshot) and not callable(info):
         # Compatibility for older injected client implementations that predate
         # workspace feature discovery. The production APIClient always exposes
         # info(); an actual request/parsing failure still aborts below.
         return False
     try:
-        features = getattr(info(), "features", None)
+        workspace_info = feature_snapshot() if callable(feature_snapshot) else info()
+        features = getattr(workspace_info, "features", None)
+    except (
+        WorkspaceUnauthorizedError,
+        WorkspaceNotFoundError,
+        WorkspaceForbiddenError,
+        DeploymentFeatureSnapshotMismatchError,
+    ):
+        raise
     except Exception:
         raise ValueError(
             "Could not determine the workspace's secure endpoint default. No endpoint"
@@ -150,20 +161,52 @@ def _print_generated_api_token(token: Optional[str]) -> None:
     if token is None:
         return
     console.print("\n[bold yellow]Generated API Token (save this value):[/]")
-    console.print(token, markup=False, highlight=False)
+    console.print(token, markup=False, highlight=False, soft_wrap=True)
 
 
-def _deployment_dict_with_redacted_api_tokens(
-    deployment: "LeptonDeployment",
-) -> dict:
-    """Copy a deployment payload and redact all literal API-token values."""
-    payload = deployment.model_dump()
+def _print_ambiguous_create_recovery(name: str) -> None:
+    console.print(
+        "[yellow]The endpoint create result could not be confirmed.[/] Check"
+        f" `lep endpoint status -n {name}`. If the endpoint exists and a token was"
+        " generated, replace it immediately with `lep endpoint update"
+        f" -n {name} --tokens TOKEN`."
+    )
+
+
+def _ambiguous_create_failure_summary(error: Exception) -> Optional[str]:
+    """Return a credential-safe category for an ambiguous create failure."""
+    if isinstance(error, ServerError):
+        status_code = getattr(getattr(error, "response", None), "status_code", None)
+        if isinstance(status_code, int):
+            return f"server returned HTTP {status_code}"
+        return "server request failed"
+    if isinstance(error, RequestsTimeout):
+        return "request timed out"
+    if isinstance(error, RequestsConnectionError):
+        return "connection failed"
+    return None
+
+
+def _redact_api_tokens_in_payload(payload: dict) -> dict:
     spec = payload.get("spec")
     if isinstance(spec, dict):
         for token in spec.get("api_tokens") or []:
             if isinstance(token, dict) and token.get("value"):
                 token["value"] = "***"
     return payload
+
+
+def _deployment_dict_with_redacted_api_tokens(
+    deployment: "LeptonDeployment",
+) -> dict:
+    """Copy a deployment payload and redact all literal API-token values."""
+    return _redact_api_tokens_in_payload(deployment.model_dump(mode="json"))
+
+
+def _has_redacted_api_token_placeholder(spec: "LeptonDeploymentUserSpec") -> bool:
+    return any(
+        getattr(token, "value", None) == "***" for token in spec.api_tokens or []
+    )
 
 
 def _deployment_json_for_debug(deployment: "LeptonDeployment") -> str:
@@ -211,8 +254,13 @@ from leptonai.config import (
     DEFAULT_TIMEOUT,
     DEFAULT_RESOURCE_SHAPE,
 )
-from ..api.v2.client import APIClient
-from ..api.v2.api_resource import ClientError
+from ..api.v2.client import APIClient, DeploymentFeatureSnapshotMismatchError
+from ..api.v2.api_resource import APIResourse, ClientError, ServerError
+from ..api.v2.utils import (
+    WorkspaceForbiddenError,
+    WorkspaceNotFoundError,
+    WorkspaceUnauthorizedError,
+)
 from ..api.v2.devpod import DevPodAPI
 from ..api.v2.endpoint import EndpointAPI, NewEndpointAPIUnsupported
 from ..api.v2.deployment import make_token_vars_from_config
@@ -1123,15 +1171,41 @@ def create(
 
     # Load spec from file if provided
     if file:
+        spec_payload = None
         try:
             with open(file, "r") as f:
                 content = f.read()
-                spec = LeptonDeploymentUserSpec.model_validate_json(content)
+                spec_payload = json.loads(content)
+                spec = LeptonDeploymentUserSpec.model_validate(spec_payload)
         except Exception as e:
-            console.print(f"Cannot load endpoint spec from file [red]{file}[/]: {e}")
+            literal_values = APIResourse._api_token_literal_values(spec_payload)
+            safe_error = APIResourse._safe_exception_text(e, literal_values)
+            console.print(
+                f"Cannot load endpoint spec from file [red]{file}[/]: {safe_error}"
+            )
             sys.exit(1)
     else:
         spec = LeptonDeploymentUserSpec()
+
+    if (
+        file
+        and _has_redacted_api_token_placeholder(spec)
+        and not tokens
+        and not allow_unauthenticated_access
+    ):
+        console.print(
+            "[red]Error[/]: The endpoint spec contains a redacted API-token"
+            " placeholder (`***`), which cannot be reused as a credential. Supply"
+            " --tokens or --allow-unauthenticated-access explicitly."
+        )
+        sys.exit(1)
+
+    if "***" in tokens:
+        console.print(
+            "[red]Error[/]: `***` is a redacted API-token placeholder, not a usable"
+            " token. Supply a real token instead."
+        )
+        sys.exit(1)
 
     if allow_unauthenticated_access and tokens:
         console.print(
@@ -1557,25 +1631,38 @@ def create(
         and not spec.api_tokens
     )
 
-    if deleted_for_rerun and isinstance(dep_api, (EndpointAPI, DevPodAPI)):
-        created_deployment = _create_after_new_api_rerun(
-            dep_api,
-            lepton_deployment,
-            name,
-            return_response=authentication_undecided,
-            tolerate_legacy_response=not secure_endpoint_defaults,
-        )
-    elif authentication_undecided:
-        create_with_response = getattr(dep_api, "create_with_response", None)
-        if callable(create_with_response):
-            created_deployment = create_with_response(
+    try:
+        if deleted_for_rerun and isinstance(dep_api, (EndpointAPI, DevPodAPI)):
+            created_deployment = _create_after_new_api_rerun(
+                dep_api,
                 lepton_deployment,
+                name,
+                return_response=authentication_undecided,
                 tolerate_legacy_response=not secure_endpoint_defaults,
             )
+        elif authentication_undecided:
+            create_with_response = getattr(dep_api, "create_with_response", None)
+            if callable(create_with_response):
+                created_deployment = create_with_response(
+                    lepton_deployment,
+                    tolerate_legacy_response=not secure_endpoint_defaults,
+                )
+            else:
+                created_deployment = dep_api.create(lepton_deployment)
         else:
             created_deployment = dep_api.create(lepton_deployment)
-    else:
-        created_deployment = dep_api.create(lepton_deployment)
+    except ClientError:
+        raise
+    except Exception as e:
+        if authentication_undecided:
+            _print_ambiguous_create_recovery(name)
+            summary = _ambiguous_create_failure_summary(e)
+            detail = f" ({summary})" if summary is not None else ""
+            raise RuntimeError(
+                "The endpoint create request had an unknown outcome"
+                f"{detail}. Follow the recovery guidance above."
+            ) from None
+        raise
 
     generated_token = _server_generated_api_token(
         created_deployment,
@@ -1735,7 +1822,7 @@ def status(name, show_tokens, detail):
     ip_allowlist = getattr(
         getattr(dep_info.spec, "auth_config", None), "ip_allowlist", None
     )
-    console.print(f"Is Public:  {'No' if ip_allowlist else 'Yes'}")
+    console.print(f"IP Access:  {'Restricted' if ip_allowlist else 'Any IP'}")
     token_auth_enabled = bool(dep_info.spec.api_tokens) and not bool(
         dep_info.spec.allow_unauthenticated_access
     )
@@ -1824,7 +1911,7 @@ def status(name, show_tokens, detail):
         console.print(table)
     if detail:
         detail_payload = (
-            dep_info.model_dump()
+            dep_info.model_dump(mode="json")
             if show_tokens
             else _deployment_dict_with_redacted_api_tokens(dep_info)
         )
@@ -2163,6 +2250,16 @@ def update(
 
     client = APIClient()
     lepton_deployment = client.deployment.get(name)
+    if (
+        lepton_deployment.spec is not None
+        and lepton_deployment.spec.is_pod is True
+        and (tokens or allow_unauthenticated_access)
+    ):
+        console.print(
+            "[red]Error[/]: API-token authentication options apply only to endpoints;"
+            " they cannot be used to update a pod."
+        )
+        sys.exit(1)
 
     autoscaler_flag = (
         replicas_static is not None
@@ -2249,9 +2346,6 @@ def update(
         auto_scaler=temp_auto_scaler,
     )
 
-    if allow_unauthenticated_access:
-        _warn_unauthenticated_access()
-
     # Apply container image update while preserving existing command/ports if present
     if container_image is not None:
         existing_container = (
@@ -2335,6 +2429,15 @@ def update(
         ),
         spec=lepton_deployment_spec,
     )
+
+    if allow_unauthenticated_access:
+        _warn_unauthenticated_access()
+        if sys.stdin.isatty() and not click.confirm(
+            "This update removes API-token authentication from the endpoint. Continue?",
+            default=False,
+        ):
+            console.print("Update cancelled; the endpoint was not changed.")
+            return
 
     logger.trace(_deployment_json_for_debug(new_lepton_deployment))
 
@@ -2437,6 +2540,15 @@ def events(name):
 @deployment.command()
 @click.option("--name", "-n", help="Endpoint name", required=True, type=str)
 @click.option(
+    "--show-tokens",
+    is_flag=True,
+    default=False,
+    help=(
+        "Include literal API-token values in terminal output and any saved spec."
+        " Without this flag, token values are replaced with `***`."
+    ),
+)
+@click.option(
     "--path",
     "-p",
     type=click.Path(
@@ -2454,7 +2566,7 @@ def events(name):
     ),
     required=False,
 )
-def get(name, path):
+def get(name, show_tokens, path):
     """Shows Endpoint detail and optionally saves its spec JSON."""
 
     client = APIClient()
@@ -2465,10 +2577,16 @@ def get(name, path):
         console.print(f"[red]Failed to fetch endpoint {name}: {e}[/]")
         sys.exit(1)
 
-    console.print(json.dumps(client.deployment.safe_json(dep), indent=2))
+    output_payload = client.deployment.safe_json(dep)
+    if not show_tokens:
+        output_payload = _redact_api_tokens_in_payload(output_payload)
+    console.print(json.dumps(output_payload, indent=2))
 
     if path:
-        spec_json = dep.spec.model_dump_json(indent=2, by_alias=True)
+        spec_payload = dep.spec.model_dump(by_alias=True, mode="json")
+        if not show_tokens:
+            spec_payload = _redact_api_tokens_in_payload({"spec": spec_payload})["spec"]
+        spec_json = json.dumps(spec_payload, indent=2)
         try:
             save_path = resolve_save_path(path, f"endpoint-spec-{name}.json")
         except PathResolutionError as e:

@@ -44,6 +44,21 @@ token; save that value so clients can authenticate. You can instead provide one 
 more repeatable `--tokens` values, or explicitly opt out with
 `--allow-unauthenticated-access` (the CLI displays a warning). The `--public` option
 only controls IP reachability and does not disable API-token authentication.
+`lep endpoint status` reports these dimensions separately as `IP Access` and
+`API Token Authentication`.
+
+SDK callers that leave endpoint authentication unspecified should use
+`client.deployment.create_with_response(...)` and save the token from the returned
+resource. The older `create(...)` method keeps its boolean return contract and cannot
+return a server-generated credential, so it emits a `RuntimeWarning` for requests that
+may ask the server to generate one. SDK updates may not clear `api_tokens` by sending
+an empty list alone: set `allow_unauthenticated_access=true` in the same update, or
+replace the list with at least one token.
+
+`lep endpoint get` redacts literal tokens by default. Use `--show-tokens` only when you
+need a credential-bearing response or reusable spec export, and handle that output as
+a secret. The former hidden `update --remove-tokens` option is rejected; use
+`--allow-unauthenticated-access` for an explicit opt-out.
 
 Authentication-mode updates are explicit:
 

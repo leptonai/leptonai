@@ -26,6 +26,11 @@ class PodAPI(APIResourse):
             return None
         if not spec.is_pod:
             raise ValueError("The spec is not a pod spec.")
+        if spec.allow_unauthenticated_access is not None:
+            raise ValueError(
+                "allow_unauthenticated_access applies only to endpoints and cannot"
+                " be set on a pod spec."
+            )
         if spec.resource_requirement:
             if spec.resource_requirement.min_replicas not in (None, 1):
                 warnings.warn(

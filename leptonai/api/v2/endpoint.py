@@ -30,6 +30,11 @@ from .types.readiness import ReadinessIssue
 from .types.termination import DeploymentTerminations
 from .types.replica import Replica
 from . import translation
+from .deployment import (
+    endpoint_payload_may_generate_api_token,
+    normalize_endpoint_authentication_payload,
+    warn_if_create_may_hide_generated_token,
+)
 
 
 class NewEndpointAPIUnsupported(RuntimeError):
@@ -65,19 +70,20 @@ class EndpointAPI(APIResourse):
                 raise TypeError(
                     f"expected an endpoint object, got {type(raw).__name__}"
                 )
+            if self._has_misplaced_api_token_field(raw):
+                raise ValueError("endpoint response has a misplaced token field")
             model = LeptonDeployment(**translation.http_endpoint_to_legacy(raw))
             if model.metadata is None or not (
                 model.metadata.name or model.metadata.id_
             ):
                 raise ValueError("endpoint response is missing metadata.name")
             return model
-        except Exception:
-            if self._contains_api_token_material(raw):
-                raise RuntimeError(
-                    "The endpoint response could not be decoded. Response details were"
-                    " redacted because they may contain sensitive authentication data."
-                ) from None
-            raise
+        except Exception as error:
+            literal_values = self._api_token_literal_values(raw)
+            safe_error = self._safe_exception_text(error, literal_values)
+            raise RuntimeError(
+                f"The endpoint response could not be decoded: {safe_error}"
+            ) from None
 
     def list_all(self) -> List[LeptonDeployment]:
         # GET /endpoints returns a bare array by default (no pagination params
@@ -110,14 +116,33 @@ class EndpointAPI(APIResourse):
         if spec.spec is not None and spec.spec.is_pod is True:
             self._client.pod.validate_create(spec)
             return
-        translation.legacy_to_http_endpoint(self.safe_json(spec))
+        legacy_payload = normalize_endpoint_authentication_payload(self.safe_json(spec))
+        translation.legacy_to_http_endpoint(legacy_payload)
 
     def create(self, spec: LeptonDeployment) -> bool:
-        """Create an endpoint and preserve the historical boolean result."""
+        """Create an endpoint and preserve the historical boolean result.
+
+        When authentication is unspecified, a secure-default server may return a
+        generated credential that this compatibility method does not expose. Use
+        :meth:`create_with_response` to receive the created resource and token.
+        """
         if spec.spec is not None and spec.spec.is_pod is True:
             return self._client.pod.create(spec)
-        payload = translation.legacy_to_http_endpoint(self.safe_json(spec))
+        legacy_payload = normalize_endpoint_authentication_payload(self.safe_json(spec))
+        payload = translation.legacy_to_http_endpoint(legacy_payload)
+        warn_if_create_may_hide_generated_token(legacy_payload)
         response = self._post("/endpoints", json=payload)
+        status_code = getattr(response, "status_code", 0)
+        if isinstance(status_code, int) and status_code >= 400:
+            if status_code >= 500 and endpoint_payload_may_generate_api_token(
+                legacy_payload
+            ):
+                response = self._redacted_response(response)
+            else:
+                response = self._response_for_diagnostic(
+                    response,
+                    sensitive_values=self._api_token_literal_values(payload),
+                )
         return self.ensure_ok(response)
 
     def create_with_response(
@@ -139,13 +164,20 @@ class EndpointAPI(APIResourse):
         """
         if spec.spec is not None and spec.spec.is_pod is True:
             return self._client.pod.create(spec)
-        payload = translation.legacy_to_http_endpoint(self.safe_json(spec))
+        legacy_payload = normalize_endpoint_authentication_payload(self.safe_json(spec))
+        payload = translation.legacy_to_http_endpoint(legacy_payload)
         response = self._post("/endpoints", json=payload)
-        if response.status_code >= 400:
-            # The server may have generated a credential before a downstream
-            # failure. Redact unconditionally; marker-based detection cannot
-            # prove an arbitrary raw error body is token-free.
-            response = self._redacted_response(response)
+        status_code = getattr(response, "status_code", 0)
+        if isinstance(status_code, int) and status_code >= 400:
+            if status_code >= 500 and endpoint_payload_may_generate_api_token(
+                legacy_payload
+            ):
+                response = self._redacted_response(response)
+            else:
+                response = self._response_for_diagnostic(
+                    response,
+                    sensitive_values=self._api_token_literal_values(payload),
+                )
         self._raise_if_not_ok(response)
         try:
             return self._http_endpoint_to_model(response.json())
@@ -200,9 +232,19 @@ class EndpointAPI(APIResourse):
             return self._client.pod.update(name_or_deployment, spec)
         name = self._to_name(name_or_deployment)
         raw = self._get_raw(name)
-        payload = translation.legacy_to_http_endpoint_patch(raw, self.safe_json(spec))
+        legacy_payload = normalize_endpoint_authentication_payload(
+            self.safe_json(spec),
+            for_update=True,
+        )
+        payload = translation.legacy_to_http_endpoint_patch(raw, legacy_payload)
         dryrun_param = "?dryrun=true" if dryrun else ""
         response = self._patch(f"/endpoints/{name}{dryrun_param}", json=payload)
+        status_code = getattr(response, "status_code", 0)
+        if isinstance(status_code, int) and status_code >= 400:
+            response = self._response_for_diagnostic(
+                response,
+                sensitive_values=self._api_token_literal_values(payload),
+            )
         return self._http_endpoint_to_model(self.ensure_json(response))
 
     def stop(

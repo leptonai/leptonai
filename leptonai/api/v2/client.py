@@ -34,6 +34,7 @@ from .raycluster import RayClusterAPI
 
 
 from .utils import (
+    WorkspaceError,
     WorkspaceForbiddenError,
     _get_full_workspace_api_url,
     WorkspaceUnauthorizedError,
@@ -44,9 +45,12 @@ from .utils import (
 from .workspace_record import WorkspaceRecord
 from loguru import logger
 
-
 # Token expiry warning: warn at most once per process
 HAS_WARNED_TOKEN_EXPIRE: bool = False
+
+
+class DeploymentFeatureSnapshotMismatchError(WorkspaceError):
+    """The workspace feature snapshot no longer matches the selected API route."""
 
 
 # Process-wide memo of the resolved new-deployment-API flag. The credential is
@@ -56,6 +60,7 @@ HAS_WARNED_TOKEN_EXPIRE: bool = False
 # cache; raw credentials never become cache keys.
 _FlagCacheKey = Tuple[str, str]
 _NEW_DEPLOYMENT_API_FLAG_CACHE: Dict[_FlagCacheKey, bool] = {}
+_DEPLOYMENT_API_WORKSPACE_INFO_CACHE: Dict[_FlagCacheKey, Optional[WorkspaceInfo]] = {}
 
 # Condition-protected single-flight state. The condition is held only for cache
 # bookkeeping, never across /workspace I/O or retry sleeps. Therefore unrelated
@@ -151,10 +156,12 @@ def reset_new_deployment_api_flag_cache(url: Optional[str] = None) -> None:
             )
             if url is None:
                 _NEW_DEPLOYMENT_API_FLAG_CACHE.clear()
+                _DEPLOYMENT_API_WORKSPACE_INFO_CACHE.clear()
             else:
                 for cache_key in list(_NEW_DEPLOYMENT_API_FLAG_CACHE):
                     if cache_key[0] == url:
                         del _NEW_DEPLOYMENT_API_FLAG_CACHE[cache_key]
+                        _DEPLOYMENT_API_WORKSPACE_INFO_CACHE.pop(cache_key, None)
         finally:
             if url is None:
                 _FLAG_CACHE_RESETTING_ALL -= 1
@@ -352,6 +359,7 @@ class APIClient(object):
         # `_NEW_DEPLOYMENT_API_FLAG_CACHE`). None means "not yet read on this
         # client"; it is populated from the memo on first access.
         self._new_deployment_api_enabled: Optional[bool] = None
+        self._deployment_api_workspace_info: Optional[WorkspaceInfo] = None
 
     @property
     def new_deployment_api_enabled(self) -> bool:
@@ -415,6 +423,9 @@ class APIClient(object):
                 cached = _NEW_DEPLOYMENT_API_FLAG_CACHE.get(cache_key)
                 if cached is not None:
                     self._new_deployment_api_enabled = cached
+                    self._deployment_api_workspace_info = (
+                        _DEPLOYMENT_API_WORKSPACE_INFO_CACHE.get(cache_key)
+                    )
                     return cached
 
                 if cache_key not in _FLAG_CACHE_RESOLVING:
@@ -435,6 +446,9 @@ class APIClient(object):
 
         with _FLAG_CACHE_CONDITION:
             _NEW_DEPLOYMENT_API_FLAG_CACHE[cache_key] = resolved
+            _DEPLOYMENT_API_WORKSPACE_INFO_CACHE[cache_key] = (
+                self._deployment_api_workspace_info
+            )
             _FLAG_CACHE_RESOLVING.discard(cache_key)
             _FLAG_CACHE_CONDITION.notify_all()
 
@@ -453,6 +467,7 @@ class APIClient(object):
         rather than being re-litigated on every subsequent dispatch read.
         """
         info = None
+        self._deployment_api_workspace_info = None
         for attempt in range(_FLAG_RESOLVE_RETRIES + 1):
             try:
                 info = self.info(timeout=_FLAG_RESOLVE_REQUEST_TIMEOUT_SECONDS)
@@ -472,9 +487,59 @@ class APIClient(object):
                     )
                     return False
         features = getattr(info, "features", None)
+        self._deployment_api_workspace_info = info
         if features is None:
             return False
         return features.enable_new_deployment_api is True
+
+    def deployment_feature_snapshot(self) -> WorkspaceInfo:
+        """Return one feature snapshot consistent with this client's API route.
+
+        A successful new-API dispatch lookup already fetched ``/workspace``; reuse
+        that exact response for secure-endpoint-default detection. If dispatch had
+        to commit its legacy fallback after transient failures, retry here but
+        reject a recovered snapshot that selects a different route family. The
+        caller can then retry the whole operation instead of mixing feature eras.
+        """
+        selected_new_api = self.new_deployment_api_enabled
+        if self._deployment_api_workspace_info is not None:
+            return self._deployment_api_workspace_info
+
+        info = None
+        for attempt in range(_FLAG_RESOLVE_RETRIES + 1):
+            try:
+                info = self.info(timeout=_FLAG_RESOLVE_REQUEST_TIMEOUT_SECONDS)
+                break
+            except (
+                WorkspaceUnauthorizedError,
+                WorkspaceNotFoundError,
+                WorkspaceForbiddenError,
+            ):
+                raise
+            except Exception:
+                if attempt == _FLAG_RESOLVE_RETRIES:
+                    raise
+                time.sleep(_FLAG_RESOLVE_BACKOFF_SECONDS * (2**attempt))
+
+        features = getattr(info, "features", None)
+        observed_new_api = (
+            features is not None and features.enable_new_deployment_api is True
+        )
+        if observed_new_api != selected_new_api:
+            raise DeploymentFeatureSnapshotMismatchError(
+                "Workspace deployment feature state changed while this operation was"
+                " starting. Retry the command."
+            )
+
+        self._deployment_api_workspace_info = info
+        cache_key = (
+            self.url,
+            _new_deployment_api_credential_fingerprint(self.auth_token),
+        )
+        with _FLAG_CACHE_CONDITION:
+            if _NEW_DEPLOYMENT_API_FLAG_CACHE.get(cache_key) == selected_new_api:
+                _DEPLOYMENT_API_WORKSPACE_INFO_CACHE[cache_key] = info
+        return info
 
     @property
     def deployment(self) -> Union[DeploymentAPI, "EndpointAPI"]:

@@ -104,18 +104,19 @@ The final regression selection covers every v2 API test plus the existing and
 new endpoint/deployment CLI suites:
 
 ```text
-/Users/kennethd/leptonai/activate/bin/python -m pytest -q leptonai/api/v2/tests leptonai/cli/tests/test_deployment_cli.py leptonai/cli/tests/test_new_api_cli_regressions.py leptonai/cli/tests/test_secure_endpoint_auth_cli.py
+/Users/kennethd/leptonai/activate/bin/python -m pytest --no-cov -q leptonai/api/v2/tests leptonai/cli/tests/test_deployment_cli.py leptonai/cli/tests/test_new_api_cli_regressions.py leptonai/cli/tests/test_secure_endpoint_auth_cli.py
 ```
 
-Result: **146 passed, 63 warnings in 15.31s**. The warnings are pre-existing
-Pydantic deprecations. No test is skipped.
+Result: **200 passed, 120 warnings in 16.19s**. The warnings are pre-existing
+Pydantic/deprecation notices plus the expected `RuntimeWarning` exercised by
+the boolean-create compatibility tests. No test is skipped.
 
 An independent full-package check with `pytest --no-cov -q leptonai` reported
-**203 passed and one unrelated environment-dependent failure** in
+**298 passed and one unrelated environment-dependent failure** in
 `leptonai/util/tests/test_s3cache.py`: this workstation has an
 `~/.aws/credentials` file but does not have `boto3` installed, leading to a
 `NameError`. AWS credentials were not accessed and no AWS dependency was
-installed; the impacted 146-test selection above is fully green.
+installed; the impacted 200-test selection above is fully green.
 
 Changed-line coverage was generated from that run and enforced against
 `origin/main`:
@@ -125,7 +126,7 @@ Changed-line coverage was generated from that run and enforced against
 uv run --no-project --with diff-cover diff-cover /tmp/lep6218-coverage.xml --compare-branch=origin/main --fail-under=80
 ```
 
-Result: **91% diff coverage** (198 changed executable lines, 17 uncovered),
+Result: **87% diff coverage** (510 changed executable lines, 62 uncovered),
 above the required 80% threshold.
 
 The two dedicated LEP-6218 suites were also executed in ten fresh Python
@@ -135,15 +136,15 @@ processes with this command per run:
 /Users/kennethd/leptonai/activate/bin/python -m pytest -q --disable-warnings -o addopts= leptonai/cli/tests/test_secure_endpoint_auth_cli.py leptonai/api/v2/tests/test_secure_endpoint_auth_contract.py
 ```
 
-Result: all ten runs passed; each run reported **31 passed and 126 subtests
+Result: all ten runs passed; each run reported **74 passed and 245 subtests
 passed**. A Go-style race detector is not applicable to this Python CLI/SDK
 change.
 
 Formatting and lint checks:
 
 ```text
-/Users/kennethd/leptonai/activate/bin/python -m black --check leptonai/api/v2/tests/test_secure_endpoint_auth_contract.py leptonai/cli/tests/test_secure_endpoint_auth_cli.py
-uv run --no-project --with ruff ruff check leptonai/api/v2/tests/test_secure_endpoint_auth_contract.py leptonai/cli/tests/test_secure_endpoint_auth_cli.py leptonai/api/v2/tests/test_new_api_translation_regressions.py leptonai/api/v2/tests/test_new_api_flag_cache.py leptonai/cli/tests/test_new_api_cli_regressions.py
+git diff --name-only -z origin/main -- '*.py' | xargs -0 /Users/kennethd/leptonai/activate/bin/python -m black --check
+git diff --name-only -z origin/main -- '*.py' | xargs -0 uvx ruff==0.5.7 check
 git diff --check
 ```
 

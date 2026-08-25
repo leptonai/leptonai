@@ -4,15 +4,20 @@ import json
 import os
 import tempfile
 import unittest
+import warnings
+from contextlib import redirect_stderr
+from io import StringIO
 
 # Tests must never read a developer's real workspace configuration.
 os.environ.setdefault("LEPTON_CACHE_DIR", tempfile.mkdtemp())
 
 import responses
+from requests import Response
 
 from leptonai.api.v2 import client as client_module
-from leptonai.api.v2.api_resource import ClientError, ServerError
+from leptonai.api.v2.api_resource import APIResourse, ClientError, ServerError
 from leptonai.api.v2.client import APIClient
+from leptonai.api.v2.endpoint import EndpointAPI
 from leptonai.api.v2.types.common import Metadata
 from leptonai.api.v2.types.deployment import (
     LeptonContainer,
@@ -24,6 +29,10 @@ from leptonai.api.v2.types.deployment import (
 
 BASE = "https://gw.example/api/v2/workspaces/ws1"
 _SECRET = "lep6218-contract-secret"
+_ESCAPED_SECRET = 'q"\\\n\t\u2603\u00e9-secret'
+_LONG_SECRET = (
+    "lep6218-long-secret-prefix-" + ("x" * 192) + "-lep6218-long-secret-suffix"
+)
 _UNSET = object()
 
 
@@ -163,6 +172,18 @@ def _deployment_model(
     )
 
 
+def _pod_model(*, allow_unauthenticated_access):
+    return LeptonDeployment(
+        metadata=Metadata(id="pod", name="pod"),
+        spec=LeptonDeploymentUserSpec(
+            is_pod=True,
+            container=LeptonContainer(image="ubuntu"),
+            resource_requirement=ResourceRequirement(resource_shape="cpu.small"),
+            allow_unauthenticated_access=allow_unauthenticated_access,
+        ),
+    )
+
+
 def _request_json(method, url):
     call = next(
         call
@@ -173,6 +194,31 @@ def _request_json(method, url):
     if isinstance(body, bytes):
         body = body.decode()
     return json.loads(body)
+
+
+def _assert_secret_not_rendered(test_case, text, secret=_ESCAPED_SECRET):
+    """Reject decoded and common escaped renderings of a credential."""
+    renderings = {
+        secret,
+        repr(secret)[1:-1],
+        ascii(secret)[1:-1],
+        json.dumps(secret)[1:-1],
+        json.dumps(secret, ensure_ascii=False)[1:-1],
+    }
+    fragments = set()
+    for rendering in renderings:
+        if len(rendering) > 48:
+            fragments.update((rendering[:24], rendering[-24:]))
+    for rendering in renderings | fragments:
+        test_case.assertNotIn(rendering, text)
+
+
+def _malformed_token_entry(value):
+    return {
+        "value": value,
+        "description": "primary rotation credential",
+        "metadata": {"owner": "platform-security"},
+    }
 
 
 class TestSecureEndpointCreateContract(unittest.TestCase):
@@ -276,6 +322,106 @@ class TestSecureEndpointCreateContract(unittest.TestCase):
                     )
 
                     self.assertIs(created, True)
+
+    # The historical boolean API cannot return a server-generated credential.
+    # Keep it compatible, but tell SDK callers which API preserves the token.
+    @responses.activate
+    def test_boolean_create_warns_when_server_may_generate_the_only_token(self):
+        for new_api in (False, True):
+            with self.subTest(new_api=new_api):
+                responses.reset()
+                _register_workspace(new_api=new_api)
+                url = _route(new_api=new_api)
+                responses.add(
+                    responses.POST,
+                    url,
+                    json=_response_body(
+                        new_api=new_api,
+                        tokens=[_SECRET],
+                        allow_unauthenticated_access=False,
+                    ),
+                    status=201,
+                )
+
+                with warnings.catch_warnings(record=True) as emitted:
+                    warnings.simplefilter("always")
+                    created = _client().deployment.create(
+                        _deployment_model(image="nginx")
+                    )
+
+                self.assertIs(created, True)
+                self.assertTrue(
+                    any(
+                        "create_with_response" in str(item.message) for item in emitted
+                    ),
+                    "generation-eligible create() must point SDK callers to "
+                    "create_with_response()",
+                )
+                self.assertEqual(
+                    [
+                        call.request.url
+                        for call in responses.calls
+                        if call.request.method == "POST"
+                    ],
+                    [url],
+                )
+
+    # The boolean compatibility method cannot return a generated credential.
+    # Its warning follows the request shape, not a potentially stale or absent
+    # workspace feature snapshot: a server-first rollout may secure this create
+    # before the client's cached feature flag catches up.
+    @responses.activate
+    def test_boolean_create_warns_without_a_true_secure_default_snapshot(self):
+        for new_api in (False, True):
+            for snapshot_state in ("stale false", "missing"):
+                with self.subTest(
+                    new_api=new_api,
+                    snapshot_state=snapshot_state,
+                ):
+                    responses.reset()
+                    _register_workspace(
+                        new_api=new_api,
+                        secure_defaults=False,
+                    )
+                    client = _client()
+                    deployment_api = client.deployment
+                    if snapshot_state == "missing":
+                        client._deployment_api_workspace_info = None
+
+                    url = _route(new_api=new_api)
+                    responses.add(
+                        responses.POST,
+                        url,
+                        json=_response_body(
+                            new_api=new_api,
+                            tokens=[_SECRET],
+                            allow_unauthenticated_access=False,
+                        ),
+                        status=201,
+                    )
+
+                    with warnings.catch_warnings(record=True) as emitted:
+                        warnings.simplefilter("always")
+                        created = deployment_api.create(
+                            _deployment_model(image="nginx")
+                        )
+
+                    self.assertIs(created, True)
+                    matching_warnings = [
+                        item
+                        for item in emitted
+                        if "create_with_response" in str(item.message)
+                    ]
+                    self.assertEqual(len(matching_warnings), 1)
+                    self.assertIs(matching_warnings[0].category, RuntimeWarning)
+                    self.assertEqual(
+                        [
+                            call.request.url
+                            for call in responses.calls
+                            if call.request.method == "POST"
+                        ],
+                        [url],
+                    )
 
     # LEP-6218: GET and spec export retain explicit opt-out in both API
     # families, so the exported document can be loaded as a fresh file spec.
@@ -411,6 +557,36 @@ class TestSecureEndpointCreateContract(unittest.TestCase):
                     self.assertIsNone(raised.exception.__cause__)
                     self.assertTrue(raised.exception.__suppress_context__)
 
+    # A token field anywhere outside spec.api_tokens is malformed and cannot be
+    # accepted as a token-free success: Pydantic would otherwise ignore it.
+    @responses.activate
+    def test_nested_misplaced_token_fields_reject_success_for_both_api_families(self):
+        for new_api in (False, True):
+            for token_field in ("api_tokens", "apiTokens"):
+                with self.subTest(new_api=new_api, token_field=token_field):
+                    responses.reset()
+                    _register_workspace(new_api=new_api)
+                    body = _response_body(
+                        new_api=new_api,
+                        allow_unauthenticated_access=False,
+                    )
+                    body["metadata"][token_field] = [{"value": _SECRET}]
+                    responses.add(
+                        responses.POST,
+                        _route(new_api=new_api),
+                        json=body,
+                        status=200,
+                    )
+
+                    with self.assertRaises(RuntimeError) as raised:
+                        _client().deployment.create_with_response(
+                            _deployment_model(image="nginx"),
+                            tolerate_legacy_response=True,
+                        )
+
+                    self.assertNotIn(_SECRET, str(raised.exception))
+                    self.assertTrue(raised.exception.__suppress_context__)
+
     # LEP-6218 security: non-2xx bodies containing snake_case or camelCase token
     # fields/messages are redacted before ClientError/ServerError construction.
     @responses.activate
@@ -449,35 +625,674 @@ class TestSecureEndpointCreateContract(unittest.TestCase):
                         self.assertNotIn(_SECRET, raised.exception.response.text)
                         self.assertEqual(raised.exception.response.status_code, status)
 
-    # LEP-6218 security: response-returning create cannot reliably identify a
-    # markerless generated credential, so every downstream error is generic.
+    # A client-side validation response is safe and useful once any structured
+    # token values have been removed, even when the server may have generated a
+    # token for the default authentication mode.
     @responses.activate
-    def test_create_with_response_redacts_markerless_downstream_errors(self):
+    def test_default_create_4xx_preserves_actionable_structured_diagnostic(self):
+        message = "api_tokens must contain exactly one valid credential"
         for new_api in (False, True):
-            for status, error_type in (
-                (400, ClientError),
-                (500, ServerError),
-            ):
-                with self.subTest(new_api=new_api, status=status):
+            for method_name in ("create", "create_with_response"):
+                with self.subTest(new_api=new_api, method=method_name):
+                    responses.reset()
+                    _register_workspace(new_api=new_api)
+                    responses.add(
+                        responses.POST,
+                        _route(new_api=new_api),
+                        json={
+                            "message": message,
+                            "details": {
+                                "apiTokens": [{"value": _SECRET}],
+                            },
+                        },
+                        status=422,
+                    )
+
+                    create = getattr(_client().deployment, method_name)
+                    with self.assertRaises(ClientError) as raised:
+                        create(_deployment_model(image="nginx"))
+
+                    diagnostic = raised.exception.response
+                    self.assertIn(message, str(raised.exception))
+                    self.assertEqual(diagnostic.json()["message"], message)
+                    self.assertEqual(
+                        diagnostic.json()["details"]["apiTokens"],
+                        [{"value": "***"}],
+                    )
+                    self.assertNotIn(_SECRET, diagnostic.text)
+
+    # A 5xx can be emitted after a generated credential exists, so default
+    # creates must not retain any server response body in the exception.
+    @responses.activate
+    def test_default_create_5xx_uses_generic_diagnostic(self):
+        unsafe_detail = "backend failed after credential generation"
+        for new_api in (False, True):
+            for method_name in ("create", "create_with_response"):
+                with self.subTest(new_api=new_api, method=method_name):
+                    responses.reset()
+                    _register_workspace(new_api=new_api)
+                    responses.add(
+                        responses.POST,
+                        _route(new_api=new_api),
+                        json={
+                            "message": unsafe_detail,
+                            "api_tokens": [{"value": _SECRET}],
+                        },
+                        status=500,
+                    )
+
+                    create = getattr(_client().deployment, method_name)
+                    with self.assertRaises(ServerError) as raised:
+                        create(_deployment_model(image="nginx"))
+
+                    self.assertEqual(
+                        raised.exception.response.text,
+                        APIResourse._REDACTED_DIAGNOSTIC,
+                    )
+                    self.assertNotIn(unsafe_detail, str(raised.exception))
+                    self.assertNotIn(_SECRET, str(raised.exception))
+
+    # LEP-6218 security: response-returning create cannot reliably identify a
+    # markerless generated credential in a downstream 5xx, so its body is
+    # generic. A 4xx is treated as pre-generation validation and remains useful.
+    @responses.activate
+    def test_create_with_response_redacts_markerless_downstream_5xx(self):
+        for new_api in (False, True):
+            with self.subTest(new_api=new_api):
+                responses.reset()
+                _register_workspace(new_api=new_api)
+                url = _route(new_api=new_api)
+                responses.add(
+                    responses.POST,
+                    url,
+                    body=f"downstream failure {_SECRET}",
+                    status=500,
+                    content_type="text/plain",
+                )
+
+                with self.assertRaises(ServerError) as raised:
+                    _client().deployment.create_with_response(
+                        _deployment_model(image="nginx")
+                    )
+
+                self.assertNotIn(_SECRET, str(raised.exception))
+                self.assertNotIn(_SECRET, raised.exception.response.text)
+                self.assertEqual(raised.exception.response.status_code, 500)
+
+    @responses.activate
+    def test_explicit_token_markerless_errors_are_sanitized(self):
+        for new_api in (False, True):
+            for operation in ("create", "update"):
+                for status, error_type in ((400, ClientError), (500, ServerError)):
+                    with self.subTest(
+                        new_api=new_api,
+                        operation=operation,
+                        status=status,
+                    ):
+                        responses.reset()
+                        _register_workspace(new_api=new_api)
+                        url = _route(
+                            new_api=new_api,
+                            name="ep" if operation == "update" else None,
+                        )
+                        if new_api and operation == "update":
+                            responses.add(
+                                responses.GET,
+                                url,
+                                json=_endpoint_body(
+                                    tokens=["old-token"],
+                                    allow_unauthenticated_access=False,
+                                ),
+                                status=200,
+                            )
+                        responses.add(
+                            (
+                                responses.POST
+                                if operation == "create"
+                                else responses.PATCH
+                            ),
+                            url,
+                            body=f"invalid token {_SECRET}",
+                            status=status,
+                            content_type="text/plain",
+                        )
+
+                        api = _client().deployment
+                        request = _deployment_model(
+                            image="nginx" if operation == "create" else _UNSET,
+                            tokens=[_SECRET],
+                            allow_unauthenticated_access=False,
+                        )
+                        with self.assertRaises(error_type) as raised:
+                            if operation == "create":
+                                api.create(request)
+                            else:
+                                api.update("ep", request)
+
+                        self.assertIn("invalid token ***", str(raised.exception))
+                        self.assertNotIn(_SECRET, str(raised.exception))
+                        self.assertNotIn(_SECRET, raised.exception.response.text)
+
+    @responses.activate
+    def test_valid_looking_top_level_token_response_is_rejected(self):
+        for new_api in (False, True):
+            with self.subTest(new_api=new_api):
+                responses.reset()
+                _register_workspace(new_api=new_api)
+                body = _response_body(new_api=new_api)
+                body["api_tokens"] = [{"value": _SECRET}]
+                responses.add(
+                    responses.POST,
+                    _route(new_api=new_api),
+                    json=body,
+                    status=201,
+                )
+
+                with self.assertRaises(RuntimeError) as raised:
+                    _client().deployment.create_with_response(
+                        _deployment_model(image="nginx")
+                    )
+
+                self.assertNotIn(_SECRET, str(raised.exception))
+                self.assertIn("response could not be decoded", str(raised.exception))
+
+    @responses.activate
+    def test_explicit_opt_out_is_normalized_to_atomic_empty_token_list(self):
+        for new_api in (False, True):
+            with self.subTest(new_api=new_api):
+                responses.reset()
+                _register_workspace(new_api=new_api)
+                url = _route(new_api=new_api)
+                responses.add(
+                    responses.POST,
+                    url,
+                    json=_response_body(
+                        new_api=new_api,
+                        tokens=[],
+                        allow_unauthenticated_access=True,
+                    ),
+                    status=201,
+                )
+
+                _client().deployment.create_with_response(
+                    _deployment_model(
+                        image="nginx",
+                        allow_unauthenticated_access=True,
+                    )
+                )
+
+                sent = _request_json("POST", url)["spec"]
+                self.assertIs(sent["allow_unauthenticated_access"], True)
+                self.assertEqual(sent["api_tokens"], [])
+
+    @responses.activate
+    def test_explicit_protected_mode_without_tokens_allows_server_default_create(self):
+        for new_api in (False, True):
+            for method_name in ("create", "create_with_response"):
+                with self.subTest(new_api=new_api, method=method_name):
                     responses.reset()
                     _register_workspace(new_api=new_api)
                     url = _route(new_api=new_api)
                     responses.add(
                         responses.POST,
                         url,
-                        body=f"downstream failure {_SECRET}",
-                        status=status,
-                        content_type="text/plain",
+                        json=_response_body(
+                            new_api=new_api,
+                            tokens=[_SECRET],
+                            allow_unauthenticated_access=False,
+                        ),
+                        status=201,
                     )
 
-                    with self.assertRaises(error_type) as raised:
-                        _client().deployment.create_with_response(
-                            _deployment_model(image="nginx")
+                    create = getattr(_client().deployment, method_name)
+                    created = create(
+                        _deployment_model(
+                            image="nginx",
+                            allow_unauthenticated_access=False,
+                        )
+                    )
+
+                    if method_name == "create":
+                        self.assertIs(created, True)
+                    else:
+                        self.assertEqual(
+                            [token.value for token in created.spec.api_tokens],
+                            [_SECRET],
+                        )
+                    sent = _request_json("POST", url)["spec"]
+                    self.assertIs(sent["allow_unauthenticated_access"], False)
+                    self.assertNotIn("api_tokens", sent)
+
+    @responses.activate
+    def test_create_allows_empty_or_omitted_tokens_for_server_default(self):
+        token_inputs = (
+            ("omitted", _UNSET),
+            ("empty", []),
+        )
+        for new_api in (False, True):
+            for mode, tokens in token_inputs:
+                with self.subTest(new_api=new_api, mode=mode):
+                    responses.reset()
+                    _register_workspace(new_api=new_api)
+                    url = _route(new_api=new_api)
+                    responses.add(
+                        responses.POST,
+                        url,
+                        json=_response_body(
+                            new_api=new_api,
+                            tokens=[_SECRET],
+                            allow_unauthenticated_access=False,
+                        ),
+                        status=201,
+                    )
+
+                    created = _client().deployment.create_with_response(
+                        _deployment_model(image="nginx", tokens=tokens)
+                    )
+
+                    self.assertEqual(
+                        [token.value for token in created.spec.api_tokens],
+                        [_SECRET],
+                    )
+                    sent = _request_json("POST", url)["spec"]
+                    if tokens is _UNSET:
+                        self.assertNotIn("api_tokens", sent)
+                    else:
+                        self.assertEqual(sent["api_tokens"], [])
+                    self.assertNotIn("allow_unauthenticated_access", sent)
+
+    @responses.activate
+    def test_contradictory_or_redacted_tokens_fail_before_post(self):
+        invalid_requests = (
+            _deployment_model(
+                image="nginx",
+                tokens=["real-token"],
+                allow_unauthenticated_access=True,
+            ),
+            _deployment_model(image="nginx", tokens=["***"]),
+        )
+        for new_api in (False, True):
+            for request in invalid_requests:
+                with self.subTest(
+                    new_api=new_api,
+                    tokens=[token.value for token in request.spec.api_tokens],
+                ):
+                    responses.reset()
+                    _register_workspace(new_api=new_api)
+                    with self.assertRaises(ValueError):
+                        _client().deployment.create(request)
+                    self.assertFalse(
+                        any(call.request.method == "POST" for call in responses.calls)
+                    )
+
+
+class TestSecureEndpointDiagnosticContract(unittest.TestCase):
+    def test_json_unstructured_token_diagnostics_never_expose_raw_suffix(self):
+        raw_suffix = "arbitrary-raw-validator-suffix-6218"
+        bodies = (
+            json.dumps(f"spec.api_tokens rejected; raw context: {raw_suffix}"),
+            json.dumps([
+                "spec.apiTokens rejected",
+                f"raw context: {raw_suffix}",
+            ]),
+            json.dumps(
+                {"message": f"spec.api_tokens rejected; raw context: {raw_suffix}"}
+            ),
+        )
+        for body in bodies:
+            with self.subTest(body=body):
+                response = Response()
+                response.status_code = 400
+                response.encoding = "utf-8"
+                response.headers["Content-Type"] = "application/json"
+                response._content = body.encode()
+
+                resource = APIResourse.__new__(APIResourse)
+                safe = resource._response_for_diagnostic(response)
+
+                self.assertEqual(
+                    safe.text,
+                    APIResourse._REDACTED_API_TOKEN_DIAGNOSTIC,
+                )
+                self.assertIn("api_tokens", safe.text)
+                self.assertIn("credential", safe.text)
+                self.assertIn("redacted", safe.text)
+                self.assertNotIn("non-empty", safe.text)
+                self.assertNotIn("unauthenticated access", safe.text)
+                self.assertNotIn(raw_suffix, safe.text)
+
+    def test_rewritten_plain_text_diagnostic_drops_json_content_type(self):
+        response = Response()
+        response.status_code = 500
+        response.encoding = "utf-8"
+        response.headers["Content-Type"] = "application/json; charset=utf-8"
+        response._content = b'{"message": "potentially sensitive response"}'
+
+        safe = APIResourse._redacted_response(response)
+
+        self.assertEqual(safe.text, APIResourse._REDACTED_DIAGNOSTIC)
+        self.assertNotIn("Content-Type", safe.headers)
+
+    def test_non_json_token_reference_uses_neutral_guidance_without_raw_suffix(self):
+        raw_suffix = "internal-validator-suffix-6218"
+        response = Response()
+        response.status_code = 400
+        response.encoding = "utf-8"
+        response._content = (
+            f"spec.api_tokens must not be empty; raw context: {raw_suffix}"
+        ).encode()
+
+        resource = APIResourse.__new__(APIResourse)
+        safe = resource._response_for_diagnostic(response)
+
+        self.assertEqual(
+            safe.text,
+            APIResourse._REDACTED_API_TOKEN_DIAGNOSTIC,
+        )
+        self.assertIn("api_tokens", safe.text)
+        self.assertIn("credential", safe.text)
+        self.assertIn("redacted", safe.text)
+        self.assertNotIn("non-empty", safe.text)
+        self.assertNotIn("unauthenticated access", safe.text)
+        self.assertNotIn(raw_suffix, safe.text)
+        self.assertNotIn("raw context", safe.text)
+
+    def test_json_known_token_redaction_handles_escaped_and_unicode_text(self):
+        token = 'quote" backslash\\ newline\n tab\t snowman-\u2603 caf\u00e9'
+        response = Response()
+        response.status_code = 400
+        response.encoding = "utf-8"
+        response._content = json.dumps({
+            "message": f"invalid token {token}",
+            "apiTokens": [{"value": token}],
+        }).encode()
+
+        resource = APIResourse.__new__(APIResourse)
+        safe = resource._response_for_diagnostic(
+            response,
+            sensitive_values=[token],
+        )
+
+        self.assertEqual(safe.json()["message"], "invalid token ***")
+        self.assertEqual(safe.json()["apiTokens"], [{"value": "***"}])
+        self.assertNotIn("snowman", safe.text)
+        self.assertNotIn("caf", safe.text)
+
+    def test_nested_non_string_token_value_is_absent_from_pydantic_diagnostic(self):
+        malformed_values = (
+            {"nested": {"credential": _ESCAPED_SECRET}},
+            {"nested": {"credential": _LONG_SECRET}},
+            ["wrapper", {"credential": _ESCAPED_SECRET}],
+        )
+        for malformed_value in malformed_values:
+            with self.subTest(value_type=type(malformed_value).__name__):
+                raw = _legacy_body()
+                raw["spec"]["api_tokens"] = [_malformed_token_entry(malformed_value)]
+                response = Response()
+                response.status_code = 200
+                response.encoding = "utf-8"
+                response.headers["Content-Type"] = "application/json"
+                response._content = json.dumps(
+                    raw,
+                    ensure_ascii=False,
+                ).encode()
+
+                resource = APIResourse.__new__(APIResourse)
+                with self.assertRaises(RuntimeError) as raised:
+                    resource.ensure_type(response, LeptonDeployment)
+
+                diagnostic = str(raised.exception)
+                _assert_secret_not_rendered(self, diagnostic)
+                _assert_secret_not_rendered(self, diagnostic, _LONG_SECRET)
+                self.assertIn("primary rotation credential", diagnostic)
+                self.assertIn("platform-security", diagnostic)
+
+    def test_nested_non_string_token_value_is_absent_from_list_diagnostic(self):
+        malformed_values = (
+            {"nested": {"credential": _ESCAPED_SECRET}},
+            {"nested": {"credential": _LONG_SECRET}},
+            ["wrapper", {"credential": _ESCAPED_SECRET}],
+        )
+        for malformed_value in malformed_values:
+            with self.subTest(value_type=type(malformed_value).__name__):
+                raw = _legacy_body()
+                raw["spec"]["api_tokens"] = [_malformed_token_entry(malformed_value)]
+                response = Response()
+                response.status_code = 200
+                response.encoding = "utf-8"
+                response.headers["Content-Type"] = "application/json"
+                response._content = json.dumps(
+                    [raw],
+                    ensure_ascii=False,
+                ).encode()
+
+                resource = APIResourse.__new__(APIResourse)
+                stderr = StringIO()
+                with redirect_stderr(stderr):
+                    parsed = resource.ensure_list(response, LeptonDeployment)
+
+                self.assertEqual(parsed, [])
+                diagnostic = stderr.getvalue()
+                _assert_secret_not_rendered(self, diagnostic)
+                _assert_secret_not_rendered(self, diagnostic, _LONG_SECRET)
+                self.assertIn("primary rotation credential", diagnostic)
+                self.assertIn("platform-security", diagnostic)
+
+    def test_nested_non_string_token_value_is_absent_from_endpoint_decode_error(self):
+        malformed_values = (
+            {"nested": {"credential": _ESCAPED_SECRET}},
+            {"nested": {"credential": _LONG_SECRET}},
+            ["wrapper", {"credential": _ESCAPED_SECRET}],
+        )
+        for malformed_value in malformed_values:
+            with self.subTest(value_type=type(malformed_value).__name__):
+                raw = _endpoint_body()
+                raw["spec"]["api_tokens"] = [_malformed_token_entry(malformed_value)]
+
+                endpoint_api = EndpointAPI.__new__(EndpointAPI)
+                with self.assertRaises(RuntimeError) as raised:
+                    endpoint_api._http_endpoint_to_model(raw)
+
+                diagnostic = str(raised.exception)
+                _assert_secret_not_rendered(self, diagnostic)
+                _assert_secret_not_rendered(self, diagnostic, _LONG_SECRET)
+                self.assertIn("endpoint response could not be decoded", diagnostic)
+
+    def test_wrapped_token_value_is_redacted_without_hiding_safe_siblings(self):
+        payload = {
+            "api_tokens": {
+                "items": [{"value": _SECRET}],
+                "description": "primary rotation credential",
+            }
+        }
+
+        self.assertEqual(
+            APIResourse._api_token_literal_values(payload),
+            [_SECRET],
+        )
+        redacted = APIResourse._redact_api_token_fields(payload)
+        self.assertEqual(redacted["api_tokens"]["items"][0]["value"], "***")
+        self.assertEqual(
+            redacted["api_tokens"]["description"],
+            "primary rotation credential",
+        )
+        self.assertNotIn(_SECRET, json.dumps(redacted))
+
+    def test_token_redaction_preserves_non_value_sibling_metadata(self):
+        token_entry = _malformed_token_entry(
+            {"nested": {"credential": _ESCAPED_SECRET}}
+        )
+        token_entry["value_from"] = {"token_name_ref": "workspace-token-ref"}
+
+        redacted = APIResourse._redact_api_token_fields({"api_tokens": [token_entry]})
+
+        self.assertEqual(redacted["api_tokens"][0]["value"], "***")
+        self.assertEqual(
+            redacted["api_tokens"][0]["description"],
+            "primary rotation credential",
+        )
+        self.assertEqual(
+            redacted["api_tokens"][0]["metadata"],
+            {"owner": "platform-security"},
+        )
+        self.assertEqual(
+            redacted["api_tokens"][0]["value_from"],
+            {"token_name_ref": "workspace-token-ref"},
+        )
+        _assert_secret_not_rendered(self, json.dumps(redacted, ensure_ascii=False))
+
+    def test_structured_redaction_preserves_safe_errors_and_metadata(self):
+        response = Response()
+        response.status_code = 400
+        response.encoding = "utf-8"
+        response.url = "https://gw.example/request"
+        response.reason = "Bad Request"
+        response.headers.update({
+            "X-Request-ID": "request-123",
+            "Retry-After": "7",
+            "Set-Cookie": f"session={_SECRET}",
+        })
+        response.request = type("Request", (), {"body": _SECRET})()
+        response._content = json.dumps({
+            "message": "spec.api_tokens must not be empty",
+            "apiTokens": [{"value": _SECRET}],
+        }).encode()
+
+        resource = APIResourse.__new__(APIResourse)
+        safe = resource._response_for_diagnostic(response)
+
+        self.assertIn("spec.api_tokens must not be empty", safe.text)
+        self.assertNotIn(_SECRET, safe.text)
+        self.assertEqual(safe.url, response.url)
+        self.assertEqual(safe.reason, response.reason)
+        self.assertEqual(safe.headers["X-Request-ID"], "request-123")
+        self.assertEqual(safe.headers["Retry-After"], "7")
+        self.assertNotIn("Set-Cookie", safe.headers)
+        self.assertIsNone(safe.request)
+
+    def test_known_sensitive_values_always_detach_request_metadata(self):
+        response = Response()
+        response.status_code = 400
+        response.encoding = "utf-8"
+        response.url = "https://gw.example/request"
+        response.reason = "Bad Request"
+        response.headers.update({"X-Request-ID": "request-456"})
+        original_request = type("Request", (), {"body": _SECRET})()
+        response.request = original_request
+        response._content = b'{"message": "safe validation failure"}'
+
+        resource = APIResourse.__new__(APIResourse)
+        safe = resource._response_for_diagnostic(
+            response,
+            sensitive_values=[_SECRET],
+        )
+
+        self.assertIsNot(safe, response)
+        self.assertEqual(safe.json(), {"message": "safe validation failure"})
+        self.assertEqual(safe.status_code, 400)
+        self.assertEqual(safe.url, response.url)
+        self.assertEqual(safe.reason, response.reason)
+        self.assertEqual(safe.headers["X-Request-ID"], "request-456")
+        self.assertIsNone(safe.request)
+        self.assertIs(response.request, original_request)
+
+    def test_list_diagnostic_keeps_reason_while_redacting_token(self):
+        resource = APIResourse.__new__(APIResourse)
+        item = {
+            "metadata": {"name": "broken"},
+            "spec": {"api_tokens": [{"value": _SECRET}]},
+        }
+
+        diagnostic = resource._format_list_item_error(
+            3,
+            ValueError(f"missing component after {_SECRET}"),
+            item,
+        )
+
+        self.assertIn("index 3", diagnostic)
+        self.assertIn("missing component", diagnostic)
+        self.assertIn("api_tokens", diagnostic)
+        self.assertNotIn(_SECRET, diagnostic)
+
+    def test_authentication_opt_out_uses_strict_boolean(self):
+        for valid in (True, False, None):
+            with self.subTest(valid=valid):
+                model = LeptonDeploymentUserSpec(allow_unauthenticated_access=valid)
+                self.assertIs(model.allow_unauthenticated_access, valid)
+
+        for invalid in ("true", "false", 1, 0):
+            with self.subTest(invalid=invalid):
+                with self.assertRaises(Exception):
+                    LeptonDeploymentUserSpec(allow_unauthenticated_access=invalid)
+
+
+class TestPodAuthenticationFieldContract(unittest.TestCase):
+    @responses.activate
+    def test_pod_create_rejects_endpoint_auth_field_before_mutation(self):
+        for new_api in (False, True):
+            for allow_unauthenticated_access in (False, True):
+                with self.subTest(
+                    new_api=new_api,
+                    allow_unauthenticated_access=allow_unauthenticated_access,
+                ):
+                    responses.reset()
+                    _register_workspace(new_api=new_api)
+                    client = _client()
+
+                    with self.assertRaisesRegex(
+                        ValueError,
+                        "applies only to endpoints",
+                    ):
+                        client.pod.create(
+                            _pod_model(
+                                allow_unauthenticated_access=(
+                                    allow_unauthenticated_access
+                                )
+                            )
                         )
 
-                    self.assertNotIn(_SECRET, str(raised.exception))
-                    self.assertNotIn(_SECRET, raised.exception.response.text)
-                    self.assertEqual(raised.exception.response.status_code, status)
+                    self.assertEqual(
+                        [
+                            call.request.method
+                            for call in responses.calls
+                            if call.request.method in {"POST", "PUT", "PATCH"}
+                        ],
+                        [],
+                    )
+
+    @responses.activate
+    def test_legacy_deployment_api_rejects_auth_field_for_all_pod_mutations(self):
+        operations = ("create", "create_with_response", "create_pod", "update")
+        for operation in operations:
+            for allow_unauthenticated_access in (False, True):
+                with self.subTest(
+                    operation=operation,
+                    allow_unauthenticated_access=allow_unauthenticated_access,
+                ):
+                    responses.reset()
+                    _register_workspace(new_api=False)
+                    api = _client().deployment
+                    pod = _pod_model(
+                        allow_unauthenticated_access=allow_unauthenticated_access
+                    )
+
+                    with self.assertRaisesRegex(
+                        ValueError,
+                        "applies only to endpoints",
+                    ):
+                        if operation == "update":
+                            api.update("pod", pod)
+                        else:
+                            getattr(api, operation)(pod)
+
+                    self.assertEqual(
+                        [
+                            call.request.method
+                            for call in responses.calls
+                            if call.request.method in {"POST", "PUT", "PATCH"}
+                        ],
+                        [],
+                    )
 
 
 class TestSecureEndpointUpdateContract(unittest.TestCase):
@@ -487,6 +1302,44 @@ class TestSecureEndpointUpdateContract(unittest.TestCase):
             responses.add(responses.GET, url, json=existing, status=200)
         responses.add(responses.PATCH, url, json=updated, status=200)
         return url
+
+    @responses.activate
+    def test_incomplete_authentication_updates_fail_before_patch(self):
+        invalid_updates = (
+            (
+                "empty tokens without opt-out",
+                _deployment_model(tokens=[]),
+                "Clearing API tokens requires",
+            ),
+            (
+                "protected mode without tokens",
+                _deployment_model(allow_unauthenticated_access=False),
+                "requires at least one API token",
+            ),
+        )
+        for new_api in (False, True):
+            for mode, update, expected_message in invalid_updates:
+                with self.subTest(new_api=new_api, mode=mode):
+                    responses.reset()
+                    _register_workspace(new_api=new_api)
+                    url = _route(new_api=new_api, name="ep")
+                    if new_api:
+                        responses.add(
+                            responses.GET,
+                            url,
+                            json=_endpoint_body(
+                                tokens=["old-token"],
+                                allow_unauthenticated_access=False,
+                            ),
+                            status=200,
+                        )
+
+                    with self.assertRaisesRegex(ValueError, expected_message):
+                        _client().deployment.update("ep", update)
+
+                    self.assertFalse(
+                        any(call.request.method == "PATCH" for call in responses.calls)
+                    )
 
     # LEP-6218: protected-to-unauthenticated and the reverse transition each
     # travel in one valid PATCH for both API families.

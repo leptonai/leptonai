@@ -16,6 +16,11 @@ import leptonai.api.v2 as api_v2
 from leptonai.api.v2 import client as client_module
 from leptonai.api.v2.client import APIClient
 from leptonai.api.v2.types.workspace import WorkspaceFeatures
+from leptonai.api.v2.utils import (
+    WorkspaceForbiddenError,
+    WorkspaceNotFoundError,
+    WorkspaceUnauthorizedError,
+)
 from leptonai.cli.util import _get_only_replica_public_ip
 
 
@@ -29,6 +34,15 @@ def _client(url=BASE, token="token"):
         auth_token=token,
         url=url,
         workspace_origin_url="https://console.example",
+    )
+
+
+def _feature_info(*, new_api, secure_defaults=True):
+    return SimpleNamespace(
+        features=WorkspaceFeatures(
+            enable_new_deployment_api=new_api,
+            enable_secure_endpoint_defaults=secure_defaults,
+        )
     )
 
 
@@ -313,6 +327,133 @@ class TestNewDeploymentAPIFlagCache(unittest.TestCase):
             * (client_module._FLAG_RESOLVE_RETRIES + 1),
         )
         self.assertEqual(client_module._FLAG_RESOLVE_REQUEST_TIMEOUT_SECONDS, 5.0)
+
+    def test_deployment_feature_snapshot_reuses_route_selection_lookup(self):
+        for enabled in (False, True):
+            with self.subTest(enabled=enabled):
+                client_module.reset_new_deployment_api_flag_cache()
+                first = _client(token=f"snapshot-{enabled}")
+                second = _client(token=f"snapshot-{enabled}")
+                info = _feature_info(new_api=enabled)
+                expected_api = (
+                    first._endpoint_api if enabled else first._deployment_legacy
+                )
+
+                with (
+                    unittest.mock.patch.object(
+                        first, "info", return_value=info
+                    ) as first_info,
+                    unittest.mock.patch.object(
+                        second,
+                        "info",
+                        side_effect=AssertionError(
+                            "cached feature snapshot performed a second lookup"
+                        ),
+                    ) as second_info,
+                ):
+                    self.assertIs(first.deployment, expected_api)
+                    self.assertIs(first.deployment_feature_snapshot(), info)
+                    self.assertIs(second.deployment_feature_snapshot(), info)
+
+                first_info.assert_called_once_with(
+                    timeout=client_module._FLAG_RESOLVE_REQUEST_TIMEOUT_SECONDS
+                )
+                second_info.assert_not_called()
+
+    def test_deployment_feature_snapshot_retries_after_route_lookup_failure(self):
+        client = _client(token="snapshot-retry")
+        info = _feature_info(new_api=False)
+        route_failures = [
+            RuntimeError(f"route lookup failure {attempt}")
+            for attempt in range(client_module._FLAG_RESOLVE_RETRIES + 1)
+        ]
+        effects = route_failures + [RuntimeError("snapshot transient failure"), info]
+
+        with (
+            unittest.mock.patch.object(client, "info", side_effect=effects) as get_info,
+            unittest.mock.patch.object(client_module.time, "sleep") as sleep,
+        ):
+            self.assertIs(client.deployment, client._deployment_legacy)
+            self.assertIs(client.deployment_feature_snapshot(), info)
+
+        self.assertEqual(
+            get_info.call_args_list,
+            [
+                unittest.mock.call(
+                    timeout=client_module._FLAG_RESOLVE_REQUEST_TIMEOUT_SECONDS
+                )
+            ]
+            * len(effects),
+        )
+        self.assertEqual(
+            sleep.call_args_list,
+            [
+                unittest.mock.call(client_module._FLAG_RESOLVE_BACKOFF_SECONDS),
+                unittest.mock.call(client_module._FLAG_RESOLVE_BACKOFF_SECONDS * 2),
+                unittest.mock.call(client_module._FLAG_RESOLVE_BACKOFF_SECONDS),
+            ],
+        )
+
+    def test_deployment_feature_snapshot_preserves_workspace_errors(self):
+        error_types = (
+            WorkspaceUnauthorizedError,
+            WorkspaceNotFoundError,
+            WorkspaceForbiddenError,
+        )
+        for error_type in error_types:
+            with self.subTest(error_type=error_type.__name__):
+                client_module.reset_new_deployment_api_flag_cache()
+                client = _client(token=f"snapshot-error-{error_type.__name__}")
+                expected = error_type(
+                    workspace_id="ws1",
+                    workspace_url=BASE,
+                    auth_token="redacted-test-token",
+                )
+
+                with (
+                    unittest.mock.patch.object(
+                        client, "_resolve_new_deployment_api", return_value=False
+                    ),
+                    unittest.mock.patch.object(
+                        client, "info", side_effect=expected
+                    ) as get_info,
+                    unittest.mock.patch.object(client_module.time, "sleep") as sleep,
+                ):
+                    with self.assertRaises(error_type) as raised:
+                        client.deployment_feature_snapshot()
+
+                self.assertIs(raised.exception, expected)
+                get_info.assert_called_once_with(
+                    timeout=client_module._FLAG_RESOLVE_REQUEST_TIMEOUT_SECONDS
+                )
+                sleep.assert_not_called()
+
+    def test_deployment_feature_snapshot_rejects_route_flag_disagreement(self):
+        client = _client(token="snapshot-disagreement")
+        route_failures = [
+            RuntimeError(f"route lookup failure {attempt}")
+            for attempt in range(client_module._FLAG_RESOLVE_RETRIES + 1)
+        ]
+        recovered = _feature_info(new_api=True)
+
+        with (
+            unittest.mock.patch.object(
+                client, "info", side_effect=route_failures + [recovered]
+            ) as get_info,
+            unittest.mock.patch.object(client_module.time, "sleep"),
+        ):
+            self.assertIs(client.deployment, client._deployment_legacy)
+            with self.assertRaisesRegex(
+                RuntimeError,
+                "feature state changed.*Retry",
+            ):
+                client.deployment_feature_snapshot()
+            self.assertIs(client.deployment, client._deployment_legacy)
+
+        self.assertEqual(
+            get_info.call_count,
+            client_module._FLAG_RESOLVE_RETRIES + 2,
+        )
 
     def test_info_forwards_optional_timeout_without_changing_default(self):
         client = _client()

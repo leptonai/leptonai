@@ -63,6 +63,11 @@ class DevPodAPI(APIResourse):
             return None
         if not spec.is_pod:
             raise ValueError("The spec is not a pod spec.")
+        if spec.allow_unauthenticated_access is not None:
+            raise ValueError(
+                "allow_unauthenticated_access applies only to endpoints and cannot"
+                " be set on a pod spec."
+            )
         if spec.resource_requirement:
             if spec.resource_requirement.min_replicas not in (None, 1):
                 warnings.warn(
@@ -109,6 +114,11 @@ class DevPodAPI(APIResourse):
         """Validate a create locally without mutating the supplied model."""
         if spec.spec is not None and spec.spec.is_pod is not True:
             raise ValueError("The spec is not a pod spec.")
+        if spec.spec is not None and spec.spec.allow_unauthenticated_access is not None:
+            raise ValueError(
+                "allow_unauthenticated_access applies only to endpoints and cannot"
+                " be set on a pod spec."
+            )
         translation.legacy_to_http_devpod(self.safe_json(spec))
 
     def create(self, spec: LeptonDeployment) -> bool:
