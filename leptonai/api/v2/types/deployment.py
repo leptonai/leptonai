@@ -40,6 +40,17 @@ class Mount(BaseModel):
     mount_options: Optional[MountOptions] = None
 
 
+class DataSourceAttachment(BaseModel):
+    attach_with: Optional[str] = None
+    mode: str
+    profile_name: Optional[str] = None
+
+
+class StorageAttachment(BaseModel):
+    data_source_name: str
+    attachments: List[DataSourceAttachment]
+
+
 class ContainerPortExposeStrategy(str, Enum):
     HOST_PORT_MAPPING = "HostPortMapping"
     INGRESS_PROXY = "IngressProxy"
@@ -287,6 +298,7 @@ class LeptonDeploymentUserSpec(BaseModel):
     api_tokens: Optional[List[TokenVar]] = None
     envs: Optional[List[EnvVar]] = None
     mounts: Optional[List[Mount]] = None
+    storage_attachments: Optional[List[StorageAttachment]] = None
     reservation_config: Optional[ReservationConfig] = None
     image_pull_secrets: Optional[List[str]] = None
     health: Optional[HealthCheck] = None

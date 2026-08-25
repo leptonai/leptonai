@@ -9,7 +9,13 @@ from typing import List, Optional
 
 from leptonai.config import LEPTON_RESERVED_ENV_NAMES
 
-from .types.deployment import Mount, EnvVar, EnvValue
+from .types.deployment import (
+    Mount,
+    EnvVar,
+    EnvValue,
+    StorageAttachment,
+    DataSourceAttachment,
+)
 
 
 _ENVIRONMENT_VARIABLE_NAME_PATTERN = re.compile(r"^[A-Za-z0-9._-]+$")
@@ -109,6 +115,73 @@ def make_mounts_from_strings(
                 "expected FROM_PATH:MOUNT_PATH:VOLUME split on the first two colons",
             )
     return mount_list
+
+
+_STORAGE_ATTACHMENT_MODES = ("awsProfile", "mscProfile")
+_STORAGE_ATTACHMENT_ATTACH_WITH_VALUES = ("object", "object.aistore")
+
+
+def _storage_attachment_definition_error(spec_str: str, detail: str) -> ValueError:
+    return ValueError(
+        f"Invalid storage attachment definition: {spec_str} ({detail}; expected"
+        " DATA_SOURCE_NAME:MODE[:ATTACH_WITH[:PROFILE_NAME]], where MODE is one of"
+        f" {', '.join(_STORAGE_ATTACHMENT_MODES)} and ATTACH_WITH, if given, is one"
+        f" of {', '.join(_STORAGE_ATTACHMENT_ATTACH_WITH_VALUES)})"
+    )
+
+
+def make_storage_attachments_from_strings(
+    storage_attachments: Optional[List[str]],
+) -> Optional[List[StorageAttachment]]:
+    """
+    Parses a list of storage attachment strings into a list of StorageAttachment
+    objects. Multiple entries for the same DATA_SOURCE_NAME are merged into one
+    StorageAttachment with multiple attachments, preserving first-seen order.
+    """
+    if not storage_attachments:
+        return None
+    attachments_by_data_source: "dict[str, List[DataSourceAttachment]]" = {}
+    for spec_str in storage_attachments:
+        parts = spec_str.split(":", 3)
+        if len(parts) < 2:
+            raise _storage_attachment_definition_error(
+                spec_str, "expected at least DATA_SOURCE_NAME:MODE"
+            )
+        data_source_name = parts[0].strip()
+        mode = parts[1].strip()
+        attach_with = parts[2].strip() if len(parts) > 2 else ""
+        profile_name = parts[3].strip() if len(parts) > 3 else ""
+
+        if not data_source_name:
+            raise _storage_attachment_definition_error(
+                spec_str, "DATA_SOURCE_NAME cannot be empty"
+            )
+        if mode not in _STORAGE_ATTACHMENT_MODES:
+            raise _storage_attachment_definition_error(
+                spec_str,
+                f"MODE must be one of {', '.join(_STORAGE_ATTACHMENT_MODES)}, found"
+                f" `{mode}`",
+            )
+        if attach_with and attach_with not in _STORAGE_ATTACHMENT_ATTACH_WITH_VALUES:
+            raise _storage_attachment_definition_error(
+                spec_str,
+                "ATTACH_WITH must be one of"
+                f" {', '.join(_STORAGE_ATTACHMENT_ATTACH_WITH_VALUES)}, found"
+                f" `{attach_with}`",
+            )
+
+        attachments_by_data_source.setdefault(data_source_name, []).append(
+            DataSourceAttachment(
+                mode=mode,
+                attach_with=attach_with or None,
+                profile_name=profile_name or None,
+            )
+        )
+
+    return [
+        StorageAttachment(data_source_name=name, attachments=attachments)
+        for name, attachments in attachments_by_data_source.items()
+    ]
 
 
 def make_env_vars_from_strings(

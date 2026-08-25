@@ -290,6 +290,59 @@ class TestEndpointTranslationRegressions(unittest.TestCase):
         self.assertEqual(wire["metadata"]["name"], "ep")
         self.assertNotIn("labels", wire["metadata"])
 
+    def test_storage_attachments_reach_endpoint_create(self):
+        storage_attachments = [{
+            "data_source_name": "my-bucket",
+            "attachments": [{"mode": "awsProfile"}],
+        }]
+        wire = translation.legacy_to_http_endpoint({
+            "metadata": {"name": "ep"},
+            "spec": {
+                "container": {"image": "nginx"},
+                "storage_attachments": storage_attachments,
+            },
+        })
+        self.assertEqual(
+            wire["spec"]["components"][0]["storage_attachments"],
+            storage_attachments,
+        )
+
+    def test_storage_attachments_reach_endpoint_update_patch(self):
+        storage_attachments = [{
+            "data_source_name": "my-bucket",
+            "attachments": [{"mode": "mscProfile", "attach_with": "object"}],
+        }]
+        raw = {"spec": {"components": [{"name": "default", "image": "nginx"}]}}
+        legacy = {
+            "metadata": {"name": "ep"},
+            "spec": {"storage_attachments": storage_attachments},
+        }
+        update = translation.legacy_to_http_endpoint_patch(raw, legacy)
+        self.assertEqual(
+            update["spec"]["components"][0]["storage_attachments"],
+            storage_attachments,
+        )
+
+    def test_storage_attachments_round_trip_from_endpoint_response(self):
+        storage_attachments = [{
+            "data_source_name": "my-bucket",
+            "attachments": [{"mode": "awsProfile"}],
+        }]
+        ep = {
+            "metadata": {"name": "ep"},
+            "spec": {
+                "components": [{
+                    "name": "default",
+                    "frontend": True,
+                    "image": "nginx",
+                    "storage_attachments": storage_attachments,
+                }]
+            },
+            "status": {"state": "Ready"},
+        }
+        legacy = translation.http_endpoint_to_legacy(ep)
+        self.assertEqual(legacy["spec"]["storage_attachments"], storage_attachments)
+
 
 class TestPodCompatibilityRegressions(unittest.TestCase):
     def _pod_spec(self):
@@ -410,6 +463,33 @@ class TestPodCompatibilityRegressions(unittest.TestCase):
             wire["metadata"],
             {"name": "pod-from-id", "owner": "pod-owner"},
         )
+
+    def test_storage_attachments_reach_devpod_create(self):
+        storage_attachments = [{
+            "data_source_name": "my-bucket",
+            "attachments": [{"mode": "awsProfile"}],
+        }]
+        legacy = self._pod_spec().model_dump(by_alias=True, exclude_none=True)
+        legacy["spec"]["storage_attachments"] = storage_attachments
+        wire = translation.legacy_to_http_devpod(legacy)
+        self.assertEqual(wire["spec"]["storage_attachments"], storage_attachments)
+
+    def test_storage_attachments_round_trip_from_devpod_response(self):
+        storage_attachments = [{
+            "data_source_name": "my-bucket",
+            "attachments": [{"mode": "awsProfile"}],
+        }]
+        raw = {
+            "metadata": {"name": "pod"},
+            "spec": {
+                "container": {"image": "ubuntu"},
+                "resource_shape": "cpu.small",
+                "storage_attachments": storage_attachments,
+            },
+            "status": {"state": "Running"},
+        }
+        legacy = translation.http_devpod_to_legacy(raw)
+        self.assertEqual(legacy["spec"]["storage_attachments"], storage_attachments)
 
     def test_devpod_rejects_unsupported_effective_legacy_fields(self):
         unsupported_values = {

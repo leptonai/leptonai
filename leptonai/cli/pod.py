@@ -39,7 +39,11 @@ from .util import (
 )
 from .util import make_container_ports_from_str_list
 from ..api.v2.client import APIClient
-from ..api.v2.spec_utils import make_mounts_from_strings, make_env_vars_from_strings
+from ..api.v2.spec_utils import (
+    make_mounts_from_strings,
+    make_env_vars_from_strings,
+    make_storage_attachments_from_strings,
+)
 from ..api.v2.types.deployment import (
     LeptonDeploymentState,
     ResourceRequirement,
@@ -116,6 +120,23 @@ def pod():
         " `node-<type>:<storage_name>` for a named volume (e.g."
         " `node-nfs:my-nfs`). Examples: `/data:/mnt/data:node-local` or"
         " `/hf-cache:/root/.cache/huggingface:node-nfs:my-nfs`."
+    ),
+    multiple=True,
+)
+@click.option(
+    "--storage-attachment",
+    help=(
+        "Attach an object storage data source to the pod, as"
+        " `DATA_SOURCE_NAME:MODE[:ATTACH_WITH[:PROFILE_NAME]]` (split on the first"
+        " three colons). `DATA_SOURCE_NAME` is the name of a data source created"
+        " with `lep node storage add --type object`. `MODE` is `awsProfile` (AWS"
+        " credentials in ~/.aws/config format) or `mscProfile` (multi-cloud"
+        " credentials in YAML format). `ATTACH_WITH` is `object` or"
+        " `object.aistore` (defaults based on workspace configuration when"
+        " omitted). `PROFILE_NAME` defaults to the data source's bucket name."
+        " Repeat this flag to attach multiple data sources, or multiple modes of"
+        " the same data source. Example: `--storage-attachment"
+        " my-bucket:awsProfile`."
     ),
     multiple=True,
 )
@@ -252,6 +273,7 @@ def create(
     file,
     resource_shape,
     mount,
+    storage_attachment,
     env,
     secret,
     image_pull_secrets,
@@ -397,6 +419,15 @@ def create(
             deployment_user_spec.mounts = make_mounts_from_strings(mount)
         except ValueError as e:
             console.print(f"[red]Error parsing --mount[/]: {e}")
+            sys.exit(1)
+
+    if storage_attachment:
+        try:
+            deployment_user_spec.storage_attachments = (
+                make_storage_attachments_from_strings(list(storage_attachment))
+            )
+        except ValueError as e:
+            console.print(f"[red]Error parsing --storage-attachment[/]: {e}")
             sys.exit(1)
 
     if image_pull_secrets:
