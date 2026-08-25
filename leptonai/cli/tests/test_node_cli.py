@@ -1,6 +1,8 @@
 import json
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
+import pytest
 from click.testing import CliRunner
 
 from leptonai.api.v2.dedicated_node_groups import DedicatedNodeGroupAPI
@@ -9,12 +11,26 @@ from leptonai.api.v2.types.dedicated_node_group import (
     DedicatedNodeGroup,
     DedicatedNodeGroupSpec,
     DedicatedNodeGroupStatus,
+    Machine,
+    MachineStatus,
     MountOptions,
+    Node,
+    NodeResource,
+    NodeResourceCPU,
+    NodeResourceGPU,
+    NodeSpec,
+    NodeStatus,
     Volume,
 )
 from leptonai.api.v2.types.storage_data_source import StorageDataSource
 from leptonai.api.v2.types.storage_permission import StoragePermission
 from leptonai.cli import lep as cli
+from leptonai.cli.node import (
+    _filter_nodes,
+    _merge_nodes_with_machines,
+    console as node_console,
+    node,
+)
 
 
 def _make_node_group():
@@ -1071,3 +1087,322 @@ def test_storage_permission_rejects_path_for_object_storage():
     assert result.exit_code != 0
     assert "bucket-wide" in result.output
     assert fake_client.nodegroup.updated_data_sources == []
+
+
+def _node(
+    id_,
+    *,
+    name=None,
+    labels=None,
+    hostname=None,
+    status_hostname=None,
+    public_ip=None,
+    local_ip=None,
+    gpu_clique_id=None,
+    provider=None,
+    provider_region=None,
+    gpu_type=None,
+    cpu_type=None,
+    machine_status=None,
+    statuses=None,
+    machine_stage=None,
+    unschedulable=False,
+):
+    return Node(
+        metadata=Metadata(id=id_, name=name or id_, labels=labels),
+        spec=NodeSpec(
+            hostname=hostname,
+            public_ip=public_ip,
+            local_ip=local_ip,
+            gpu_clique_id=gpu_clique_id,
+            provider=provider,
+            provider_region=provider_region,
+            resource=NodeResource(
+                gpu=NodeResourceGPU(product=gpu_type),
+                cpu=NodeResourceCPU(type=cpu_type),
+            ),
+            unschedulable=unschedulable,
+        ),
+        status=NodeStatus(
+            hostname=status_hostname,
+            machine_status=machine_status,
+            machine_stage=machine_stage,
+            status=statuses,
+        ),
+    )
+
+
+@pytest.fixture
+def nodes():
+    return [
+        _node(
+            "node-1",
+            name="Alpha-Node",
+            labels={"env": "prod", "rack": "r1"},
+            hostname="spec-host-1",
+            status_hostname="status-host-1",
+            public_ip="203.0.113.10",
+            local_ip="10.0.0.10",
+            gpu_clique_id="clique-blue",
+            provider="aws",
+            provider_region="us-west-2",
+            gpu_type="H100",
+            cpu_type="amd64",
+            machine_status="Healthy",
+            statuses=["Ready", "Healthy"],
+            machine_stage="production",
+        ),
+        _node(
+            "node-2",
+            name="Beta-Node",
+            labels={"env": "prod", "rack": "r2", "paused": ""},
+            hostname="spec-host-2",
+            status_hostname="status-host-2",
+            public_ip="198.51.100.20",
+            local_ip="10.0.0.20",
+            gpu_clique_id="clique-green",
+            provider="gcp",
+            provider_region="us-central1",
+            gpu_type="A100",
+            cpu_type="arm64",
+            machine_status="Draining",
+            statuses=["NotReady", "WaitForDraining"],
+            machine_stage="ready-to-repair",
+            unschedulable=True,
+        ),
+        _node(
+            "node-3",
+            name="Gamma-Node",
+            labels={"env": "dev", "rack": "r3"},
+            provider="azure",
+            provider_region="eastus",
+            gpu_type="H100",
+            cpu_type="amd64",
+            machine_status="Offline",
+            statuses=["NotReady", "Offline"],
+            machine_stage="repairing",
+        ),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("keyword", "expected"),
+    [
+        ("alpha", ["node-1"]),
+        ("STATUS-HOST-2", ["node-2"]),
+        ("spec-host-1", ["node-1"]),
+        ("113.10", ["node-1"]),
+        ("0.0.20", ["node-2"]),
+        ("CLIQUE-GREEN", ["node-2"]),
+        ("AZURE", ["node-3"]),
+        ("central1", ["node-2"]),
+    ],
+)
+def test_filter_nodes_keyword_matches_webui_fields_case_insensitively(
+    nodes, keyword, expected
+):
+    filtered = _filter_nodes(nodes, keyword=keyword)
+
+    assert [item.metadata.id_ for item in filtered] == expected
+
+
+def test_filter_nodes_combines_categories_with_and_and_values_with_or(nodes):
+    filtered = _filter_nodes(
+        nodes,
+        statuses=("Healthy", "Offline"),
+        stages=("production", "repairing"),
+        providers=("aws", "azure"),
+        gpu_types=("H100",),
+        cpu_types=("amd64",),
+    )
+
+    assert [item.metadata.id_ for item in filtered] == ["node-1", "node-3"]
+
+
+def test_filter_nodes_status_matches_machine_status_or_status_array(nodes):
+    primary = _filter_nodes(nodes, statuses=("Draining",))
+    secondary = _filter_nodes(nodes, statuses=("WaitForDraining",))
+
+    assert [item.metadata.id_ for item in primary] == ["node-2"]
+    assert [item.metadata.id_ for item in secondary] == ["node-2"]
+
+
+def test_filter_nodes_requires_every_label_prefix_condition(nodes):
+    filtered = _filter_nodes(nodes, labels=("en:pro", "ra:r2", "pa"))
+
+    assert [item.metadata.id_ for item in filtered] == ["node-2"]
+
+
+def test_filter_nodes_label_prefix_is_case_sensitive(nodes):
+    filtered = _filter_nodes(nodes, labels=("EN:pro",))
+
+    assert filtered == []
+
+
+def test_filter_nodes_label_with_empty_value_prefix_matches_any_value(nodes):
+    filtered = _filter_nodes(nodes, labels=("env:",))
+
+    assert [item.metadata.id_ for item in filtered] == ["node-1", "node-2", "node-3"]
+
+
+def test_filter_nodes_provider_prefix_is_case_insensitive(nodes):
+    filtered = _filter_nodes(nodes, providers=("AW",))
+
+    assert [item.metadata.id_ for item in filtered] == ["node-1"]
+
+
+def test_filter_nodes_unschedulable_only(nodes):
+    filtered = _filter_nodes(nodes, unschedulable=True)
+
+    assert [item.metadata.id_ for item in filtered] == ["node-2"]
+
+
+def test_merge_nodes_with_machines_enriches_matching_node(nodes):
+    nodes[0].spec.machine_id = "machine-1"
+    nodes[0].spec.hostname = None
+    machine = Machine(
+        metadata=Metadata(name="machine-1"),
+        status=MachineStatus(
+            machine_id="machine-1",
+            hostname="machine-host-1",
+            provider="machine-provider",
+            public_ip="192.0.2.10",
+            private_ip="172.16.0.10",
+            status="Failed",
+        ),
+    )
+
+    merged = _merge_nodes_with_machines([nodes[0]], [machine])
+
+    assert len(merged) == 1
+    assert merged[0].spec.hostname == "machine-host-1"
+    assert merged[0].spec.provider == "aws"
+    assert merged[0].status.machine_status == "Failed"
+    assert merged[0].status.status == ["Ready", "Failed"]
+    assert nodes[0].spec.hostname is None
+    assert nodes[0].status.machine_status == "Healthy"
+
+
+def test_merge_nodes_with_machines_adds_provisioning_machine():
+    machine = Machine(
+        metadata=Metadata(id="record-id", name="machine-2"),
+        status=MachineStatus(
+            machine_id="provider-id-2",
+            node_name="pending-node",
+            hostname="pending-host",
+            provider="gcp",
+            provider_region="us-central1",
+            public_ip="198.51.100.30",
+            private_ip="10.0.0.30",
+            status="Launching",
+            resource=NodeResource(
+                gpu=NodeResourceGPU(product="H100"),
+                cpu=NodeResourceCPU(type="amd64"),
+            ),
+        ),
+    )
+
+    merged = _merge_nodes_with_machines([], [machine])
+
+    assert len(merged) == 1
+    assert merged[0].metadata.id_ == "machine-2"
+    assert merged[0].metadata.name == "pending-node"
+    assert merged[0].spec.local_ip == "10.0.0.30"
+    assert merged[0].status.status == ["Launching"]
+    assert _filter_nodes(merged, statuses=("Launching",)) == merged
+
+
+def test_list_machines_api_uses_node_group_machines_endpoint():
+    response = Mock(status_code=200)
+    response.json.return_value = [{
+        "metadata": {"name": "machine-1"},
+        "status": {
+            "machine_id": "provider-id-1",
+            "hostname": "machine-host-1",
+            "status": "Launching",
+        },
+    }]
+    http_client = SimpleNamespace(
+        _get=Mock(return_value=response),
+        _post=Mock(),
+        _put=Mock(),
+        _patch=Mock(),
+        _delete=Mock(),
+        _head=Mock(),
+    )
+    api = DedicatedNodeGroupAPI(http_client)
+
+    machines = api.list_machines("ng-1")
+
+    http_client._get.assert_called_once_with("/dedicated-node-groups/ng-1/machines")
+    assert machines[0].status.hostname == "machine-host-1"
+
+
+def test_list_nodes_command_applies_repeatable_filters(nodes):
+    node_group = SimpleNamespace(metadata=SimpleNamespace(name="gpu-group", id_="ng-1"))
+    client = SimpleNamespace(
+        nodegroup=SimpleNamespace(
+            list_nodes=Mock(return_value=nodes),
+            list_machines=Mock(return_value=[]),
+        )
+    )
+
+    with patch("leptonai.cli.node.resolve_node_groups", return_value=[node_group]):
+        with patch("leptonai.cli.node.get_client", return_value=client):
+            result = CliRunner().invoke(
+                node,
+                [
+                    "list-nodes",
+                    "gpu-group",
+                    "--status",
+                    "Draining",
+                    "--status",
+                    "Offline",
+                    "--provider",
+                    "gc",
+                    "--label",
+                    "en:pro",
+                    "--unschedulable",
+                ],
+            )
+
+    assert result.exit_code == 0, result.output
+    assert "node-2" in result.output
+    assert "node-1" not in result.output
+    assert "node-3" not in result.output
+
+
+def test_list_nodes_command_displays_webui_inventory_fields(nodes, monkeypatch):
+    node_group = SimpleNamespace(metadata=SimpleNamespace(name="gpu-group", id_="ng-1"))
+    client = SimpleNamespace(
+        nodegroup=SimpleNamespace(
+            list_nodes=Mock(return_value=[nodes[0]]),
+            list_machines=Mock(return_value=[]),
+        )
+    )
+    monkeypatch.setattr(node_console, "width", 240)
+
+    with patch("leptonai.cli.node.resolve_node_groups", return_value=[node_group]):
+        with patch("leptonai.cli.node.get_client", return_value=client):
+            result = CliRunner().invoke(node, ["list-nodes", "gpu-group"])
+
+    assert result.exit_code == 0, result.output
+    for value in (
+        "Alpha-Node",
+        "clique-blue",
+        "env=prod",
+        "production",
+        "spec-host-1",
+        "203.0.113.10",
+        "10.0.0.10",
+    ):
+        assert value in result.output
+
+
+def test_list_nodes_command_rejects_unknown_status():
+    result = CliRunner().invoke(
+        node, ["list-nodes", "gpu-group", "--status", "Unknown"]
+    )
+
+    assert result.exit_code == 2
+    assert "Invalid value for '--status'" in result.output
