@@ -114,7 +114,11 @@ from ..api.v2.api_resource import ClientError
 from ..api.v2.devpod import DevPodAPI
 from ..api.v2.endpoint import EndpointAPI, NewEndpointAPIUnsupported
 from ..api.v2.deployment import make_token_vars_from_config
-from ..api.v2.spec_utils import make_mounts_from_strings, make_env_vars_from_strings
+from ..api.v2.spec_utils import (
+    make_mounts_from_strings,
+    make_env_vars_from_strings,
+    make_storage_attachments_from_strings,
+)
 from ..api.v2.workspace_record import WorkspaceRecord
 from ..api.v2.types.common import Metadata, LeptonVisibility, LeptonUserSecurityContext
 from ..api.v2.types.deployment import (
@@ -616,6 +620,23 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     multiple=True,
 )
 @click.option(
+    "--storage-attachment",
+    help=(
+        "Attach an object storage data source to the endpoint, as"
+        " `DATA_SOURCE_NAME:MODE[:ATTACH_WITH[:PROFILE_NAME]]` (split on the first"
+        " three colons). `DATA_SOURCE_NAME` is the name of a data source created"
+        " with `lep node storage add --type object`. `MODE` is `awsProfile` (AWS"
+        " credentials in ~/.aws/config format) or `mscProfile` (multi-cloud"
+        " credentials in YAML format). `ATTACH_WITH` is `object` or"
+        " `object.aistore` (defaults based on workspace configuration when"
+        " omitted). `PROFILE_NAME` defaults to the data source's bucket name."
+        " Repeat this flag to attach multiple data sources, or multiple modes of"
+        " the same data source. Example: `--storage-attachment"
+        " my-bucket:awsProfile`."
+    ),
+    multiple=True,
+)
+@click.option(
     "--env",
     "-e",
     help="Environment variables to pass to the endpoint, in the format `NAME=VALUE`.",
@@ -949,6 +970,7 @@ def create(
     min_replicas,
     max_replicas,
     mount,
+    storage_attachment,
     env,
     secret,
     public,
@@ -1186,6 +1208,18 @@ def create(
                 console.print(f"[red]Error parsing --mount[/]: {e}")
                 sys.exit(1)
         # else: preserve existing spec.mounts from loaded file
+
+        storage_attachment_list = list(storage_attachment) or []
+        if storage_attachment_list or not file:
+            # CLI args provided or no file loaded - use CLI args
+            try:
+                spec.storage_attachments = make_storage_attachments_from_strings(
+                    storage_attachment_list
+                )
+            except ValueError as e:
+                console.print(f"[red]Error parsing --storage-attachment[/]: {e}")
+                sys.exit(1)
+        # else: preserve existing spec.storage_attachments from loaded file
 
         if tokens or not file:
             spec.api_tokens = make_token_vars_from_config(public, tokens)
@@ -1777,6 +1811,23 @@ def log(name, replica):
     help="Update the shared memory size for this endpoint, in MiB.",
 )
 @click.option(
+    "--storage-attachment",
+    help=(
+        "Attach an object storage data source to the endpoint, as"
+        " `DATA_SOURCE_NAME:MODE[:ATTACH_WITH[:PROFILE_NAME]]` (split on the first"
+        " three colons). `DATA_SOURCE_NAME` is the name of a data source created"
+        " with `lep node storage add --type object`. `MODE` is `awsProfile` (AWS"
+        " credentials in ~/.aws/config format) or `mscProfile` (multi-cloud"
+        " credentials in YAML format). `ATTACH_WITH` is `object` or"
+        " `object.aistore` (defaults based on workspace configuration when"
+        " omitted). `PROFILE_NAME` defaults to the data source's bucket name."
+        " Repeat this flag to attach multiple data sources, or multiple modes of"
+        " the same data source. If not specified, existing storage attachments are"
+        " left unchanged."
+    ),
+    multiple=True,
+)
+@click.option(
     "--replica-spread",
     callback=_normalize_replica_spread,
     help=(
@@ -1840,6 +1891,7 @@ def update(
     autoscale_qpm,
     log_collection,
     shared_memory_size,
+    storage_attachment,
     replica_spread,
     ingress_timeout_seconds,
     load_balance,
@@ -1975,6 +2027,15 @@ def update(
 
     if log_collection is not None:
         lepton_deployment_spec.log = LeptonLog(enable_collection=log_collection)
+
+    if storage_attachment:
+        try:
+            lepton_deployment_spec.storage_attachments = (
+                make_storage_attachments_from_strings(list(storage_attachment))
+            )
+        except ValueError as e:
+            console.print(f"[red]Error parsing --storage-attachment[/]: {e}")
+            sys.exit(1)
 
     # Ingress timeout
     if ingress_timeout_seconds is not None:

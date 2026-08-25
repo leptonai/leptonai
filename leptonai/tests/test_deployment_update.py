@@ -5,6 +5,8 @@ from leptonai.api.v2.types.common import Metadata
 from leptonai.api.v2.types.deployment import (
     LeptonDeployment,
     LeptonDeploymentUserSpec,
+    StorageAttachment,
+    DataSourceAttachment,
 )
 
 
@@ -71,6 +73,49 @@ class TestLoadBalanceUpdatePayload(unittest.TestCase):
         )
         api.update("ep", dep)
         self.assertNotIn("load_balance_config", captured["json"].get("spec", {}))
+
+
+class TestStorageAttachmentsUpdatePayload(unittest.TestCase):
+    """storage_attachments must reach the legacy /deployments PATCH wire when
+    set, and must be omitted (not sent as null) when untouched, so a merge
+    patch update never clobbers a live endpoint's existing attachments.
+    """
+
+    def _capture_update_payload(self, storage_attachments):
+        api = DeploymentAPI.__new__(DeploymentAPI)
+        captured = {}
+
+        def fake_patch(url, json=None, **kwargs):
+            captured["json"] = json
+            return "ok"
+
+        api._patch = fake_patch
+        api.ensure_type = lambda response, typ: response
+
+        spec = LeptonDeploymentUserSpec(storage_attachments=storage_attachments)
+        dep = LeptonDeployment(metadata=Metadata(id="ep", name="ep"), spec=spec)
+        api.update("ep", dep)
+        return captured["json"]["spec"]
+
+    def test_storage_attachments_reach_the_wire(self):
+        attachments = [
+            StorageAttachment(
+                data_source_name="my-bucket",
+                attachments=[DataSourceAttachment(mode="awsProfile")],
+            )
+        ]
+        payload = self._capture_update_payload(attachments)
+        self.assertEqual(
+            payload["storage_attachments"],
+            [{
+                "data_source_name": "my-bucket",
+                "attachments": [{"mode": "awsProfile"}],
+            }],
+        )
+
+    def test_update_without_storage_attachments_omits_field(self):
+        payload = self._capture_update_payload(None)
+        self.assertNotIn("storage_attachments", payload)
 
 
 if __name__ == "__main__":

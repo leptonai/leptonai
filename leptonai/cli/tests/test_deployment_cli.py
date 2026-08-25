@@ -160,6 +160,76 @@ class TestDeploymentCliLocal(unittest.TestCase):
         self.assertIsNotNone(_FakeAPIClient.last_instance)
         self.assertIsNone(_FakeAPIClient.last_instance.deployment.created_spec)
 
+    def test_endpoint_create_builds_storage_attachments(self):
+        runner = CliRunner()
+        _FakeAPIClient.last_instance = None
+
+        with patch("leptonai.cli.deployment.APIClient", _FakeAPIClient):
+            result = runner.invoke(
+                cli,
+                [
+                    "endpoint",
+                    "create",
+                    "--name",
+                    "test-endpoint",
+                    "--container-image",
+                    "nginx:latest",
+                    "--container-command",
+                    "python -m http.server 8080",
+                    "--resource-shape",
+                    config.DEFAULT_RESOURCE_SHAPE,
+                    "--public",
+                    "--storage-attachment",
+                    "my-bucket:awsProfile",
+                    "--storage-attachment",
+                    "my-bucket:mscProfile:object.aistore:my-profile",
+                ],
+            )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        created = _FakeAPIClient.last_instance.deployment.created_spec
+        self.assertIsNotNone(created)
+        attachments = created.spec.storage_attachments
+        self.assertEqual(len(attachments), 1)
+        self.assertEqual(attachments[0].data_source_name, "my-bucket")
+        self.assertEqual(len(attachments[0].attachments), 2)
+        self.assertEqual(attachments[0].attachments[0].mode, "awsProfile")
+        self.assertIsNone(attachments[0].attachments[0].attach_with)
+        self.assertEqual(attachments[0].attachments[1].mode, "mscProfile")
+        self.assertEqual(attachments[0].attachments[1].attach_with, "object.aistore")
+        self.assertEqual(attachments[0].attachments[1].profile_name, "my-profile")
+
+    def test_endpoint_create_rejects_invalid_storage_attachment_mode(self):
+        runner = CliRunner()
+        _FakeAPIClient.last_instance = None
+
+        with patch("leptonai.cli.deployment.APIClient", _FakeAPIClient):
+            result = runner.invoke(
+                cli,
+                [
+                    "endpoint",
+                    "create",
+                    "--name",
+                    "test-endpoint",
+                    "--container-image",
+                    "nginx:latest",
+                    "--container-command",
+                    "python -m http.server 8080",
+                    "--resource-shape",
+                    config.DEFAULT_RESOURCE_SHAPE,
+                    "--public",
+                    "--storage-attachment",
+                    "my-bucket:not-a-mode",
+                ],
+            )
+
+        self.assertEqual(result.exit_code, 1, result.output)
+        output = " ".join(((result.output or "") + (result.stderr or "")).split())
+        self.assertIn("Error parsing --storage-attachment", output)
+        self.assertIn("MODE must be one of", output)
+        self.assertIsNotNone(_FakeAPIClient.last_instance)
+        self.assertIsNone(_FakeAPIClient.last_instance.deployment.created_spec)
+
 
 class TestHeaderBasedRoutingValidation(unittest.TestCase):
     """Issue #3: --header-based-routing parses as a boolean and rejects typos."""
