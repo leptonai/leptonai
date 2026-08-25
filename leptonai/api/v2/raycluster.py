@@ -197,7 +197,6 @@ class RayClusterAPI(APIResourse):
         name_or_raycluster: Union[str, LeptonRayCluster],
         spec: LeptonRayCluster,
     ) -> LeptonRayCluster:
-
         if spec.spec is None:
             raise ValueError("LeptonRayCluster.spec must not be None for update.")
 

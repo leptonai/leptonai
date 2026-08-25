@@ -339,7 +339,6 @@ def job():
 @click.option(
     "--command", type=str, help="Command string to run for the job.", default=None
 )
-
 # Resource configuration options
 @click.option(
     "--resource-shape",
@@ -370,7 +369,6 @@ def job():
     type=click.IntRange(min=1),
     default=None,
 )
-
 # Failure handling options
 @click.option(
     "--max-failure-retry",
@@ -384,7 +382,6 @@ def job():
     help="Maximum number of failures to retry per whole job (>= 0).",
     default=None,
 )
-
 # Environment and secrets options
 @click.option(
     "--env",
@@ -420,7 +417,6 @@ def job():
     help="Secrets to use for pulling images.",
     multiple=True,
 )
-
 # Advanced configuration options
 @click.option(
     "--intra-job-communication",
@@ -458,7 +454,6 @@ def job():
         " setting will be used."
     ),
 )
-
 # Node and queue configuration
 @click.option(
     "--node-group",
@@ -518,7 +513,6 @@ def job():
         " groups)."
     ),
 )
-
 # Visibility and resource management
 @click.option(
     "--visibility",
@@ -779,7 +773,7 @@ def create(
                 f" [green]{_epoch_to_time_str(current_time * 1000000000, local_time=use_local_timezone)}[/]\n"
             )
             sys.exit(1)
-        job_spec.time_schedule = LeptonJobTimeSchedule(start_at=start_at)
+        job_spec.time_schedule = LeptonJobTimeSchedule(start_at=start_at)  # type: ignore
 
     # Create job with metadata
     job = LeptonJob(

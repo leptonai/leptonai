@@ -4,11 +4,36 @@ inputs (e.g. CLI flags). These are shared by the endpoint, pod, job, finetune,
 and raycluster commands, so they live here rather than in any single API module.
 """
 
+import re
 from typing import List, Optional
 
 from leptonai.config import LEPTON_RESERVED_ENV_NAMES
 
 from .types.deployment import Mount, EnvVar, EnvValue
+
+
+_ENVIRONMENT_VARIABLE_NAME_PATTERN = re.compile(r"^[A-Za-z0-9._-]+$")
+
+
+def validate_environment_variable_name(name: str, *, is_secret: bool = False) -> None:
+    """Validate an environment variable name used by a workload."""
+    if not isinstance(name, str) or not name:
+        raise ValueError("Environment variable name cannot be empty.")
+    if "0" <= name[0] <= "9":
+        raise ValueError("Environment variable name cannot start with a digit.")
+    if _ENVIRONMENT_VARIABLE_NAME_PATTERN.fullmatch(name) is None:
+        raise ValueError(
+            "Environment variable name can contain only letters, digits, hyphens, "
+            "underscores, and periods."
+        )
+    if name in LEPTON_RESERVED_ENV_NAMES:
+        name_type = "secret" if is_secret else "environment variable"
+        raise ValueError(
+            f"You have used a reserved {name_type} name that is "
+            f"used by Lepton internally: {name}. Please use a different name. "
+            "Here is a list of all reserved environment variable names:\n"
+            f"{LEPTON_RESERVED_ENV_NAMES}"
+        )
 
 
 def _mount_definition_error(mount_str: str, detail: str) -> ValueError:
@@ -97,26 +122,14 @@ def make_env_vars_from_strings(
             k, v = s.split("=", 1)
         except ValueError:
             raise ValueError(f"Invalid environment definition: [red]{s}[/]")
-        if k in LEPTON_RESERVED_ENV_NAMES:
-            raise ValueError(
-                "You have used a reserved environment variable name that is "
-                "used by Lepton internally: {k}. Please use a different name. "
-                "Here is a list of all reserved environment variable names:\n"
-                f"{LEPTON_RESERVED_ENV_NAMES}"
-            )
+        validate_environment_variable_name(k)
         env_list.append(EnvVar(name=k, value=v))
     for s in secret if secret else []:
         # We provide the user a shorcut: instead of having to specify
         # SECRET_NAME=SECRET_NAME, they can just specify SECRET_NAME
         # if the local env name and the secret name are the same.
         k, v = s.split("=", 1) if "=" in s else (s, s)
-        if k in LEPTON_RESERVED_ENV_NAMES:
-            raise ValueError(
-                "You have used a reserved secret name that is "
-                "used by Lepton internally: {k}. Please use a different name. "
-                "Here is a list of all reserved environment variable names:\n"
-                f"{LEPTON_RESERVED_ENV_NAMES}"
-            )
+        validate_environment_variable_name(k, is_secret=True)
         # TODO: sanity check if these secrets exist.
         env_list.append(EnvVar(name=k, value_from=EnvValue(secret_name_ref=v)))
     return env_list
