@@ -574,6 +574,26 @@ class TestWorkspaceFlagSchema(unittest.TestCase):
             client_module.reset_new_deployment_api_flag_cache,
         )
 
+    # LEP-6218: secure endpoint defaults are represented as a strict optional
+    # workspace boolean, preserving disabled/absent compatibility semantics.
+    def test_secure_endpoint_defaults_flag_accepts_only_strict_booleans(self):
+        self.assertTrue(
+            WorkspaceFeatures(
+                enable_secure_endpoint_defaults=True
+            ).enable_secure_endpoint_defaults
+        )
+        self.assertFalse(
+            WorkspaceFeatures(
+                enable_secure_endpoint_defaults=False
+            ).enable_secure_endpoint_defaults
+        )
+        self.assertIsNone(WorkspaceFeatures().enable_secure_endpoint_defaults)
+
+        for invalid in ("true", "false", 1, 0):
+            with self.subTest(invalid=invalid):
+                with self.assertRaises(ValidationError):
+                    WorkspaceFeatures(enable_secure_endpoint_defaults=invalid)
+
 
 if __name__ == "__main__":
     unittest.main()

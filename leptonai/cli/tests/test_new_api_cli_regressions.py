@@ -344,6 +344,14 @@ class TestNewEndpointRerun(unittest.TestCase):
                 [(env.name, env.value) for env in spec.spec.envs],
             ))
 
+        def create_endpoint(spec, *, tolerate_legacy_response):
+            calls.append((
+                "endpoint-create",
+                spec.spec.is_pod,
+                tolerate_legacy_response,
+            ))
+            return True
+
         endpoint_api = Mock(spec=EndpointAPI)
         endpoint_api.validate_create.side_effect = validate_endpoint
         endpoint_api.list_all.side_effect = lambda: calls.append("endpoint-list") or [
@@ -352,9 +360,7 @@ class TestNewEndpointRerun(unittest.TestCase):
         endpoint_api.delete.side_effect = lambda name: calls.append(
             ("endpoint-delete", name)
         )
-        endpoint_api.create.side_effect = lambda spec: calls.append(
-            ("endpoint-create", spec.spec.is_pod)
-        )
+        endpoint_api.create_with_response.side_effect = create_endpoint
         fake_client = SimpleNamespace(
             deployment=endpoint_api,
             pod=SimpleNamespace(),
@@ -401,9 +407,10 @@ class TestNewEndpointRerun(unittest.TestCase):
                 ),
                 "endpoint-list",
                 ("endpoint-delete", "ep"),
-                ("endpoint-create", False),
+                ("endpoint-create", False, True),
             ],
         )
+        endpoint_api.create.assert_not_called()
 
     def test_validation_failure_does_not_list_delete_or_create(self):
         cases = [

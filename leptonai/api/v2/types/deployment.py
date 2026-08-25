@@ -311,6 +311,9 @@ class LeptonDeploymentUserSpec(BaseModel):
     queue_config: Optional[QueueConfig] = None
     scheduling_policy: Optional[DeploymentSchedulingPolicy] = None
     auth_config: Optional[AuthConfig] = None
+    # Explicit opt-out from API-token authentication. None means unspecified;
+    # false must remain distinct because it re-enables authentication on update.
+    allow_unauthenticated_access: Optional[bool] = None
     # Endpoint-level ingress switch on the new API. Preserve an explicit false
     # value in the legacy-shaped compatibility model: omission defaults to true
     # on create and would otherwise make an exported private endpoint reachable.

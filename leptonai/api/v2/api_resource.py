@@ -93,19 +93,69 @@ class APIResourse(object):
             )
 
     def _raise_if_not_ok(self, response: Response):
-        """
-        Raise a RuntimeError if the response is not ok. Given the
-        """
-        if response.status_code >= 400 and response.status_code < 500:
+        """Raise ClientError or ServerError for a 4xx/5xx response."""
+        if response.status_code < 400:
+            return response
+
+        response = self._response_for_diagnostic(response)
+        if response.status_code < 500:
             raise ClientError(response)
-        elif response.status_code >= 500:
-            raise ServerError(response)
-        return response
+        raise ServerError(response)
+
+    @staticmethod
+    def _contains_api_token_material(value: Any) -> bool:
+        try:
+            folded_value = str(value).casefold()
+        except Exception:
+            return False
+        return "api_tokens" in folded_value or "apitokens" in folded_value
+
+    def _response_for_diagnostic(self, response: Response) -> Response:
+        """Return a response safe to attach to a rendered exception."""
+        if not self._contains_api_token_material(response.text):
+            return response
+
+        return self._redacted_response(response)
+
+    @staticmethod
+    def _redacted_response(response: Response) -> Response:
+        """Copy only status into a response with a generic diagnostic body."""
+        redacted_response = Response()
+        redacted_response.status_code = response.status_code
+        redacted_response.encoding = "utf-8"
+        redacted_response._content = (
+            b"API request failed. Response details were redacted because they may"
+            b" contain sensitive authentication data."
+        )
+        return redacted_response
+
+    def _response_text_for_diagnostic(self, response: Response) -> str:
+        return self._response_for_diagnostic(response).text
+
+    def _format_list_item_error(self, index: int, error: Exception, item: Any) -> str:
+        if self._contains_api_token_material(item) or self._contains_api_token_material(
+            error
+        ):
+            return (
+                f"\n index {index}: response item details were redacted because they"
+                " may contain sensitive authentication data"
+            )
+        return f"\n index {index}: {error}\nitem: {item}"
 
     def _print_programming_error(self, response: Response, e: Exception) -> NoReturn:
         """
         Print a programming error message. This should not happen in production.
         """
+        if self._contains_api_token_material(
+            response.text
+        ) or self._contains_api_token_material(e):
+            status_code = response.status_code
+            raise RuntimeError(
+                "You encountered a programming error. The API returned status"
+                f" {status_code}, but its response could not be decoded. Response"
+                " details were redacted because they may contain sensitive"
+                " authentication data."
+            ) from None
         raise RuntimeError(
             "You encountered a programming error. Please report this, and include the"
             " following debug info:\n*** begin of debug info ***\nresponse returned"
@@ -146,17 +196,20 @@ class APIResourse(object):
         valid_items = []
         errors: List[str] = []
 
-        if list_key:
-            data = response.json()
-            items_raw = data.get(list_key, data) if isinstance(data, dict) else data
-        else:
-            items_raw = response.json()
+        try:
+            if list_key:
+                data = response.json()
+                items_raw = data.get(list_key, data) if isinstance(data, dict) else data
+            else:
+                items_raw = response.json()
+        except Exception as e:
+            self._print_programming_error(response, e)
 
         for idx, raw in enumerate(items_raw):
             try:
                 valid_items.append(EnsuredType(**raw))
             except Exception as e:
-                errors.append(f"\n index {idx}: {e}\nitem: {raw}")
+                errors.append(self._format_list_item_error(idx, e, raw))
 
         if errors:
             import sys

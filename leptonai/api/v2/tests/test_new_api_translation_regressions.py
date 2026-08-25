@@ -22,6 +22,7 @@ from leptonai.api.v2.types.deployment import (
     LeptonDeployment,
     LeptonDeploymentUserSpec,
     ResourceRequirement,
+    TokenVar,
 )
 
 
@@ -342,6 +343,147 @@ class TestEndpointTranslationRegressions(unittest.TestCase):
         }
         legacy = translation.http_endpoint_to_legacy(ep)
         self.assertEqual(legacy["spec"]["storage_attachments"], storage_attachments)
+
+
+class TestSecureEndpointAuthTranslation(unittest.TestCase):
+    # LEP-6218: optional authentication mode has three distinct public states;
+    # absent must remain absent, while explicit true and false survive both
+    # API-family translations.
+    def test_allow_unauthenticated_access_true_false_and_absent_round_trip(self):
+        cases = (
+            ("absent", None, None),
+            ("explicit opt-out", True, []),
+            ("explicit protected", False, [{"value": "caller-token"}]),
+        )
+        for case, allow, tokens in cases:
+            with self.subTest(case=case):
+                legacy_spec = {
+                    "container": {"image": "nginx"},
+                    "resource_requirement": {"resource_shape": "cpu.small"},
+                }
+                if allow is not None:
+                    legacy_spec["allow_unauthenticated_access"] = allow
+                    legacy_spec["api_tokens"] = tokens
+                legacy = {
+                    "metadata": {"name": "ep"},
+                    "spec": legacy_spec,
+                }
+
+                wire = translation.legacy_to_http_endpoint(legacy)
+                back = translation.http_endpoint_to_legacy(wire)
+
+                if allow is None:
+                    self.assertNotIn(
+                        "allow_unauthenticated_access",
+                        wire["spec"],
+                    )
+                    self.assertNotIn(
+                        "allow_unauthenticated_access",
+                        back["spec"],
+                    )
+                else:
+                    self.assertIs(
+                        wire["spec"]["allow_unauthenticated_access"],
+                        allow,
+                    )
+                    self.assertEqual(wire["spec"]["api_tokens"], tokens)
+                    self.assertIs(
+                        back["spec"]["allow_unauthenticated_access"],
+                        allow,
+                    )
+                    self.assertEqual(back["spec"]["api_tokens"], tokens)
+
+    # LEP-6218: spec-only export/reload retains the explicit mode and token
+    # values that file-based CLI creation consumes.
+    def test_model_export_reload_preserves_authentication_mode(self):
+        cases = (
+            (True, []),
+            (False, [TokenVar(value="caller-token")]),
+        )
+        for allow, tokens in cases:
+            with self.subTest(allow=allow):
+                original = LeptonDeploymentUserSpec(
+                    allow_unauthenticated_access=allow,
+                    api_tokens=tokens,
+                )
+                exported = json.loads(
+                    original.model_dump_json(by_alias=True, exclude_none=True)
+                )
+                reloaded = LeptonDeploymentUserSpec(**exported)
+
+                self.assertIs(
+                    exported["allow_unauthenticated_access"],
+                    allow,
+                )
+                self.assertIs(reloaded.allow_unauthenticated_access, allow)
+                self.assertEqual(
+                    [token.value for token in reloaded.api_tokens],
+                    [token.value for token in tokens],
+                )
+
+        absent = LeptonDeploymentUserSpec()
+        self.assertNotIn(
+            "allow_unauthenticated_access",
+            absent.model_dump(exclude_none=True),
+        )
+
+    # LEP-6218: endpoint merge patches carry both fields for mode transitions,
+    # but neither field for unrelated changes.
+    def test_endpoint_patch_authentication_fields_are_atomic_or_omitted(self):
+        protected = {
+            "metadata": {"name": "ep"},
+            "spec": {
+                "components": [{"name": "default", "image": "nginx"}],
+                "api_tokens": [{"value": "old-token"}],
+                "allow_unauthenticated_access": False,
+            },
+        }
+        opt_out = translation.legacy_to_http_endpoint_patch(
+            protected,
+            {
+                "metadata": {"name": "ep"},
+                "spec": {
+                    "api_tokens": [],
+                    "allow_unauthenticated_access": True,
+                },
+            },
+        )
+        self.assertEqual(opt_out["spec"]["api_tokens"], [])
+        self.assertIs(opt_out["spec"]["allow_unauthenticated_access"], True)
+
+        unauthenticated = {
+            **protected,
+            "spec": {
+                **protected["spec"],
+                "api_tokens": [],
+                "allow_unauthenticated_access": True,
+            },
+        }
+        protect = translation.legacy_to_http_endpoint_patch(
+            unauthenticated,
+            {
+                "metadata": {"name": "ep"},
+                "spec": {
+                    "api_tokens": [{"value": "new-token"}],
+                    "allow_unauthenticated_access": False,
+                },
+            },
+        )
+        self.assertEqual(
+            protect["spec"]["api_tokens"],
+            [{"value": "new-token"}],
+        )
+        self.assertIs(protect["spec"]["allow_unauthenticated_access"], False)
+
+        unrelated = translation.legacy_to_http_endpoint_patch(
+            protected,
+            {
+                "metadata": {"name": "ep"},
+                "spec": {"container": {"image": "nginx:new"}},
+            },
+        )
+        self.assertNotIn("api_tokens", unrelated["spec"])
+        self.assertNotIn("allow_unauthenticated_access", unrelated["spec"])
 
 
 class TestPodCompatibilityRegressions(unittest.TestCase):

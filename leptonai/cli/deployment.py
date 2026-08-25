@@ -44,7 +44,12 @@ def _exit_if_no_changes_to_update(e, name):
 
 
 def _create_after_new_api_rerun(
-    dep_api, spec, name: str, timeout_seconds: float = 60.0
+    dep_api,
+    spec,
+    name: str,
+    timeout_seconds: float = 60.0,
+    return_response: bool = False,
+    tolerate_legacy_response: bool = False,
 ):
     """Retry a new workload create while asynchronous deletion finishes.
 
@@ -57,6 +62,17 @@ def _create_after_new_api_rerun(
     announced_wait = False
     while True:
         try:
+            if return_response:
+                create_with_response = getattr(
+                    dep_api,
+                    "create_with_response",
+                    None,
+                )
+                if callable(create_with_response):
+                    return create_with_response(
+                        spec,
+                        tolerate_legacy_response=tolerate_legacy_response,
+                    )
             return dep_api.create(spec)
         except ClientError as e:
             if e.response.status_code != 409 or time.monotonic() >= deadline:
@@ -68,6 +84,92 @@ def _create_after_new_api_rerun(
                 )
                 announced_wait = True
             time.sleep(0.5)
+
+
+def _secure_endpoint_defaults_enabled(client: "APIClient") -> bool:
+    """Return whether the workspace defaults new endpoints to token auth.
+
+    Older workspaces do not return the feature; treat that case as disabled so
+    their existing create warning and confirmation flow remains unchanged. If
+    feature discovery itself fails, abort before POSTing: a secure workspace
+    could otherwise generate a credential that this CLI would unknowingly
+    discard through the legacy boolean create path.
+    """
+    info = getattr(client, "info", None)
+    if not callable(info):
+        # Compatibility for older injected client implementations that predate
+        # workspace feature discovery. The production APIClient always exposes
+        # info(); an actual request/parsing failure still aborts below.
+        return False
+    try:
+        features = getattr(info(), "features", None)
+    except Exception:
+        raise ValueError(
+            "Could not determine the workspace's secure endpoint default. No endpoint"
+            " was created; retry once workspace information is available."
+        ) from None
+    return getattr(features, "enable_secure_endpoint_defaults", None) is True
+
+
+def _warn_unauthenticated_access() -> None:
+    console.print(
+        "\n[yellow]Warning[/]: This operation disables API-token authentication for"
+        " the endpoint. If it succeeds, anyone permitted by the endpoint's IP access"
+        " policy can invoke it without a token."
+    )
+
+
+def _server_generated_api_token(
+    created, requested: "LeptonDeployment"
+) -> Optional[str]:
+    """Extract the generated literal token from a successful create response.
+
+    Caller-supplied tokens are deliberately not repeated in command output. The
+    backend generates exactly one literal token only when the request has no
+    token configuration and does not explicitly opt out.
+    """
+    requested_spec = getattr(requested, "spec", None)
+    if requested_spec is None:
+        return None
+    if getattr(requested_spec, "allow_unauthenticated_access", False):
+        return None
+    if getattr(requested_spec, "api_tokens", None):
+        return None
+
+    created_spec = getattr(created, "spec", None)
+    if getattr(created_spec, "allow_unauthenticated_access", False):
+        return None
+    for token in getattr(created_spec, "api_tokens", None) or []:
+        value = getattr(token, "value", None)
+        if isinstance(value, str) and value and value != "***":
+            return value
+    return None
+
+
+def _print_generated_api_token(token: Optional[str]) -> None:
+    if token is None:
+        return
+    console.print("\n[bold yellow]Generated API Token (save this value):[/]")
+    console.print(token, markup=False, highlight=False)
+
+
+def _deployment_dict_with_redacted_api_tokens(
+    deployment: "LeptonDeployment",
+) -> dict:
+    """Copy a deployment payload and redact all literal API-token values."""
+    payload = deployment.model_dump()
+    spec = payload.get("spec")
+    if isinstance(spec, dict):
+        for token in spec.get("api_tokens") or []:
+            if isinstance(token, dict) and token.get("value"):
+                token["value"] = "***"
+    return payload
+
+
+def _deployment_json_for_debug(deployment: "LeptonDeployment") -> str:
+    """Serialize a deployment for trace logging without literal API tokens."""
+    payload = _deployment_dict_with_redacted_api_tokens(deployment)
+    return json.dumps(payload, indent=2)
 
 
 def _parse_container_port(container_port: Optional[str]) -> Optional["ContainerPort"]:
@@ -656,10 +758,10 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "--public",
     is_flag=True,
     help=(
-        "Make the endpoint public (no IP restriction). Mutually exclusive with"
-        " --ip-whitelist. Can be combined with --tokens (public + tokens); '--public"
-        " --tokens' is equivalent to '--tokens'. If neither --ip-whitelist nor --tokens"
-        " is provided, the endpoint defaults to public access."
+        "Make the endpoint reachable from any IP by clearing its IP allowlist."
+        " Mutually exclusive with --ip-whitelist. This does not disable API-token"
+        " authentication; token access follows the workspace default unless --tokens or"
+        " --allow-unauthenticated-access is specified."
     ),
 )
 @click.option(
@@ -679,11 +781,22 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
 @click.option(
     "--tokens",
     help=(
-        "Additional tokens that can be used to access the endpoint. See docs for"
-        " details on access control. These are completely independent of IP access"
-        " control (--public and --ip-whitelist)."
+        "Tokens that can be used to access the endpoint. Supplying this option prevents"
+        " generation of another token. API tokens are independent of IP access control"
+        " (--public and --ip-whitelist), and cannot be combined with"
+        " --allow-unauthenticated-access."
     ),
     multiple=True,
+)
+@click.option(
+    "--allow-unauthenticated-access",
+    is_flag=True,
+    default=False,
+    help=(
+        "Explicitly disable API-token authentication. Anyone permitted by the"
+        " endpoint's IP access policy can invoke it without a token. Cannot be combined"
+        " with --tokens."
+    ),
 )
 @click.option(
     "--no-traffic-timeout",
@@ -976,6 +1089,7 @@ def create(
     public,
     ip_whitelist,
     tokens,
+    allow_unauthenticated_access,
     no_traffic_timeout,
     target_gpu_utilization,
     initial_delay_seconds,
@@ -1018,6 +1132,23 @@ def create(
             sys.exit(1)
     else:
         spec = LeptonDeploymentUserSpec()
+
+    if allow_unauthenticated_access and tokens:
+        console.print(
+            "[red]Error[/]: Cannot specify both --tokens and"
+            " --allow-unauthenticated-access. Use --tokens for authenticated access or"
+            " --allow-unauthenticated-access to explicitly opt out."
+        )
+        sys.exit(1)
+
+    if spec.is_pod and (
+        allow_unauthenticated_access or spec.allow_unauthenticated_access is not None
+    ):
+        console.print(
+            "[red]Error[/]: --allow-unauthenticated-access applies only to endpoints;"
+            " it cannot be used with a pod specification."
+        )
+        sys.exit(1)
 
     # Bind one resource family for the whole operation (preflight list ->
     # optional --rerun delete -> create). Deprecated endpoint-create spec files
@@ -1180,6 +1311,23 @@ def create(
         console.print(f"[red]{e}[/]")
         sys.exit(1)
 
+    # Feature discovery is needed only when the effective create request leaves
+    # authentication undecided and the server might generate a token. Resolve
+    # it before any auxiliary mutation such as creating a workspace-token
+    # secret. Explicit tokens and opt-out remain usable during a transient
+    # /workspace failure because their result is deterministic.
+    has_explicit_auth_mode = bool(
+        allow_unauthenticated_access
+        or tokens
+        or spec.allow_unauthenticated_access
+        or spec.api_tokens
+    )
+    secure_endpoint_defaults = (
+        not spec.is_pod
+        and not has_explicit_auth_mode
+        and _secure_endpoint_defaults_enabled(client)
+    )
+
     # include workspace token
     secret = list(secret)  # to convert secret from tuple to list
     if include_workspace_token:
@@ -1221,8 +1369,34 @@ def create(
                 sys.exit(1)
         # else: preserve existing spec.storage_attachments from loaded file
 
-        if tokens or not file:
-            spec.api_tokens = make_token_vars_from_config(public, tokens)
+        # API-token authentication is independent of --public/--ip-whitelist.
+        # Explicit CLI values override file input atomically; with neither CLI
+        # value, file input is preserved and ordinary creates retain the legacy
+        # empty-list payload expected by feature-disabled workspaces.
+        if allow_unauthenticated_access:
+            spec.allow_unauthenticated_access = True
+            spec.api_tokens = []
+        elif tokens:
+            # A non-empty token list already selects authenticated mode on
+            # create. Keep the new opt-out field absent for compatibility with
+            # feature-disabled/older servers, while still overriding a file
+            # that explicitly opted out.
+            spec.allow_unauthenticated_access = None
+            spec.api_tokens = make_token_vars_from_config(None, tokens)
+        elif not file:
+            spec.api_tokens = (
+                None
+                if secure_endpoint_defaults
+                else make_token_vars_from_config(public, tokens)
+            )
+
+        if spec.allow_unauthenticated_access and spec.api_tokens:
+            console.print(
+                "[red]Error[/]: Endpoint specs cannot combine api_tokens with"
+                " allow_unauthenticated_access. Remove one authentication mode from the"
+                " file or override it with a CLI option."
+            )
+            sys.exit(1)
 
         # Set IP access control in auth_config (independent of tokens)
         if public or ip_whitelist:
@@ -1246,13 +1420,16 @@ def create(
             )
             sys.exit(1)
 
-        # Post-spec warning: creating public endpoint without tokens and whitelist
+        # Post-spec warning: explicit opt-out always warns. Otherwise retain the
+        # legacy public-without-tokens warning only when the workspace has not
+        # enabled secure endpoint defaults (where the backend generates a token).
         ip_allowlist = getattr(getattr(spec, "auth_config", None), "ip_allowlist", None)
         has_ip_restriction = bool(ip_allowlist)
         has_tokens = bool(getattr(spec, "api_tokens", None))
         should_warn = not has_ip_restriction and not has_tokens
-
-        if should_warn:
+        if spec.allow_unauthenticated_access:
+            _warn_unauthenticated_access()
+        elif should_warn and not secure_endpoint_defaults:
             console.print(
                 "\n[yellow]Warning[/]: You are creating a publicly accessible endpoint"
             )
@@ -1354,7 +1531,7 @@ def create(
         ),
         spec=spec,
     )
-    logger.trace(json.dumps(lepton_deployment.model_dump(), indent=2))
+    logger.trace(_deployment_json_for_debug(lepton_deployment))
 
     # Validate the fully assembled replacement before deleting anything. New
     # API translation is stricter than the legacy wire; without this preflight,
@@ -1374,15 +1551,50 @@ def create(
         dep_api.delete(name)
         deleted_for_rerun = True
 
+    authentication_undecided = (
+        not spec.is_pod
+        and not spec.allow_unauthenticated_access
+        and not spec.api_tokens
+    )
+
     if deleted_for_rerun and isinstance(dep_api, (EndpointAPI, DevPodAPI)):
-        _create_after_new_api_rerun(dep_api, lepton_deployment, name)
+        created_deployment = _create_after_new_api_rerun(
+            dep_api,
+            lepton_deployment,
+            name,
+            return_response=authentication_undecided,
+            tolerate_legacy_response=not secure_endpoint_defaults,
+        )
+    elif authentication_undecided:
+        create_with_response = getattr(dep_api, "create_with_response", None)
+        if callable(create_with_response):
+            created_deployment = create_with_response(
+                lepton_deployment,
+                tolerate_legacy_response=not secure_endpoint_defaults,
+            )
+        else:
+            created_deployment = dep_api.create(lepton_deployment)
     else:
-        dep_api.create(lepton_deployment)
+        created_deployment = dep_api.create(lepton_deployment)
+
+    generated_token = _server_generated_api_token(
+        created_deployment,
+        lepton_deployment,
+    )
+    if secure_endpoint_defaults and authentication_undecided and not generated_token:
+        console.print(
+            "[red]Error[/]: The endpoint was created, but the server did not return a"
+            " generated API token. Set replacement credentials immediately with `lep"
+            f" endpoint update -n {name} --tokens TOKEN`."
+        )
+        sys.exit(1)
+
     console.print(
         "🎉 [green]Endpoint Created Successfully![/]\n"
         f"Name: [blue]{name}[/]\n"
         f"Use `lep endpoint status -n {name}` to check the status."
     )
+    _print_generated_api_token(generated_token)
 
 
 @deployment.command(name="list")
@@ -1520,15 +1732,23 @@ def status(name, show_tokens, detail):
 
     # Note: endpoint is not quite often used right now, so we will hide it for now.
     # console.print(f"Endpoint:   {dep_info['status']['endpoint']['external_endpoint']}")
-    console.print(f"Is Public:  {'No' if dep_info.spec.api_tokens else 'Yes'}")
+    ip_allowlist = getattr(
+        getattr(dep_info.spec, "auth_config", None), "ip_allowlist", None
+    )
+    console.print(f"Is Public:  {'No' if ip_allowlist else 'Yes'}")
+    token_auth_enabled = bool(dep_info.spec.api_tokens) and not bool(
+        dep_info.spec.allow_unauthenticated_access
+    )
+    console.print(
+        f"API Token Authentication: {'Enabled' if token_auth_enabled else 'Disabled'}"
+    )
 
     if show_tokens and dep_info.spec.api_tokens:
 
         def stringfy_token(x):
-            # The new /endpoints API redacts literal token values to "***" on
-            # read (secret references via value_from are returned intact). Make
-            # the redaction explicit rather than printing a bare "***" that looks
-            # like a usable token.
+            # Some API responses may redact literal token values to "***" while
+            # leaving secret references intact. Make that redaction explicit
+            # rather than presenting "***" as if it were a usable token.
             if x.value == "***":
                 return "*** (literal value hidden by server; not retrievable)"
             return x.value or f"[{x.value_from.token_name_ref}]"
@@ -1603,7 +1823,12 @@ def status(name, show_tokens, detail):
                 )
         console.print(table)
     if detail:
-        console.print(Pretty(dep_info.model_dump()))
+        detail_payload = (
+            dep_info.model_dump()
+            if show_tokens
+            else _deployment_dict_with_redacted_api_tokens(dep_info)
+        )
+        console.print(Pretty(detail_payload))
 
 
 @deployment.command()
@@ -1682,11 +1907,9 @@ def log(name, replica):
     is_flag=True,
     default=None,
     help=(
-        "Make the endpoint public (clears IP allowlist). "
-        "To restrict access, use --ip-whitelist. "
-        "Mutually exclusive with --ip-whitelist. "
-        "Note: public can be combined with --tokens; tokens are independent and "
-        "will not be removed unless explicitly updated (use --remove-tokens to clear)."
+        "Make the endpoint reachable from any IP by clearing its IP allowlist."
+        " Mutually exclusive with --ip-whitelist. This does not change API-token"
+        " authentication."
     ),
 )
 @click.option(
@@ -1705,11 +1928,21 @@ def log(name, replica):
 @click.option(
     "--tokens",
     help=(
-        "Access tokens that can be used to access the endpoint. See docs for"
-        " details on access control. If no tokens is specified, we will not change the"
-        " tokens of the endpoint. "
+        "Replace the endpoint's access tokens and enable API-token authentication. If"
+        " omitted, authentication state is preserved. Cannot be combined with"
+        " --allow-unauthenticated-access."
     ),
     multiple=True,
+)
+@click.option(
+    "--allow-unauthenticated-access",
+    is_flag=True,
+    default=None,
+    help=(
+        "Explicitly disable API-token authentication and clear existing access tokens."
+        " Anyone permitted by the endpoint's IP access policy can invoke it without a"
+        " token. Cannot be combined with --tokens."
+    ),
 )
 @click.option(
     "--remove-tokens",
@@ -1717,9 +1950,8 @@ def log(name, replica):
     default=False,
     hidden=True,
     help=(
-        "If specified, all additional tokens will be removed, and the endpoint will"
-        " be either public (if --public) is specified, or only accessible with the"
-        " workspace token (if --public is not specified)."
+        "Deprecated unsafe compatibility option. Use"
+        " --allow-unauthenticated-access to explicitly disable token authentication."
     ),
 )
 @click.option(
@@ -1883,6 +2115,7 @@ def update(
     public,
     ip_whitelist,
     tokens,
+    allow_unauthenticated_access,
     remove_tokens,
     visibility,
     replicas_static,
@@ -1903,9 +2136,6 @@ def update(
     old tokens are replaced by the new set of tokens.
     """
 
-    client = APIClient()
-    lepton_deployment = client.deployment.get(name)
-
     # Validate that public and ip-whitelist are mutually exclusive
     if public and ip_whitelist:
         console.print(
@@ -1915,12 +2145,24 @@ def update(
         )
         sys.exit(1)
 
-    if tokens and remove_tokens:
+    if remove_tokens:
         console.print(
-            "[red]Error[/]: Cannot specify both --tokens and --remove-tokens. "
-            "Use --tokens to specify tokens or --remove-tokens to remove all tokens. "
+            "[red]Error[/]: --remove-tokens is no longer supported because clearing"
+            " tokens alone can unintentionally disable authentication. Use"
+            " --allow-unauthenticated-access to explicitly opt out."
         )
         sys.exit(1)
+
+    if tokens and allow_unauthenticated_access:
+        console.print(
+            "[red]Error[/]: Cannot specify both --tokens and"
+            " --allow-unauthenticated-access. Use --tokens for authenticated access or"
+            " --allow-unauthenticated-access to explicitly opt out."
+        )
+        sys.exit(1)
+
+    client = APIClient()
+    lepton_deployment = client.deployment.get(name)
 
     autoscaler_flag = (
         replicas_static is not None
@@ -1979,15 +2221,17 @@ def update(
         x is not None
         for x in (min_replicas, max_replicas, resource_shape, shared_memory_size)
     )
-    # Decide api_tokens update explicitly:
-    # - If --remove-tokens: clear to []
-    # - If --tokens provided: rebuild via make_token_vars_from_config (ignore is_public)
-    # - Else: do not change (pass None)
+    # Authentication transitions must be atomic. Explicit opt-out clears tokens;
+    # replacement tokens explicitly leave opt-out mode; unrelated updates omit
+    # both fields and preserve the current authentication state.
     api_tokens_payload = None
-    if remove_tokens:
+    allow_unauthenticated_access_payload = None
+    if allow_unauthenticated_access:
         api_tokens_payload = []
+        allow_unauthenticated_access_payload = True
     elif len(tokens) > 0:
         api_tokens_payload = make_token_vars_from_config(is_public=None, tokens=tokens)
+        allow_unauthenticated_access_payload = False
 
     lepton_deployment_spec = LeptonDeploymentUserSpec(
         resource_requirement=(
@@ -2001,8 +2245,12 @@ def update(
             else None
         ),
         api_tokens=api_tokens_payload,
+        allow_unauthenticated_access=allow_unauthenticated_access_payload,
         auto_scaler=temp_auto_scaler,
     )
+
+    if allow_unauthenticated_access:
+        _warn_unauthenticated_access()
 
     # Apply container image update while preserving existing command/ports if present
     if container_image is not None:
@@ -2088,7 +2336,7 @@ def update(
         spec=lepton_deployment_spec,
     )
 
-    logger.trace(json.dumps(new_lepton_deployment.model_dump(), indent=2))
+    logger.trace(_deployment_json_for_debug(new_lepton_deployment))
 
     if lepton_deployment.metadata.semantic_version:
         try:
@@ -2153,7 +2401,7 @@ def update(
         )
     except ClientError as e:
         _exit_if_no_changes_to_update(e, name)
-    logger.trace(json.dumps(updated_lepton_deployment.model_dump(), indent=2))
+    logger.trace(_deployment_json_for_debug(updated_lepton_deployment))
     console.print(f"Endpoint [green]{name}[/] updated.")
 
 

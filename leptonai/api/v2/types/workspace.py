@@ -50,9 +50,12 @@ class WorkspaceFeatures(BaseModel):
     flags the backend adds are ignored here. ``enable_new_deployment_api``
     switches the endpoint/devpod command paths from the legacy
     ``/deployments`` routes to the new ``/endpoints`` and ``/devpods`` routes.
+    ``enable_secure_endpoint_defaults`` makes the backend generate an API token
+    when a new non-pod endpoint does not specify an authentication mode.
     """
 
     enable_new_deployment_api: Optional[StrictBool] = None
+    enable_secure_endpoint_defaults: Optional[StrictBool] = None
 
 
 class WorkspaceInfo(BaseModel):

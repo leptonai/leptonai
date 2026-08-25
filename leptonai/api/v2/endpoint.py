@@ -60,12 +60,24 @@ class EndpointAPI(APIResourse):
         )
 
     def _http_endpoint_to_model(self, raw: dict) -> LeptonDeployment:
-        if not isinstance(raw, dict):
-            raise TypeError(f"expected an endpoint object, got {type(raw).__name__}")
-        model = LeptonDeployment(**translation.http_endpoint_to_legacy(raw))
-        if model.metadata is None or not (model.metadata.name or model.metadata.id_):
-            raise ValueError("endpoint response is missing metadata.name")
-        return model
+        try:
+            if not isinstance(raw, dict):
+                raise TypeError(
+                    f"expected an endpoint object, got {type(raw).__name__}"
+                )
+            model = LeptonDeployment(**translation.http_endpoint_to_legacy(raw))
+            if model.metadata is None or not (
+                model.metadata.name or model.metadata.id_
+            ):
+                raise ValueError("endpoint response is missing metadata.name")
+            return model
+        except Exception:
+            if self._contains_api_token_material(raw):
+                raise RuntimeError(
+                    "The endpoint response could not be decoded. Response details were"
+                    " redacted because they may contain sensitive authentication data."
+                ) from None
+            raise
 
     def list_all(self) -> List[LeptonDeployment]:
         # GET /endpoints returns a bare array by default (no pagination params
@@ -79,7 +91,7 @@ class EndpointAPI(APIResourse):
             try:
                 valid_items.append(self._http_endpoint_to_model(item))
             except Exception as e:
-                errors.append(f"\n index {index}: {e}\nitem: {item}")
+                errors.append(self._format_list_item_error(index, e, item))
         if errors:
             sys.stderr.write(
                 f"[lepton-error] Skipped {len(errors)} invalid endpoint(s) when"
@@ -101,22 +113,49 @@ class EndpointAPI(APIResourse):
         translation.legacy_to_http_endpoint(self.safe_json(spec))
 
     def create(self, spec: LeptonDeployment) -> bool:
-        """Create an endpoint from a legacy deployment spec.
-
-        The legacy spec is translated into the HTTPEndpoint create body
-        (single "default" component; endpoint-level fields lifted out).
-
-        @implements LEP-5664 (endpoint create via new API)
-        """
-        # DeploymentAPI historically accepts pod-flavoured specs as well as
-        # exposing create_pod().  Preserve that public surface when the flag
-        # swaps in EndpointAPI; otherwise is_pod is silently dropped and an
-        # endpoint is created instead of a DevPod.
+        """Create an endpoint and preserve the historical boolean result."""
         if spec.spec is not None and spec.spec.is_pod is True:
             return self._client.pod.create(spec)
         payload = translation.legacy_to_http_endpoint(self.safe_json(spec))
         response = self._post("/endpoints", json=payload)
         return self.ensure_ok(response)
+
+    def create_with_response(
+        self,
+        spec: LeptonDeployment,
+        *,
+        tolerate_legacy_response: bool = False,
+    ) -> Union[LeptonDeployment, bool]:
+        """Create an endpoint and return its legacy-shaped resource response.
+
+        The legacy spec is translated into the HTTPEndpoint create body
+        (single "default" component; endpoint-level fields lifted out), then
+        the HTTPEndpoint response is translated back to LeptonDeployment.
+        ``tolerate_legacy_response`` accepts an empty legacy success body for
+        feature-disabled compatibility.
+
+        @implements LEP-5664 (endpoint create via new API), LEP-6218 (return the
+        successful translated endpoint create response)
+        """
+        if spec.spec is not None and spec.spec.is_pod is True:
+            return self._client.pod.create(spec)
+        payload = translation.legacy_to_http_endpoint(self.safe_json(spec))
+        response = self._post("/endpoints", json=payload)
+        if response.status_code >= 400:
+            # The server may have generated a credential before a downstream
+            # failure. Redact unconditionally; marker-based detection cannot
+            # prove an arbitrary raw error body is token-free.
+            response = self._redacted_response(response)
+        self._raise_if_not_ok(response)
+        try:
+            return self._http_endpoint_to_model(response.json())
+        except Exception:
+            if tolerate_legacy_response and response.content.strip() in (b"", b"{}"):
+                return True
+            raise RuntimeError(
+                "The create request succeeded, but the endpoint response could not be"
+                " decoded."
+            ) from None
 
     def create_pod(self, spec: LeptonDeployment) -> bool:
         """Deprecated DeploymentAPI-compatible DevPod creation shim."""
@@ -134,13 +173,11 @@ class EndpointAPI(APIResourse):
         if self._is_pod_object(name_or_deployment):
             return self._client.pod.get(name_or_deployment)
         response = self._get(f"/endpoints/{self._to_name(name_or_deployment)}")
-        self._raise_if_not_ok(response)
-        return self._http_endpoint_to_model(response.json())
+        return self._http_endpoint_to_model(self.ensure_json(response))
 
     def _get_raw(self, name: str) -> dict:
         response = self._get(f"/endpoints/{name}")
-        self._raise_if_not_ok(response)
-        return response.json()
+        return self.ensure_json(response)
 
     def update(
         self,
@@ -166,8 +203,7 @@ class EndpointAPI(APIResourse):
         payload = translation.legacy_to_http_endpoint_patch(raw, self.safe_json(spec))
         dryrun_param = "?dryrun=true" if dryrun else ""
         response = self._patch(f"/endpoints/{name}{dryrun_param}", json=payload)
-        self._raise_if_not_ok(response)
-        return self._http_endpoint_to_model(response.json())
+        return self._http_endpoint_to_model(self.ensure_json(response))
 
     def stop(
         self, name_or_deployment: Union[str, LeptonDeployment]
@@ -184,8 +220,7 @@ class EndpointAPI(APIResourse):
         raw = self._get_raw(name)
         payload = translation.build_endpoint_stop_patch(raw)
         response = self._patch(f"/endpoints/{name}", json=payload)
-        self._raise_if_not_ok(response)
-        return self._http_endpoint_to_model(response.json())
+        return self._http_endpoint_to_model(self.ensure_json(response))
 
     def delete(self, name_or_deployment: Union[str, LeptonDeployment]) -> bool:
         if self._is_pod_object(name_or_deployment):
@@ -200,8 +235,7 @@ class EndpointAPI(APIResourse):
             return self._client.pod.restart(name_or_deployment)
         # PUT /endpoints/:eid/restart (endpoint/handler.go) — same verb as legacy.
         response = self._put(f"/endpoints/{self._to_name(name_or_deployment)}/restart")
-        self._raise_if_not_ok(response)
-        return self._http_endpoint_to_model(response.json())
+        return self._http_endpoint_to_model(self.ensure_json(response))
 
     def get_readiness(
         self, name_or_deployment: Union[str, LeptonDeployment]
@@ -260,7 +294,7 @@ class EndpointAPI(APIResourse):
         if not response.ok:
             raise RuntimeError(
                 f"API call failed with status code {response.status_code}. Details:"
-                f" {response.text}"
+                f" {self._response_text_for_diagnostic(response)}"
             )
         for chunk in response.iter_content(chunk_size=None):
             if chunk:

@@ -38,7 +38,24 @@ lep endpoint list
 lep endpoint status -n my-endpoint
 ```
 
-Batch jobs and dev pods work the same way:
+In workspaces with secure endpoint defaults enabled, an endpoint created without
+`--tokens` is protected automatically. The create command prints the generated API
+token; save that value so clients can authenticate. You can instead provide one or
+more repeatable `--tokens` values, or explicitly opt out with
+`--allow-unauthenticated-access` (the CLI displays a warning). The `--public` option
+only controls IP reachability and does not disable API-token authentication.
+
+Authentication-mode updates are explicit:
+
+```shell
+# Replace tokens and enable token authentication
+lep endpoint update -n my-endpoint --tokens MY_TOKEN
+
+# Clear tokens and explicitly allow requests without API-token authentication
+lep endpoint update -n my-endpoint --allow-unauthenticated-access
+```
+
+You can also launch batch jobs and dev pods:
 
 ```shell
 # Run a batch job

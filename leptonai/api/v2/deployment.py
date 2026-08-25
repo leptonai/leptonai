@@ -40,12 +40,53 @@ class DeploymentAPI(APIResourse):
         response = self._get("/deployments")
         return self.ensure_list(response, LeptonDeployment)
 
-    def create(self, spec: LeptonDeployment):
-        """
-        Create a deployment with the given deployment spec.
-        """
+    def create(self, spec: LeptonDeployment) -> bool:
+        """Create a deployment and preserve the historical boolean result."""
         response = self._post("/deployments", json=self.safe_json(spec))
         return self.ensure_ok(response)
+
+    def create_with_response(
+        self,
+        spec: LeptonDeployment,
+        *,
+        tolerate_legacy_response: bool = False,
+    ) -> Union[LeptonDeployment, bool]:
+        """Create a deployment and return the successful resource response.
+
+        Non-pod creates return the deployment emitted by the API, including any
+        generated API token. Pod creates delegate to :meth:`create` and retain
+        their legacy boolean result. ``tolerate_legacy_response`` lets the CLI
+        preserve feature-disabled behavior with older servers whose successful
+        create response was empty (including an empty JSON object).
+
+        @implements LEP-6218 (return the successful deployment create response)
+        """
+        if spec.spec is not None and spec.spec.is_pod is True:
+            return self.create(spec)
+
+        response = self._post("/deployments", json=self.safe_json(spec))
+        if response.status_code >= 400:
+            # A secure-default create may generate the only literal token before
+            # a downstream failure is rendered. Never retain or expose that raw
+            # error body, even when it omits recognizable token field names.
+            response = self._redacted_response(response)
+        self._raise_if_not_ok(response)
+        try:
+            model = LeptonDeployment(**response.json())
+            if model.metadata is None or not (
+                model.metadata.name or model.metadata.id_
+            ):
+                raise ValueError("deployment response is missing metadata.name")
+            if model.spec is None:
+                raise ValueError("deployment response is missing spec")
+            return model
+        except Exception:
+            if tolerate_legacy_response and response.content.strip() in (b"", b"{}"):
+                return True
+            raise RuntimeError(
+                "The create request succeeded, but the deployment response could not"
+                " be decoded."
+            ) from None
 
     def create_pod(self, spec: LeptonDeployment):
         """
@@ -161,7 +202,7 @@ class DeploymentAPI(APIResourse):
         if not response.ok:
             raise RuntimeError(
                 f"API call failed with status code {response.status_code}. Details:"
-                f" {response.text}"
+                f" {self._response_text_for_diagnostic(response)}"
             )
         for chunk in response.iter_content(chunk_size=None):
             if chunk:
