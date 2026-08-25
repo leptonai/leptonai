@@ -155,7 +155,8 @@ def make_storage_attachments_from_strings(
         if profile_name and not attach_with:
             raise _storage_attachment_definition_error(
                 spec_str,
-                "PROFILE_NAME requires ATTACH_WITH (expected DATA_SOURCE_NAME:MODE:ATTACH_WITH:PROFILE_NAME)",
+                "PROFILE_NAME requires ATTACH_WITH (expected"
+                " DATA_SOURCE_NAME:MODE:ATTACH_WITH:PROFILE_NAME)",
             )
         if not data_source_name:
             raise _storage_attachment_definition_error(
