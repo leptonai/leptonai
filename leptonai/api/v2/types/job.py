@@ -13,6 +13,7 @@ from .deployment import (
     LeptonLog,
     QueueConfig,
     ReservationConfig,
+    StorageAttachment,
 )
 
 DefaultTTLSecondsAfterFinished: int = 600
@@ -53,6 +54,7 @@ class LeptonJobUserSpec(BaseModel):
     max_job_failure_retry: Optional[int] = None
     envs: Optional[List[EnvVar]] = []
     mounts: Optional[List[Mount]] = []
+    storage_attachments: Optional[List[StorageAttachment]] = None
     image_pull_secrets: Optional[List[str]] = []
     ttl_seconds_after_finished: Optional[int] = DefaultTTLSecondsAfterFinished
     intra_job_communication: Optional[bool] = None

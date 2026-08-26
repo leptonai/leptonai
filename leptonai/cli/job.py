@@ -32,6 +32,7 @@ from .util import make_container_port_from_string  # noqa: F401
 from leptonai.api.v2.spec_utils import (
     make_mounts_from_strings,
     make_env_vars_from_strings,
+    make_storage_attachments_from_strings,
 )
 from leptonai.config import VALID_SHAPES
 from leptonai.config import JOB_BASE_IMAGE as BASE_IMAGE
@@ -412,6 +413,23 @@ def job():
     multiple=True,
 )
 @click.option(
+    "--storage-attachment",
+    help=(
+        "Attach an object storage data source to the job, as"
+        " `DATA_SOURCE_NAME:MODE[:ATTACH_WITH[:PROFILE_NAME]]` (split on the first"
+        " three colons). `DATA_SOURCE_NAME` is the name of a data source created"
+        " with `lep node storage add --type object`. `MODE` is `awsProfile` (AWS"
+        " credentials in ~/.aws/config format) or `mscProfile` (multi-cloud"
+        " credentials in YAML format). `ATTACH_WITH` is `object` or"
+        " `object.aistore` (defaults based on workspace configuration when"
+        " omitted). `PROFILE_NAME` defaults to the data source's bucket name."
+        " Repeat this flag to attach multiple data sources, or multiple modes of"
+        " the same data source. Example: `--storage-attachment"
+        " my-bucket:awsProfile`."
+    ),
+    multiple=True,
+)
+@click.option(
     "--image-pull-secrets",
     type=str,
     help="Secrets to use for pulling images.",
@@ -572,6 +590,7 @@ def create(
     env,
     secret,
     mount,
+    storage_attachment,
     image_pull_secrets,
     intra_job_communication,
     privileged,
@@ -719,6 +738,16 @@ def create(
             job_spec.mounts = make_mounts_from_strings(mount)  # type: ignore
         except ValueError as e:
             console.print(f"[red]Error parsing --mount[/]: {e}")
+            sys.exit(1)
+
+    # Configure storage attachments
+    if storage_attachment:
+        try:
+            job_spec.storage_attachments = make_storage_attachments_from_strings(
+                list(storage_attachment)
+            )
+        except ValueError as e:
+            console.print(f"[red]Error parsing --storage-attachment[/]: {e}")
             sys.exit(1)
 
     # Set image pull secrets
