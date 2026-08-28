@@ -81,4 +81,8 @@ Before running the mutation, read the workload's current state with a narrow rea
 - `deployment` may be available as an alias for `endpoint`.
 - Some command groups may be hidden from top-level help but still invokable. If the user asks for a known Lepton resource, try `lep <group> --help` before concluding it is unsupported.
 - Slurm clusters are not self-serve — they are provisioned on request by the Lepton team. See [references/workloads.md](references/workloads.md).
+- Slurm is exposed as nested commands. Start with `lep slurm cluster list` and `lep slurm job list`; use `lep slurm cluster get <namespace/name>`, `lep slurm job get <namespace/name> <job-id>`, `lep slurm job attempts ...`, and `lep slurm job logs ...` for detail. Add `--output json` where advertised when structured output is needed.
+- `lep slurm dashboard` (also `lep slurm open`) opens the cluster list. Resource-scoped `cluster open`, `job open`, and `devpod open` commands can target dashboard subviews; use `--print-only` in non-GUI environments.
+- Slurm job submission and cancellation still happen through native Slurm tools (`sbatch`, `squeue`, `scancel`) after connecting to the cluster. The CLI's Slurm job API is intentionally read-only.
+- A Slurm Dev Pod belongs to the current user and can be listed, inspected, created, removed, or connected to under `lep slurm devpod`. `get`, `remove`, and `ssh` accept either the Dev Pod ID/name or the canonical `namespace/cluster` ID. Treat `create`, `remove`, and interactive `ssh` as high-impact operations under the confirmation rules above.
 - Help output is authoritative for the installed CLI version; command availability and flags can vary by version.
