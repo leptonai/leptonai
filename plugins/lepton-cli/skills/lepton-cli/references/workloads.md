@@ -62,6 +62,14 @@ A managed Slurm cluster — controller plus login nodes. Lepton provisions and
 operates the cluster; users use Slurm normally (ssh to a login node, submit
 jobs via `sbatch` / `srun`). Slurm jobs are not independently managed Lepton
 resources — they live inside the cluster and are surfaced as a queryable list.
+The CLI can list clusters, inspect workspace-wide live or archived jobs, show
+attempt/step history, read or follow logs, and open the matching dashboard
+view. It intentionally does not submit or cancel Slurm jobs.
+
+Each user can also have a personal Slurm Dev Pod on an enabled cluster. Use it
+as the SSH entry point for interactive work; `lep slurm devpod` supports
+list/get/create/remove/ssh, including cluster-configured CPU and memory
+requests.
 
 Slurm clusters are **not self-serve** — they are provisioned on request by the
 Lepton team. Use them for teams already on Slurm workflows or doing classic

@@ -20,6 +20,7 @@ from . import readiness
 from . import replica
 from . import secret
 from . import shape
+from . import slurm
 from . import storage_data_source
 from . import storage_permission
 from . import template
