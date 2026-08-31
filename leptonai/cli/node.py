@@ -471,6 +471,13 @@ def _format_state_cell(node):
     return f"{value}\n[dim]stage: {stage}[/dim]\n{scheduling}"
 
 
+def _node_public_ip(spec):
+    """Return the public IP, including the legacy misspelled API field."""
+    if not spec:
+        return None
+    return getattr(spec, "public_ip", None) or getattr(spec, "public_op", None)
+
+
 def _format_network_cell(node):
     spec = node.spec
     hostname = (
@@ -478,7 +485,7 @@ def _format_network_cell(node):
         or (getattr(node.status, "hostname", None) if node.status else None)
         or "-"
     )
-    public_ip = (getattr(spec, "public_ip", None) if spec else None) or "-"
+    public_ip = _node_public_ip(spec) or "-"
     local_ip = (getattr(spec, "local_ip", None) if spec else None) or "-"
     return f"{hostname}\n[dim]public: {public_ip}[/dim]\n[dim]local: {local_ip}[/dim]"
 
@@ -510,17 +517,25 @@ def _merge_nodes_with_machines(nodes, machines):
             spec.provider_region = (
                 spec.provider_region or machine_status.provider_region
             )
-            spec.public_ip = spec.public_ip or machine_status.public_ip
+            if not _node_public_ip(spec):
+                spec.public_ip = machine_status.public_ip
             spec.local_ip = spec.local_ip or machine_status.private_ip
 
         status = node.status
+        node_status_values = {
+            value
+            for value in (
+                [getattr(status, "machine_status", None)]
+                + ((getattr(status, "status", None) or []) if status else [])
+            )
+            if value
+        }
+        is_leaving = bool(node_status_values.intersection(LEAVING_NODE_STATUS_VALUES))
+        if not status:
+            status = node.status = NodeStatus(status=[])
         if status and not status.hostname:
             status.hostname = machine_status.hostname
-        if (
-            status
-            and machine_status.status == "Failed"
-            and status.machine_status not in LEAVING_NODE_STATUS_VALUES
-        ):
+        if machine_status.status == "Failed" and not is_leaving:
             old_status = status.machine_status
             status.machine_status = "Failed"
             status.status = [
@@ -528,6 +543,8 @@ def _merge_nodes_with_machines(nodes, machines):
             ]
             if "Failed" not in status.status:
                 status.status.append("Failed")
+        elif not status.machine_status and not is_leaving:
+            status.machine_status = machine_status.status
 
         merged.append(node)
 
@@ -597,7 +614,7 @@ def _filter_nodes(
                 getattr(metadata, "name", None) if metadata else None,
                 getattr(status, "hostname", None) if status else None,
                 getattr(spec, "hostname", None) if spec else None,
-                getattr(spec, "public_ip", None) if spec else None,
+                _node_public_ip(spec),
                 getattr(spec, "local_ip", None) if spec else None,
                 getattr(spec, "gpu_clique_id", None) if spec else None,
                 getattr(spec, "provider", None) if spec else None,
@@ -670,6 +687,8 @@ def _filter_nodes(
 @click.option(
     "--search",
     "--keyword",
+    "-search",
+    "-keyword",
     "-q",
     "keyword",
     type=str,
@@ -681,6 +700,8 @@ def _filter_nodes(
 @click.option(
     "--label",
     "--labels",
+    "-label",
+    "-labels",
     "labels",
     type=str,
     multiple=True,
