@@ -12,7 +12,6 @@ import click
 from rich.table import Table
 
 from ..api.v2.client import APIClient
-from ..api.v2.slurm import SlurmAPI
 from ..api.v2.types.slurm import (
     LeptonSlurmCluster,
     LeptonSlurmDevPod,
@@ -374,7 +373,7 @@ def _job_cluster_id(item: WorkspaceSlurmJob) -> str:
     return item.slurm_cluster.id_
 
 
-def _validate_job_selector(name: Optional[str], id: Optional[str]) -> None:
+def _validate_name_id_selector(name: Optional[str], id: Optional[str]) -> None:
     if not name and not id:
         raise click.UsageError("You must provide either --name or --id.")
     if name and id:
@@ -517,6 +516,33 @@ def _job_resolution_options(command):
     return command
 
 
+def _devpod_resolution_options(command):
+    """Attach the shared Dev Pod selection flags (exactly one must be given)."""
+    command = click.option(
+        "--cluster",
+        "cluster",
+        "-c",
+        help="Cluster NAME or NAMESPACE/NAME hosting your Dev Pod.",
+    )(command)
+    command = click.option("--id", "-i", help="Dev Pod ID", type=str)(command)
+    command = click.option("--name", "-n", help="Dev Pod name", type=str)(command)
+    return command
+
+
+def _devpod_target(
+    name: Optional[str], id: Optional[str], cluster: Optional[str]
+) -> str:
+    """Reduce the selector flags to the single target resolve_devpod expects."""
+    values = [value for value in (name, id, cluster) if value]
+    if not values:
+        raise click.UsageError("You must provide one of --name, --id, or --cluster.")
+    if len(values) > 1:
+        raise click.UsageError(
+            "You can only provide one of --name, --id, or --cluster."
+        )
+    return values[0]
+
+
 @click_group()
 def slurm():
     """Inspect Slurm clusters/jobs and manage your Slurm Dev Pods."""
@@ -524,7 +550,7 @@ def slurm():
 
 @slurm.group()
 def cluster():
-    """Inspect Slurm clusters."""
+    """Inspect Slurm clusters and SSH to their login nodes."""
 
 
 @cluster.command(name="list")
@@ -540,24 +566,38 @@ def list_clusters(output_format: str) -> None:
 
 
 @cluster.command(name="get")
-@click.argument("cluster_id")
-def get_cluster(cluster_id: str) -> None:
-    """Get a Slurm cluster by canonical NAMESPACE/NAME ID."""
-    _print_json(APIClient().slurm.get_cluster(cluster_id))
+@click.option("--name", "-n", help="Cluster name", type=str)
+@click.option("--id", "-i", help="Canonical NAMESPACE/NAME cluster ID", type=str)
+def get_cluster(name: Optional[str], id: Optional[str]) -> None:
+    """Get a Slurm cluster by --name or --id (NAMESPACE/NAME)."""
+    _validate_name_id_selector(name, id)
+    api = APIClient().slurm
+    clusters = api.list_clusters()
+    cluster_id = _resolve_cluster(api, id or name, clusters=clusters)
+    _print_json(next(c for c in clusters if c.metadata.id_ == cluster_id))
 
 
 @cluster.command(name="events")
-@click.argument("cluster_id")
+@click.option("--name", "-n", help="Cluster name", type=str)
+@click.option("--id", "-i", help="Canonical NAMESPACE/NAME cluster ID", type=str)
 @click.option("--limit", type=click.IntRange(min=1), default=100, show_default=True)
 @click.option("--type", "event_type", help="Filter by cluster event type.")
 @click.option("--output", "output_format", "-o", type=OUTPUT_FORMAT, default="table")
 def cluster_events(
-    cluster_id: str, limit: int, event_type: Optional[str], output_format: str
+    name: Optional[str],
+    id: Optional[str],
+    limit: int,
+    event_type: Optional[str],
+    output_format: str,
 ) -> None:
-    """Show lifecycle and administration events for a cluster."""
-    events = APIClient().slurm.list_cluster_events(
-        cluster_id, limit=limit, event_type=event_type
-    )
+    """Show lifecycle and administration events for a cluster.
+
+    Select the cluster by --name or --id (NAMESPACE/NAME).
+    """
+    _validate_name_id_selector(name, id)
+    api = APIClient().slurm
+    cluster_id = _resolve_cluster(api, id or name)
+    events = api.list_cluster_events(cluster_id, limit=limit, event_type=event_type)
     if output_format == "json":
         _print_json(events)
         return
@@ -574,6 +614,62 @@ def cluster_events(
             event.message or "-",
         )
     console.print(table)
+
+
+@cluster.command(name="ssh", context_settings={"ignore_unknown_options": True})
+@click.option("--name", "-n", help="Cluster name", type=str)
+@click.option("--id", "-i", help="Canonical NAMESPACE/NAME cluster ID", type=str)
+@click.option("--user", "-u", "ssh_user", help="Username on the login node.")
+@click.option(
+    "--login-node",
+    help="Login node address to connect to; defaults to the cluster's first one.",
+)
+@click.argument("ssh_args", nargs=-1, type=click.UNPROCESSED)
+@click.option(
+    "--print-only", is_flag=True, help="Print the SSH command without running it."
+)
+def ssh_cluster(
+    name: Optional[str],
+    id: Optional[str],
+    ssh_user: Optional[str],
+    login_node: Optional[str],
+    ssh_args: Tuple[str, ...],
+    print_only: bool,
+) -> None:
+    """SSH to a login node of a Slurm cluster.
+
+    Select the cluster by --name or --id (NAMESPACE/NAME). Without --user
+    the local SSH configuration decides the login name. Extra SSH options
+    can be passed after ``--``.
+    """
+    _validate_name_id_selector(name, id)
+    api = APIClient().slurm
+    clusters = api.list_clusters()
+    cluster_id = _resolve_cluster(api, id or name, clusters=clusters)
+    item = next(c for c in clusters if c.metadata.id_ == cluster_id)
+    addresses = item.status.login_node_addresses if item.status else []
+    if not addresses:
+        state = _normalize_state(item.status.state if item.status else None)
+        console.print(
+            f"Slurm cluster [red]{cluster_id}[/] reports no login node addresses"
+            f" (state: {state})."
+        )
+        sys.exit(1)
+    if login_node and login_node not in addresses:
+        console.print(f"Login node [red]{login_node}[/] is not on {cluster_id}.")
+        console.print("Available login nodes:")
+        for address in addresses:
+            console.print(f"  {address}")
+        sys.exit(1)
+    address = login_node or addresses[0]
+    destination = f"{ssh_user}@{address}" if ssh_user else address
+    argv = ["ssh", destination, *ssh_args]
+    click.echo(shlex.join(argv))
+    if print_only:
+        return
+    completed = subprocess.run(argv, check=False)
+    if completed.returncode:
+        raise click.exceptions.Exit(completed.returncode)
 
 
 @slurm.group()
@@ -701,7 +797,7 @@ def get_job(
     The owning cluster is resolved automatically; prints a JSON array when
     several jobs share the name.
     """
-    _validate_job_selector(name, id)
+    _validate_name_id_selector(name, id)
     api = APIClient().slurm
     cluster_id = _resolve_cluster(api, cluster) if cluster else None
     if id and cluster_id:
@@ -734,7 +830,7 @@ def job_attempts(
     Select the job by --id or --name; the owning cluster is resolved
     automatically.
     """
-    _validate_job_selector(name, id)
+    _validate_name_id_selector(name, id)
     api = APIClient().slurm
     cluster_id = _resolve_cluster(api, cluster) if cluster else None
     if id and cluster_id:
@@ -800,7 +896,7 @@ def job_logs(
     Select the job by --id or --name; the owning cluster is resolved
     automatically.
     """
-    _validate_job_selector(name, id)
+    _validate_name_id_selector(name, id)
     start_ns = _preprocess_time(start, epoch=True) if start else None
     end_ns = _preprocess_time(end, epoch=True) if end else None
     if start_ns is None and end_ns is not None:
@@ -896,38 +992,49 @@ def list_devpods(cluster_names: Tuple[str, ...], output_format: str) -> None:
 
 
 @devpod.command(name="get")
-@click.argument("target")
-def get_devpod(target: str) -> None:
-    """Get a Dev Pod by ID/name or its NAMESPACE/NAME cluster ID."""
+@_devpod_resolution_options
+def get_devpod(name: Optional[str], id: Optional[str], cluster: Optional[str]) -> None:
+    """Get your Dev Pod by --name, --id, or its owning --cluster."""
+    target = _devpod_target(name, id, cluster)
     _print_json(APIClient().slurm.resolve_devpod(target))
 
 
 @devpod.command(name="create")
-@click.argument("cluster_id")
+@click.option(
+    "--cluster",
+    "cluster",
+    "-c",
+    required=True,
+    help="Cluster NAME or NAMESPACE/NAME to create the Dev Pod on.",
+)
 @click.option("--set", "set_name", help="Dev Pod set configured on the cluster.")
 @click.option("--cpu", help="CPU request, for example 4 or 500m.")
 @click.option("--memory", help="Memory request, for example 16Gi.")
 def create_devpod(
-    cluster_id: str,
+    cluster: str,
     set_name: Optional[str],
     cpu: Optional[str],
     memory: Optional[str],
 ) -> None:
-    """Create your Dev Pod on a NAMESPACE/NAME Slurm cluster."""
-    SlurmAPI.split_cluster_id(cluster_id)
-    created = APIClient().slurm.create_devpod(
-        cluster_id, set_name=set_name, cpu=cpu, memory=memory
-    )
+    """Create your Dev Pod on a Slurm cluster."""
+    api = APIClient().slurm
+    cluster_id = _resolve_cluster(api, cluster)
+    created = api.create_devpod(cluster_id, set_name=set_name, cpu=cpu, memory=memory)
     _print_json(created)
 
 
 @devpod.command(name="remove")
-@click.argument("target")
+@_devpod_resolution_options
 @click.option("--yes", "assume_yes", "-y", is_flag=True, help="Skip confirmation.")
-def remove_devpod(target: str, assume_yes: bool) -> None:
-    """Remove a Dev Pod by ID/name or its NAMESPACE/NAME cluster ID."""
+def remove_devpod(
+    name: Optional[str],
+    id: Optional[str],
+    cluster: Optional[str],
+    assume_yes: bool,
+) -> None:
+    """Remove your Dev Pod by --name, --id, or its owning --cluster."""
     api = APIClient().slurm
-    item = api.resolve_devpod(target)
+    item = api.resolve_devpod(_devpod_target(name, id, cluster))
     devpod_id = item.metadata.id_
     if not devpod_id:
         raise ValueError("The Slurm Dev Pod response did not contain an ID.")
@@ -938,16 +1045,24 @@ def remove_devpod(target: str, assume_yes: bool) -> None:
 
 
 @devpod.command(name="ssh", context_settings={"ignore_unknown_options": True})
-@click.argument("target")
+@_devpod_resolution_options
 @click.argument("ssh_args", nargs=-1, type=click.UNPROCESSED)
 @click.option(
     "--print-only", is_flag=True, help="Print the SSH command without running it."
 )
-def ssh_devpod(target: str, ssh_args: Tuple[str, ...], print_only: bool) -> None:
+def ssh_devpod(
+    name: Optional[str],
+    id: Optional[str],
+    cluster: Optional[str],
+    ssh_args: Tuple[str, ...],
+    print_only: bool,
+) -> None:
     """Connect to a Slurm Dev Pod over its server-provided SSH command.
 
-    Extra SSH options can be passed after ``--``.
+    Select the pod by --name, --id, or its owning --cluster. Extra SSH
+    options can be passed after ``--``.
     """
+    target = _devpod_target(name, id, cluster)
     item = APIClient().slurm.resolve_devpod(target)
     command = item.status.ssh_command if item.status else None
     if not command:
