@@ -3,10 +3,10 @@
 import json
 import shlex
 import subprocess
+import sys
 import time
-import webbrowser
 from datetime import datetime, timezone
-from typing import Any, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import click
 from rich.table import Table
@@ -21,7 +21,7 @@ from ..api.v2.types.slurm import (
     WorkspaceSlurmJobList,
 )
 from .log import _preprocess_time
-from .util import click_group, console
+from .util import click_group, colorize_state, console, make_name_id_cell
 
 
 OUTPUT_FORMAT = click.Choice(("table", "json"), case_sensitive=False)
@@ -76,16 +76,60 @@ def _format_time(value: Any) -> str:
     return str(value)
 
 
-def _format_time_compact(value: Any) -> str:
+def _format_time_cell(value: Any) -> str:
+    """Format an epoch of any precision as a local-time table cell.
+
+    Matches the two-line 'YYYY-MM-DD\\nHH:MM:SS' layout used by `lep job list`.
+    """
     seconds = _epoch_seconds(value)
     if seconds is None:
         return "-"
     try:
-        return datetime.fromtimestamp(seconds, tz=timezone.utc).strftime(
-            "%Y-%m-%d %H:%M"
-        )
+        return datetime.fromtimestamp(seconds).strftime("%Y-%m-%d\n%H:%M:%S")
     except (OSError, OverflowError, ValueError):
         return str(value)
+
+
+# Slurm-only terminal states that must render red like Error/Failed do in
+# colorize_state.
+_SLURM_FAILURE_STATES = {
+    "BootFail",
+    "Deadline",
+    "NodeFail",
+    "OutOfMemory",
+    "Timeout",
+}
+
+
+def _normalize_state(value: Any) -> str:
+    """Map raw Slurm states (RUNNING, NODE_FAIL) to CLI casing (Running, NodeFail)."""
+    if value is None:
+        return "-"
+    text = str(getattr(value, "value", value)).strip()
+    if not text:
+        return "-"
+    if text.isupper():
+        return "".join(part.capitalize() for part in text.replace("-", "_").split("_"))
+    return text
+
+
+def _state_cell(*candidates: Any) -> str:
+    """Colorize the first non-empty state, consistent with `lep job list`."""
+    state = next((value for value in candidates if value), None)
+    text = _normalize_state(state)
+    if text in _SLURM_FAILURE_STATES:
+        return f"[red]{text}[/]"
+    return colorize_state(text)
+
+
+def _safe_dashboard_url(api: Any, view: str, **kwargs: Any) -> Optional[str]:
+    """Build a dashboard URL for a table link; never fail table rendering."""
+    if api is None:
+        return None
+    try:
+        return api.dashboard_url(view, **kwargs)
+    except Exception:
+        return None
 
 
 def _format_resources(cpus: Any, gpus: Any, memory_mb: Any) -> str:
@@ -111,25 +155,30 @@ def _diagnosis(reason: Optional[str], error: Optional[str]) -> str:
     return error or reason or "-"
 
 
-def _print_clusters_table(clusters: Iterable[LeptonSlurmCluster]) -> None:
-    table = Table(title="Slurm clusters")
-    table.add_column("Name", style="cyan")
-    table.add_column("ID")
+def _print_clusters_table(
+    clusters: Iterable[LeptonSlurmCluster], *, api: Any = None
+) -> None:
+    table = Table(title="Slurm Clusters", show_header=True, show_lines=True)
+    table.add_column("Name / ID")
     table.add_column("State")
-    table.add_column("Login nodes")
-    table.add_column("Dev Pod")
+    table.add_column("Login Nodes")
+    table.add_column("Dev Pods")
     table.add_column("Diagnosis")
     for item in clusters:
         status = item.status
         spec = item.spec
         login_nodes = [] if status is None else status.login_node_addresses
         devpods = None if spec is None else spec.dev_pods_config
+        link = (
+            _safe_dashboard_url(api, "detail", cluster_id=item.metadata.id_)
+            if item.metadata.id_
+            else None
+        )
         table.add_row(
-            item.metadata.name or "-",
-            item.metadata.id_ or "-",
-            (status.state if status else None) or "-",
+            make_name_id_cell(item.metadata.name, item.metadata.id_, link=link),
+            _state_cell(status.state if status else None),
             ", ".join(login_nodes) or "-",
-            "enabled" if devpods and devpods.enabled else "disabled",
+            "Enabled" if devpods and devpods.enabled else "Disabled",
             _diagnosis(
                 status.reason if status else None, status.error if status else None
             ),
@@ -137,58 +186,82 @@ def _print_clusters_table(clusters: Iterable[LeptonSlurmCluster]) -> None:
     console.print(table)
 
 
-def _job_cluster_id(job: WorkspaceSlurmJob) -> str:
-    if job.slurm_cluster:
-        return job.slurm_cluster.name or job.slurm_cluster.id_ or "-"
-    return "-"
+def _print_failed_clusters(failed_clusters: Dict[str, str]) -> None:
+    if not failed_clusters:
+        return
+    console.print("[yellow]Some clusters could not be queried:[/yellow]")
+    for cluster_name, error in sorted(failed_clusters.items()):
+        console.print(f"  {cluster_name}: {error}")
 
 
-def _print_jobs_table(result: WorkspaceSlurmJobList) -> None:
-    table = Table(title=f"Slurm jobs ({len(result.jobs)} shown / {result.total} total)")
+def _job_cluster_cell(job: WorkspaceSlurmJob, api: Any = None) -> str:
+    if not job.slurm_cluster:
+        return "-"
+    label = job.slurm_cluster.name or job.slurm_cluster.id_ or "-"
+    link = (
+        _safe_dashboard_url(api, "detail", cluster_id=job.slurm_cluster.id_)
+        if job.slurm_cluster.id_
+        else None
+    )
+    return f"[link={link}]{label}[/link]" if link else label
+
+
+def _print_jobs_table(result: WorkspaceSlurmJobList, *, api: Any = None) -> None:
+    table = Table(
+        title=f"Slurm Jobs ({len(result.jobs)} shown / {result.total} total)",
+        show_header=True,
+        show_lines=True,
+    )
     table.add_column("Cluster", style="cyan")
-    table.add_column("Job / ID")
+    table.add_column("Name / ID")
     table.add_column("State")
     table.add_column("User")
     table.add_column("Partition / QoS")
-    table.add_column("CPU / GPU / memory", justify="right")
+    table.add_column("CPU / GPU / Memory", justify="right")
     table.add_column("Submitted")
     for item in result.jobs:
-        state = item.status.job_state or item.status.state or "-"
-        job_id = str(item.spec.job_id) if item.spec.job_id is not None else "-"
+        job_id = str(item.spec.job_id) if item.spec.job_id is not None else None
+        link = (
+            _safe_dashboard_url(
+                api,
+                "overview",
+                cluster_id=item.slurm_cluster.id_,
+                job_id=job_id,
+            )
+            if item.slurm_cluster and item.slurm_cluster.id_ and job_id
+            else None
+        )
         table.add_row(
-            _job_cluster_id(item),
-            f"{item.metadata.name or '-'} / {job_id}",
-            state,
+            _job_cluster_cell(item, api),
+            make_name_id_cell(item.metadata.name, job_id, link=link),
+            _state_cell(item.status.job_state, item.status.state),
             item.metadata.created_by or item.metadata.owner or "-",
             f"{item.status.partition or '-'} / {item.status.qos or '-'}",
             _format_resources(item.spec.cpus, item.spec.gpus, item.spec.memory_mb),
-            _format_time_compact(item.metadata.created_at),
+            _format_time_cell(item.metadata.created_at),
         )
     console.print(table)
-    if result.failed_clusters:
-        console.print("[yellow]Some clusters could not be queried:[/yellow]")
-        for cluster_name, error in sorted(result.failed_clusters.items()):
-            console.print(f"  {cluster_name}: {error}")
+    _print_failed_clusters(result.failed_clusters)
 
 
 def _print_attempts_table(
     attempts: Iterable[SlurmJobAttempt], *, include_steps: bool
 ) -> None:
-    table = Table(title="Slurm job attempts")
-    table.add_column("Attempt / step", style="cyan", min_width=11, no_wrap=True)
+    table = Table(title="Slurm Job Attempts", show_header=True, show_lines=True)
+    table.add_column("Attempt / Step", style="cyan", min_width=11, no_wrap=True)
     table.add_column("State", min_width=9, no_wrap=True)
     table.add_column("Nodes")
-    table.add_column("CPU / GPU / memory", justify="right")
+    table.add_column("CPU / GPU / Memory", justify="right")
     table.add_column("Started")
     table.add_column("Duration")
-    table.add_column("Return")
+    table.add_column("Return Code")
     for attempt in attempts:
         table.add_row(
-            f"attempt {attempt.attempt}",
-            attempt.state or "-",
+            f"Attempt {attempt.attempt}",
+            _state_cell(attempt.state),
             ", ".join(attempt.nodes) or "-",
             _format_resources(attempt.cpus, attempt.gpus, attempt.memory_mb),
-            _format_time_compact(attempt.start_at or attempt.submit_at),
+            _format_time_cell(attempt.start_at or attempt.submit_at),
             _format_duration(attempt.start_at, attempt.end_at),
             "-" if attempt.return_code is None else str(attempt.return_code),
         )
@@ -196,24 +269,26 @@ def _print_attempts_table(
             for step in attempt.steps:
                 table.add_row(
                     f"{attempt.attempt}/{step.id_ or step.name or '-'}",
-                    step.state or "-",
+                    _state_cell(step.state),
                     ", ".join(step.nodes) or "-",
                     _format_resources(step.cpus, step.gpus, step.memory_mb),
-                    _format_time_compact(step.start_at or step.submit_at),
+                    _format_time_cell(step.start_at or step.submit_at),
                     _format_duration(step.start_at, step.end_at),
                     "-" if step.return_code is None else str(step.return_code),
                 )
     console.print(table)
 
 
-def _print_devpods_table(devpods: Iterable[LeptonSlurmDevPod]) -> None:
-    table = Table(title="Slurm Dev Pods")
-    table.add_column("ID", style="cyan", overflow="fold")
+def _print_devpods_table(
+    devpods: Iterable[LeptonSlurmDevPod], *, api: Any = None
+) -> None:
+    table = Table(title="Slurm Dev Pods", show_header=True, show_lines=True)
+    table.add_column("Name / ID", overflow="fold")
     table.add_column("Cluster")
     table.add_column("State")
     table.add_column("User")
-    table.add_column("CPU req/lim")
-    table.add_column("Mem req/lim")
+    table.add_column("CPU Req/Limit")
+    table.add_column("Mem Req/Limit")
     table.add_column("Image")
     table.add_column("SSH")
     for item in devpods:
@@ -221,17 +296,26 @@ def _print_devpods_table(devpods: Iterable[LeptonSlurmDevPod]) -> None:
         resources = status.container_resources if status else None
         requests = resources.requests if resources else None
         limits = resources.limits if resources else None
+        link = None
+        devpod_id = item.metadata.id_
+        if devpod_id and "/" in devpod_id and item.spec.slurm_cluster_name:
+            namespace = devpod_id.split("/", 1)[0]
+            link = _safe_dashboard_url(
+                api,
+                "devpods",
+                cluster_id=f"{namespace}/{item.spec.slurm_cluster_name}",
+            )
         table.add_row(
-            item.metadata.id_ or "-",
+            make_name_id_cell(item.metadata.name, devpod_id, link=link),
             item.spec.slurm_cluster_name,
-            (status.state if status else None) or "-",
+            _state_cell(status.state if status else None),
             (status.username if status else None) or "-",
             f"{(requests.cpu if requests else None) or '-'}/"
             f"{(limits.cpu if limits else None) or '-'}",
             f"{(requests.memory if requests else None) or '-'}/"
             f"{(limits.memory if limits else None) or '-'}",
             (status.image_version if status else None) or "-",
-            "ready" if status and status.ssh_command else "-",
+            "[green]Ready[/]" if status and status.ssh_command else "-",
         )
     console.print(table)
 
@@ -276,40 +360,166 @@ def _print_log_entries(
             click.echo(message)
 
 
-def _open_url(url: str, *, print_only: bool) -> None:
-    click.echo(url)
-    if print_only:
-        return
-    if not webbrowser.open(url):
+def _job_identifier(item: WorkspaceSlurmJob) -> str:
+    if item.spec is not None and item.spec.job_id is not None:
+        return str(item.spec.job_id)
+    return str(item.metadata.id_ or "-")
+
+
+def _job_cluster_id(item: WorkspaceSlurmJob) -> str:
+    if item.slurm_cluster is None or not item.slurm_cluster.id_:
         raise click.ClickException(
-            "Could not open a browser. Re-run with --print-only and open the URL "
-            "manually."
+            f"Job {_job_identifier(item)} has no cluster ID in the API response."
         )
+    return item.slurm_cluster.id_
+
+
+def _validate_job_selector(name: Optional[str], id: Optional[str]) -> None:
+    if not name and not id:
+        raise click.UsageError("You must provide either --name or --id.")
+    if name and id:
+        raise click.UsageError(
+            "You cannot provide both --name and --id. Please specify only one."
+        )
+
+
+def _resolve_cluster(
+    api: Any, cluster: str, *, clusters: Optional[List[LeptonSlurmCluster]] = None
+) -> str:
+    """Resolve a cluster NAME or NAMESPACE/NAME to the canonical ID.
+
+    Fails loudly when nothing matches: the workspace jobs route skips
+    unknown cluster filters silently, which would read as "job not found".
+    """
+    if clusters is None:
+        clusters = api.list_clusters()
+    if "/" in cluster:
+        matches = [item for item in clusters if item.metadata.id_ == cluster]
+    else:
+        matches = [item for item in clusters if item.metadata.name == cluster]
+    if len(matches) == 1:
+        return str(matches[0].metadata.id_)
+    if not matches:
+        console.print(f"Slurm cluster [red]{cluster}[/] was not found.")
+        if clusters:
+            console.print("Available clusters:")
+            for item in clusters:
+                console.print(f"  {item.metadata.id_}")
+        sys.exit(1)
+    console.print(f"[red]{cluster}[/] matches several clusters; use NAMESPACE/NAME:")
+    for item in matches:
+        console.print(f"  {item.metadata.id_}")
+    sys.exit(1)
+
+
+def _resolve_jobs(
+    api: Any,
+    *,
+    name: Optional[str],
+    id: Optional[str],
+    cluster_id: Optional[str],
+    include_archived: bool,
+) -> List[Tuple[str, Any]]:
+    """Resolve --name/--id to (cluster ID, job) pairs.
+
+    With a resolved cluster ID the cluster-scoped jobs route is queried
+    directly; otherwise the workspace-wide route fans out across clusters.
+    The server-side ``q`` filter narrows candidates by job ID or name
+    substring; exact matching happens client-side.
+    """
+    query = name or id or ""
+    mode = "alive_and_archive" if include_archived else "alive_only"
+    candidates: List[Tuple[Optional[str], Any]] = []
+    failed_clusters: Dict[str, str] = {}
+    if cluster_id:
+        jobs = api.list_cluster_jobs(cluster_id, job_query_mode=mode, q=query)
+        candidates.extend((cluster_id, item) for item in jobs)
+    else:
+        result = api.list_jobs(job_query_mode=mode, q=query)
+        candidates.extend(
+            (item.slurm_cluster.id_ if item.slurm_cluster else None, item)
+            for item in result.jobs
+        )
+        failed_clusters.update(result.failed_clusters)
+
+    if id:
+        matches = [pair for pair in candidates if _job_identifier(pair[1]) == id]
+    else:
+        matches = [pair for pair in candidates if pair[1].metadata.name == name]
+    if matches:
+        return [(owner or _job_cluster_id(item), item) for owner, item in matches]
+
+    scope = "alive or archived" if include_archived else "alive"
+    search_type = "name" if name else "ID"
+    console.print(f"No {scope} Slurm job found for [red]{search_type}: {query}[/].")
+    if not include_archived:
+        console.print(
+            "Archived jobs are skipped by default; retry with"
+            " [green]--include-archived[/]."
+        )
+    _print_failed_clusters(failed_clusters)
+    sys.exit(1)
+
+
+def _resolve_single_job(
+    api: Any,
+    *,
+    name: Optional[str],
+    id: Optional[str],
+    cluster_id: Optional[str],
+    include_archived: bool,
+) -> Tuple[str, Any]:
+    matches = _resolve_jobs(
+        api, name=name, id=id, cluster_id=cluster_id, include_archived=include_archived
+    )
+    if len(matches) == 1:
+        return matches[0]
+    console.print(
+        f"[red]{name or id}[/] matches {len(matches)} Slurm jobs; disambiguate"
+        " with [green]--cluster NAMESPACE/NAME[/] or [green]--id[/]:"
+    )
+    table = Table(show_header=True)
+    table.add_column("Cluster", style="cyan")
+    table.add_column("Job ID")
+    table.add_column("Name")
+    table.add_column("State")
+    for owner, item in matches:
+        table.add_row(
+            owner,
+            _job_identifier(item),
+            item.metadata.name or "-",
+            _state_cell(item.status.job_state, item.status.state),
+        )
+    console.print(table)
+    sys.exit(1)
+
+
+def _job_resolution_options(command):
+    """Attach the shared job selection flags (mirrors `lep job get`)."""
+    command = click.option(
+        "--include-archived",
+        "-ia",
+        is_flag=True,
+        default=False,
+        help="Include archived jobs when resolving name/id.",
+    )(command)
+    command = click.option(
+        "--cluster",
+        "cluster",
+        "-c",
+        help=(
+            "Cluster NAME or NAMESPACE/NAME; verified first, then the job"
+            " is looked up inside that cluster only."
+        ),
+    )(command)
+    command = click.option("--id", "-i", help="Slurm job id", type=str)(command)
+    command = click.option("--name", "-n", help="Job name", type=str)(command)
+    return command
 
 
 @click_group()
 def slurm():
     """Inspect Slurm clusters/jobs and manage your Slurm Dev Pods."""
-
-
-@slurm.command(name="dashboard")
-@click.option(
-    "--view",
-    type=click.Choice(("clusters", "jobs"), case_sensitive=False),
-    default="clusters",
-    show_default=True,
-)
-@click.option("--jobs", is_flag=True, help="Shortcut for --view jobs.")
-@click.option("--print-only", is_flag=True, help="Print the URL without opening it.")
-def dashboard(view: str, jobs: bool, print_only: bool) -> None:
-    """Open the Slurm dashboard."""
-    client = APIClient()
-    target_view = "jobs" if jobs else view
-    _open_url(client.slurm.dashboard_url(target_view), print_only=print_only)
-
-
-# ``lep slurm open`` is a concise alias while ``dashboard`` remains explicit.
-slurm.add_command(dashboard, name="open")
 
 
 @slurm.group()
@@ -321,11 +531,12 @@ def cluster():
 @click.option("--output", "output_format", "-o", type=OUTPUT_FORMAT, default="table")
 def list_clusters(output_format: str) -> None:
     """List Slurm clusters visible in the current workspace."""
-    clusters = APIClient().slurm.list_clusters()
+    api = APIClient().slurm
+    clusters = api.list_clusters()
     if output_format == "json":
         _print_json(clusters)
     else:
-        _print_clusters_table(clusters)
+        _print_clusters_table(clusters, api=api)
 
 
 @cluster.command(name="get")
@@ -350,7 +561,7 @@ def cluster_events(
     if output_format == "json":
         _print_json(events)
         return
-    table = Table(title=f"Slurm cluster events: {cluster_id}")
+    table = Table(title=f"Slurm Cluster Events: {cluster_id}")
     table.add_column("Timestamp")
     table.add_column("Type", style="cyan")
     table.add_column("User")
@@ -363,32 +574,6 @@ def cluster_events(
             event.message or "-",
         )
     console.print(table)
-
-
-@cluster.command(name="open")
-@click.argument("cluster_id")
-@click.option(
-    "--view",
-    type=click.Choice(
-        (
-            "detail",
-            "jobs",
-            "archived-jobs",
-            "events",
-            "metrics",
-            "logs",
-            "devpods",
-        ),
-        case_sensitive=False,
-    ),
-    default="detail",
-    show_default=True,
-)
-@click.option("--print-only", is_flag=True, help="Print the URL without opening it.")
-def open_cluster(cluster_id: str, view: str, print_only: bool) -> None:
-    """Open a cluster view in the dashboard."""
-    api = APIClient().slurm
-    _open_url(api.dashboard_url(view, cluster_id=cluster_id), print_only=print_only)
 
 
 @slurm.group()
@@ -405,9 +590,14 @@ def job():
     help="Filter by cluster NAME or NAMESPACE/NAME; repeatable.",
 )
 @click.option("--state", "states", multiple=True, help="Job state; repeatable.")
-@click.option("--archived", is_flag=True, help="Show archived jobs only.")
-@click.option("--all", "all_jobs", is_flag=True, help="Show live and archived jobs.")
-@click.option("--query", "q", "-q", help="Filter by job name substring.")
+@click.option(
+    "--include-archived",
+    "-ia",
+    is_flag=True,
+    default=False,
+    help="Include archived jobs in the list.",
+)
+@click.option("--query", "q", "-q", help="Filter by job name substring or job ID.")
 @click.option("--created-by", multiple=True, help="Creator email; repeatable.")
 @click.option("--partition", multiple=True, help="Partition; repeatable.")
 @click.option("--qos", multiple=True, help="QoS; repeatable.")
@@ -448,8 +638,7 @@ def job():
 def list_jobs(
     cluster_names: Tuple[str, ...],
     states: Tuple[str, ...],
-    archived: bool,
-    all_jobs: bool,
+    include_archived: bool,
     q: Optional[str],
     created_by: Tuple[str, ...],
     partition: Tuple[str, ...],
@@ -461,20 +650,21 @@ def list_jobs(
     output_format: str,
 ) -> None:
     """List Slurm jobs across one or more clusters."""
-    if archived and all_jobs:
-        raise click.UsageError("--archived and --all cannot be used together.")
     if sort_orders and len(sort_by) != len(sort_orders):
         raise click.UsageError("Use one --order for each --sort-by value.")
     if sort_by and not sort_orders:
         sort_orders = tuple("desc" for _ in sort_by)
 
-    mode = (
-        "archive_only"
-        if archived
-        else "alive_and_archive" if all_jobs else "alive_only"
-    )
-    result = APIClient().slurm.list_jobs(
-        cluster_names=list(cluster_names) or None,
+    mode = "alive_and_archive" if include_archived else "alive_only"
+    api = APIClient().slurm
+    resolved_clusters: Optional[List[str]] = None
+    if cluster_names:
+        clusters = api.list_clusters()
+        resolved_clusters = [
+            _resolve_cluster(api, value, clusters=clusters) for value in cluster_names
+        ]
+    result = api.list_jobs(
+        cluster_names=resolved_clusters,
         job_query_mode=mode,
         q=q,
         status=list(states) or None,
@@ -489,31 +679,75 @@ def list_jobs(
     if output_format == "json":
         _print_json(result)
     else:
-        _print_jobs_table(result)
+        _print_jobs_table(result, api=api)
 
 
 @job.command(name="get")
-@click.argument("cluster_id")
-@click.argument("job_id")
+@_job_resolution_options
 @click.option(
     "--raw-slurm",
     is_flag=True,
     help="Return the untranslated slurmrestd response when supported.",
 )
-def get_job(cluster_id: str, job_id: str, raw_slurm: bool) -> None:
-    """Get JOB_ID from the NAMESPACE/NAME cluster."""
-    result = APIClient().slurm.get_job(cluster_id, job_id, slurm_api=raw_slurm)
-    _print_json(result)
+def get_job(
+    name: Optional[str],
+    id: Optional[str],
+    cluster: Optional[str],
+    include_archived: bool,
+    raw_slurm: bool,
+) -> None:
+    """Get a Slurm job by --id or --name.
+
+    The owning cluster is resolved automatically; prints a JSON array when
+    several jobs share the name.
+    """
+    _validate_job_selector(name, id)
+    api = APIClient().slurm
+    cluster_id = _resolve_cluster(api, cluster) if cluster else None
+    if id and cluster_id:
+        _print_json(api.get_job(cluster_id, id, slurm_api=raw_slurm))
+        return
+    matches = _resolve_jobs(
+        api, name=name, id=id, cluster_id=cluster_id, include_archived=include_archived
+    )
+    results = [
+        api.get_job(owner, _job_identifier(item), slurm_api=raw_slurm)
+        for owner, item in matches
+    ]
+    _print_json(results[0] if len(results) == 1 else results)
 
 
 @job.command(name="attempts")
-@click.argument("cluster_id")
-@click.argument("job_id")
+@_job_resolution_options
 @click.option("--steps", is_flag=True, help="Include individual Slurm step rows.")
 @click.option("--output", "output_format", "-o", type=OUTPUT_FORMAT, default="table")
-def job_attempts(cluster_id: str, job_id: str, steps: bool, output_format: str) -> None:
-    """Show requeue attempts and steps for a Slurm job."""
-    events = APIClient().slurm.get_job_events(cluster_id, job_id)
+def job_attempts(
+    name: Optional[str],
+    id: Optional[str],
+    cluster: Optional[str],
+    include_archived: bool,
+    steps: bool,
+    output_format: str,
+) -> None:
+    """Show requeue attempts and steps for a Slurm job.
+
+    Select the job by --id or --name; the owning cluster is resolved
+    automatically.
+    """
+    _validate_job_selector(name, id)
+    api = APIClient().slurm
+    cluster_id = _resolve_cluster(api, cluster) if cluster else None
+    if id and cluster_id:
+        events = api.get_job_events(cluster_id, id)
+    else:
+        owner, item = _resolve_single_job(
+            api,
+            name=name,
+            id=id,
+            cluster_id=cluster_id,
+            include_archived=include_archived,
+        )
+        events = api.get_job_events(owner, _job_identifier(item))
     if output_format == "json":
         _print_json(events)
     else:
@@ -521,8 +755,7 @@ def job_attempts(cluster_id: str, job_id: str, steps: bool, output_format: str) 
 
 
 @job.command(name="logs")
-@click.argument("cluster_id")
-@click.argument("job_id")
+@_job_resolution_options
 @click.option("--attempt", type=click.IntRange(min=0), help="Zero-based attempt.")
 @click.option("--step", help="Full Slurm step ID.")
 @click.option("--node", help="Filter by Slurm task node.")
@@ -546,8 +779,10 @@ def job_attempts(cluster_id: str, job_id: str, steps: bool, output_format: str) 
     help="Seconds between requests when following.",
 )
 def job_logs(
-    cluster_id: str,
-    job_id: str,
+    name: Optional[str],
+    id: Optional[str],
+    cluster: Optional[str],
+    include_archived: bool,
     attempt: Optional[int],
     step: Optional[str],
     node: Optional[str],
@@ -560,8 +795,12 @@ def job_logs(
     timestamps: bool,
     poll_interval: float,
 ) -> None:
-    """Print or follow stdout/stderr logs for a Slurm job."""
-    SlurmAPI.split_cluster_id(cluster_id)
+    """Print or follow stdout/stderr logs for a Slurm job.
+
+    Select the job by --id or --name; the owning cluster is resolved
+    automatically.
+    """
+    _validate_job_selector(name, id)
     start_ns = _preprocess_time(start, epoch=True) if start else None
     end_ns = _preprocess_time(end, epoch=True) if end else None
     if start_ns is None and end_ns is not None:
@@ -576,6 +815,18 @@ def job_logs(
         "stderr": "stderr.log",
     }[log_type]
     api = APIClient().slurm
+    resolved_cluster = _resolve_cluster(api, cluster) if cluster else None
+    if id and resolved_cluster:
+        cluster_id, job_id = resolved_cluster, id
+    else:
+        owner, item = _resolve_single_job(
+            api,
+            name=name,
+            id=id,
+            cluster_id=resolved_cluster,
+            include_archived=include_archived,
+        )
+        cluster_id, job_id = owner, _job_identifier(item)
 
     common = dict(
         job_id=job_id,
@@ -620,27 +871,6 @@ def job_logs(
         console.print("[dim]Stopped following Slurm logs.[/dim]")
 
 
-@job.command(name="open")
-@click.argument("cluster_id")
-@click.argument("job_id")
-@click.option(
-    "--view",
-    type=click.Choice(
-        ("overview", "attempts", "metrics", "logs"), case_sensitive=False
-    ),
-    default="overview",
-    show_default=True,
-)
-@click.option("--print-only", is_flag=True, help="Print the URL without opening it.")
-def open_job(cluster_id: str, job_id: str, view: str, print_only: bool) -> None:
-    """Open a Slurm job view in the dashboard."""
-    api = APIClient().slurm
-    _open_url(
-        api.dashboard_url(view, cluster_id=cluster_id, job_id=job_id),
-        print_only=print_only,
-    )
-
-
 @slurm.group()
 def devpod():
     """Manage the current user's Slurm Dev Pods."""
@@ -657,11 +887,12 @@ def devpod():
 @click.option("--output", "output_format", "-o", type=OUTPUT_FORMAT, default="table")
 def list_devpods(cluster_names: Tuple[str, ...], output_format: str) -> None:
     """List Slurm Dev Pods owned by the current user."""
-    devpods = APIClient().slurm.list_devpods(cluster_names=list(cluster_names) or None)
+    api = APIClient().slurm
+    devpods = api.list_devpods(cluster_names=list(cluster_names) or None)
     if output_format == "json":
         _print_json(devpods)
     else:
-        _print_devpods_table(devpods)
+        _print_devpods_table(devpods, api=api)
 
 
 @devpod.command(name="get")
@@ -738,18 +969,6 @@ def ssh_devpod(target: str, ssh_args: Tuple[str, ...], print_only: bool) -> None
     completed = subprocess.run(argv, check=False)
     if completed.returncode:
         raise click.exceptions.Exit(completed.returncode)
-
-
-@devpod.command(name="open")
-@click.argument("cluster_id")
-@click.option("--print-only", is_flag=True, help="Print the URL without opening it.")
-def open_devpod(cluster_id: str, print_only: bool) -> None:
-    """Open the cluster's Dev Pods dashboard page."""
-    api = APIClient().slurm
-    _open_url(
-        api.dashboard_url("devpods", cluster_id=cluster_id),
-        print_only=print_only,
-    )
 
 
 def add_command(cli_group: click.Group) -> None:

@@ -130,15 +130,13 @@ a running Slurm Job you own in the TUI and select an allocated node instead.
 The session opens in the compute container; Slurm account permissions and job
 allocation policies still apply. Use `--teleport-auth` to override the SSO connector.
 
-For a workspace with managed Slurm, inspect clusters and jobs or open the
-corresponding dashboard view:
+For a workspace with managed Slurm, inspect clusters and jobs:
 
 ```shell
 lep slurm cluster list
-lep slurm job list --cluster slurm/production --all
-lep slurm job attempts slurm/production 12345 --steps
-lep slurm job logs slurm/production 12345 --follow
-lep slurm job open slurm/production 12345
+lep slurm job list --cluster production --include-archived
+lep slurm job attempts -i 12345 --steps
+lep slurm job logs -n my-training-job --follow
 ```
 
 Personal Slurm Dev Pods are available under `lep slurm devpod`; run

@@ -132,6 +132,43 @@ class SlurmAPI(APIResourse):
         response = self._get("/slurm/jobs", params=params)
         return self.ensure_type(response, WorkspaceSlurmJobList)
 
+    def list_cluster_jobs(
+        self,
+        cluster_id: str,
+        *,
+        job_query_mode: str = "alive_only",
+        q: Optional[str] = None,
+        status: Optional[List[str]] = None,
+        created_by: Optional[List[str]] = None,
+        partition: Optional[List[str]] = None,
+        qos: Optional[List[str]] = None,
+    ) -> List[SlurmJob]:
+        """List jobs of one cluster via the cluster-scoped route.
+
+        No pagination parameters are sent, so the server responds with the
+        bare job array (capped at its default of 1000 entries).
+        """
+        if job_query_mode not in SLURM_JOB_QUERY_MODES:
+            raise ValueError(
+                "Invalid Slurm job query mode. Expected one of: "
+                + ", ".join(SLURM_JOB_QUERY_MODES)
+            )
+        params: Any = {"job_query_mode": job_query_mode}
+        if q:
+            params["q"] = q
+        if status:
+            params["status"] = status
+        if created_by:
+            params["created_by"] = created_by
+        if partition:
+            params["partition"] = partition
+        if qos:
+            params["qos"] = qos
+        response = self._get(
+            f"/slurmclusters/{self._cluster_path(cluster_id)}/jobs", params=params
+        )
+        return self.ensure_list(response, SlurmJob)
+
     def get_job(
         self, cluster_id: str, job_id: Union[str, int], *, slurm_api: bool = False
     ) -> Union[SlurmJob, Any]:
