@@ -1391,6 +1391,7 @@ def test_list_nodes_command_applies_repeatable_filters(nodes):
                 node,
                 [
                     "list-nodes",
+                    "--node-group",
                     "gpu-group",
                     "--status",
                     "Draining",
@@ -1408,6 +1409,51 @@ def test_list_nodes_command_applies_repeatable_filters(nodes):
     assert "node-2" in result.output
     assert "node-1" not in result.output
     assert "node-3" not in result.output
+
+
+@pytest.mark.parametrize("flag", ["--node-group", "-ng"])
+def test_list_nodes_command_accepts_node_group_option(flag):
+    resolve = Mock(return_value=[])
+
+    with patch("leptonai.cli.node.resolve_node_groups", resolve):
+        result = CliRunner().invoke(node, ["list-nodes", flag, "gpu-group"])
+
+    assert result.exit_code == 0, result.output
+    resolve.assert_called_once_with(["gpu-group"], is_exact_match=False)
+    assert "deprecated" not in result.output
+
+
+def test_list_nodes_command_deprecates_positional_node_group():
+    resolve = Mock(return_value=[])
+
+    with patch("leptonai.cli.node.resolve_node_groups", resolve):
+        result = CliRunner().invoke(node, ["list-nodes", "legacy-group"])
+
+    assert result.exit_code == 0, result.output
+    resolve.assert_called_once_with(["legacy-group"], is_exact_match=False)
+    assert "Positional NODE_GROUP is deprecated" in result.output
+    assert "--node-group/-ng" in result.output
+
+
+def test_list_nodes_command_node_group_option_wins_over_positional():
+    resolve = Mock(return_value=[])
+
+    with patch("leptonai.cli.node.resolve_node_groups", resolve):
+        result = CliRunner().invoke(
+            node,
+            ["list-nodes", "legacy-group", "-ng", "preferred-group"],
+        )
+
+    assert result.exit_code == 0, result.output
+    resolve.assert_called_once_with(["preferred-group"], is_exact_match=False)
+    assert "Positional NODE_GROUP is deprecated and is ignored" in result.output
+
+
+def test_list_nodes_command_requires_a_node_group():
+    result = CliRunner().invoke(node, ["list-nodes"])
+
+    assert result.exit_code == 2
+    assert "Missing option '--node-group' / '-ng'" in result.output
 
 
 @pytest.mark.parametrize(
@@ -1434,7 +1480,9 @@ def test_list_nodes_command_accepts_documented_single_dash_aliases(
 
     with patch("leptonai.cli.node.resolve_node_groups", return_value=[node_group]):
         with patch("leptonai.cli.node.get_client", return_value=client):
-            result = CliRunner().invoke(node, ["list-nodes", "gpu-group", flag, value])
+            result = CliRunner().invoke(
+                node, ["list-nodes", "-ng", "gpu-group", flag, value]
+            )
 
     assert result.exit_code == 0, result.output
     assert expected in result.output
@@ -1452,7 +1500,9 @@ def test_list_nodes_command_displays_webui_inventory_fields(nodes, monkeypatch):
 
     with patch("leptonai.cli.node.resolve_node_groups", return_value=[node_group]):
         with patch("leptonai.cli.node.get_client", return_value=client):
-            result = CliRunner().invoke(node, ["list-nodes", "gpu-group"])
+            result = CliRunner().invoke(
+                node, ["list-nodes", "--node-group", "gpu-group"]
+            )
 
     assert result.exit_code == 0, result.output
     for value in (
@@ -1481,7 +1531,9 @@ def test_list_nodes_command_warns_and_keeps_nodes_when_machines_fail(
 
     with patch("leptonai.cli.node.resolve_node_groups", return_value=[node_group]):
         with patch("leptonai.cli.node.get_client", return_value=client):
-            result = CliRunner().invoke(node, ["list-nodes", "gpu-group"])
+            result = CliRunner().invoke(
+                node, ["list-nodes", "--node-group", "gpu-group"]
+            )
 
     assert result.exit_code == 0, result.output
     assert "Warning:" in result.output
@@ -1491,7 +1543,8 @@ def test_list_nodes_command_warns_and_keeps_nodes_when_machines_fail(
 
 def test_list_nodes_command_rejects_unknown_status():
     result = CliRunner().invoke(
-        node, ["list-nodes", "gpu-group", "--status", "Unknown"]
+        node,
+        ["list-nodes", "--node-group", "gpu-group", "--status", "Unknown"],
     )
 
     assert result.exit_code == 2

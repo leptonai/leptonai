@@ -254,12 +254,12 @@ def list_command(detail=False, node_group=None):
 
     For each node group this shows node health (healthy/error/total), whether it
     is Lepton-managed or customer BYOC, and the aggregated GPU/CPU/memory/disk
-    usage. For per-node detail, use 'lep node list-nodes <node-group>'.
+    usage. For per-node detail, use 'lep node list-nodes -ng <node-group>'.
     """
     if detail:
         console.print(
             "[yellow]Note:[/yellow] '-d/--detail' has been removed. For per-node"
-            " detail, use [bold]lep node list-nodes <node-group>[/bold].\n"
+            " detail, use [bold]lep node list-nodes -ng <node-group>[/bold].\n"
         )
 
     client = get_client()
@@ -683,7 +683,13 @@ def _filter_nodes(
 
 
 @node.command(name="list-nodes")
-@click.argument("name", type=str)
+@click.argument("name", type=str, required=False)
+@click.option(
+    "--node-group",
+    "-ng",
+    type=str,
+    help="Node group name or ID. Partial matching is supported (for example, 'h100').",
+)
 @click.option(
     "--search",
     "--keyword",
@@ -751,7 +757,8 @@ def _filter_nodes(
     help="Show only nodes with unschedulable=true.",
 )
 def list_nodes_command(
-    name,
+    name=None,
+    node_group=None,
     keyword=None,
     labels=(),
     statuses=(),
@@ -764,7 +771,8 @@ def list_nodes_command(
     """
     List the nodes under a node group with per-node resource detail.
 
-    NAME is the node group name or ID (partial match supported, e.g. 'h100').
+    Use --node-group/-ng to select a node group. Partial name/ID matching is
+    supported (for example, 'h100'). The positional NAME form is deprecated.
     For each node it shows name/ID/labels, provider/region/GPU clique ID,
     status/stage/scheduling state, resources, hostname, and public/local IPs.
 
@@ -772,7 +780,18 @@ def list_nodes_command(
     them together. Different filter categories and repeated label filters are
     combined with AND.
     """
-    node_groups = resolve_node_groups([name], is_exact_match=False)
+    if name:
+        ignored = " and is ignored" if node_group else ""
+        console.print(
+            "[yellow]Warning:[/yellow] Positional NODE_GROUP is deprecated"
+            f"{ignored}; use [green]--node-group/-ng[/green] instead."
+        )
+
+    node_group = node_group or name
+    if not node_group:
+        raise click.UsageError("Missing option '--node-group' / '-ng'.")
+
+    node_groups = resolve_node_groups([node_group], is_exact_match=False)
     if not node_groups:
         return
 
