@@ -27,6 +27,7 @@ from leptonai.api.v2.types.storage_permission import StoragePermission
 from leptonai.cli import lep as cli
 from leptonai.cli.node import (
     _filter_nodes,
+    _format_network_cell,
     _merge_nodes_with_machines,
     console as node_console,
     node,
@@ -1257,6 +1258,14 @@ def test_filter_nodes_unschedulable_only(nodes):
     assert [item.metadata.id_ for item in filtered] == ["node-2"]
 
 
+def test_legacy_public_op_is_displayed_and_searchable(nodes):
+    nodes[0].spec.public_ip = None
+    nodes[0].spec.public_op = "192.0.2.15"
+
+    assert "192.0.2.15" in _format_network_cell(nodes[0])
+    assert _filter_nodes(nodes, keyword="2.15") == [nodes[0]]
+
+
 def test_merge_nodes_with_machines_enriches_matching_node(nodes):
     nodes[0].spec.machine_id = "machine-1"
     nodes[0].spec.hostname = None
@@ -1281,6 +1290,35 @@ def test_merge_nodes_with_machines_enriches_matching_node(nodes):
     assert merged[0].status.status == ["Ready", "Failed"]
     assert nodes[0].spec.hostname is None
     assert nodes[0].status.machine_status == "Healthy"
+
+
+def test_merge_nodes_with_failed_machine_preserves_leaving_status(nodes):
+    nodes[0].spec.machine_id = "machine-1"
+    nodes[0].status.machine_status = None
+    nodes[0].status.status = ["Leaving"]
+    machine = Machine(
+        metadata=Metadata(name="machine-1"),
+        status=MachineStatus(machine_id="machine-1", status="Failed"),
+    )
+
+    merged = _merge_nodes_with_machines([nodes[0]], [machine])
+
+    assert merged[0].status.machine_status is None
+    assert merged[0].status.status == ["Leaving"]
+
+
+def test_merge_nodes_with_failed_machine_populates_missing_node_status(nodes):
+    nodes[0].spec.machine_id = "machine-1"
+    nodes[0].status = None
+    machine = Machine(
+        metadata=Metadata(name="machine-1"),
+        status=MachineStatus(machine_id="machine-1", status="Failed"),
+    )
+
+    merged = _merge_nodes_with_machines([nodes[0]], [machine])
+
+    assert merged[0].status.machine_status == "Failed"
+    assert merged[0].status.status == ["Failed"]
 
 
 def test_merge_nodes_with_machines_adds_provisioning_machine():
@@ -1353,6 +1391,7 @@ def test_list_nodes_command_applies_repeatable_filters(nodes):
                 node,
                 [
                     "list-nodes",
+                    "--node-group",
                     "gpu-group",
                     "--status",
                     "Draining",
@@ -1372,6 +1411,83 @@ def test_list_nodes_command_applies_repeatable_filters(nodes):
     assert "node-3" not in result.output
 
 
+@pytest.mark.parametrize("flag", ["--node-group", "-ng"])
+def test_list_nodes_command_accepts_node_group_option(flag):
+    resolve = Mock(return_value=[])
+
+    with patch("leptonai.cli.node.resolve_node_groups", resolve):
+        result = CliRunner().invoke(node, ["list-nodes", flag, "gpu-group"])
+
+    assert result.exit_code == 0, result.output
+    resolve.assert_called_once_with(["gpu-group"], is_exact_match=False)
+    assert "deprecated" not in result.output
+
+
+def test_list_nodes_command_deprecates_positional_node_group():
+    resolve = Mock(return_value=[])
+
+    with patch("leptonai.cli.node.resolve_node_groups", resolve):
+        result = CliRunner().invoke(node, ["list-nodes", "legacy-group"])
+
+    assert result.exit_code == 0, result.output
+    resolve.assert_called_once_with(["legacy-group"], is_exact_match=False)
+    assert "Positional NODE_GROUP is deprecated" in result.output
+    assert "--node-group/-ng" in result.output
+
+
+def test_list_nodes_command_node_group_option_wins_over_positional():
+    resolve = Mock(return_value=[])
+
+    with patch("leptonai.cli.node.resolve_node_groups", resolve):
+        result = CliRunner().invoke(
+            node,
+            ["list-nodes", "legacy-group", "-ng", "preferred-group"],
+        )
+
+    assert result.exit_code == 0, result.output
+    resolve.assert_called_once_with(["preferred-group"], is_exact_match=False)
+    assert "Positional NODE_GROUP is deprecated and is ignored" in result.output
+
+
+def test_list_nodes_command_requires_a_node_group():
+    result = CliRunner().invoke(node, ["list-nodes"])
+
+    assert result.exit_code == 2
+    assert "Missing option '--node-group' / '-ng'" in result.output
+
+
+@pytest.mark.parametrize(
+    ("flag", "value", "expected"),
+    [
+        ("-search", "alpha", "Alpha-Node"),
+        ("-keyword", "alpha", "Alpha-Node"),
+        ("-q", "alpha", "Alpha-Node"),
+        ("-label", "env:dev", "Gamma-Node"),
+        ("-labels", "env:dev", "Gamma-Node"),
+    ],
+)
+def test_list_nodes_command_accepts_documented_single_dash_aliases(
+    nodes, monkeypatch, flag, value, expected
+):
+    node_group = SimpleNamespace(metadata=SimpleNamespace(name="gpu-group", id_="ng-1"))
+    client = SimpleNamespace(
+        nodegroup=SimpleNamespace(
+            list_nodes=Mock(return_value=nodes),
+            list_machines=Mock(return_value=[]),
+        )
+    )
+    monkeypatch.setattr(node_console, "width", 240)
+
+    with patch("leptonai.cli.node.resolve_node_groups", return_value=[node_group]):
+        with patch("leptonai.cli.node.get_client", return_value=client):
+            result = CliRunner().invoke(
+                node, ["list-nodes", "-ng", "gpu-group", flag, value]
+            )
+
+    assert result.exit_code == 0, result.output
+    assert expected in result.output
+
+
 def test_list_nodes_command_displays_webui_inventory_fields(nodes, monkeypatch):
     node_group = SimpleNamespace(metadata=SimpleNamespace(name="gpu-group", id_="ng-1"))
     client = SimpleNamespace(
@@ -1384,7 +1500,9 @@ def test_list_nodes_command_displays_webui_inventory_fields(nodes, monkeypatch):
 
     with patch("leptonai.cli.node.resolve_node_groups", return_value=[node_group]):
         with patch("leptonai.cli.node.get_client", return_value=client):
-            result = CliRunner().invoke(node, ["list-nodes", "gpu-group"])
+            result = CliRunner().invoke(
+                node, ["list-nodes", "--node-group", "gpu-group"]
+            )
 
     assert result.exit_code == 0, result.output
     for value in (
@@ -1399,9 +1517,34 @@ def test_list_nodes_command_displays_webui_inventory_fields(nodes, monkeypatch):
         assert value in result.output
 
 
+def test_list_nodes_command_warns_and_keeps_nodes_when_machines_fail(
+    nodes, monkeypatch
+):
+    node_group = SimpleNamespace(metadata=SimpleNamespace(name="gpu-group", id_="ng-1"))
+    client = SimpleNamespace(
+        nodegroup=SimpleNamespace(
+            list_nodes=Mock(return_value=[nodes[0]]),
+            list_machines=Mock(side_effect=RuntimeError("machines unavailable")),
+        )
+    )
+    monkeypatch.setattr(node_console, "width", 240)
+
+    with patch("leptonai.cli.node.resolve_node_groups", return_value=[node_group]):
+        with patch("leptonai.cli.node.get_client", return_value=client):
+            result = CliRunner().invoke(
+                node, ["list-nodes", "--node-group", "gpu-group"]
+            )
+
+    assert result.exit_code == 0, result.output
+    assert "Warning:" in result.output
+    assert "machines unavailable" in result.output
+    assert "Alpha-Node" in result.output
+
+
 def test_list_nodes_command_rejects_unknown_status():
     result = CliRunner().invoke(
-        node, ["list-nodes", "gpu-group", "--status", "Unknown"]
+        node,
+        ["list-nodes", "--node-group", "gpu-group", "--status", "Unknown"],
     )
 
     assert result.exit_code == 2
