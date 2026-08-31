@@ -187,3 +187,6 @@ _test
 
 # Lepton version
 leptonai/_version.py
+
+# uv
+uv.lock

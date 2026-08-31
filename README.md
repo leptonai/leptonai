@@ -48,15 +48,13 @@ lep job create -n my-job --container-image my-registry/my-trainer:latest --comma
 lep pod create -n my-pod --resource-shape gpu.a10
 ```
 
-For a workspace with managed Slurm, inspect clusters and jobs or open the
-corresponding dashboard view:
+For a workspace with managed Slurm, inspect clusters and jobs:
 
 ```shell
 lep slurm cluster list
-lep slurm job list --cluster slurm/production --all
-lep slurm job attempts slurm/production 12345 --steps
-lep slurm job logs slurm/production 12345 --follow
-lep slurm job open slurm/production 12345
+lep slurm job list --cluster production --include-archived
+lep slurm job attempts -i 12345 --steps
+lep slurm job logs -n my-training-job --follow
 ```
 
 Personal Slurm Dev Pods are available under `lep slurm devpod`; run

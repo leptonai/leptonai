@@ -6,6 +6,7 @@ from click.testing import CliRunner
 from leptonai.api.v2.types.slurm import (
     LeptonSlurmCluster,
     LeptonSlurmDevPod,
+    SlurmJob,
     SlurmJobEventList,
     WorkspaceSlurmJobList,
 )
@@ -73,6 +74,7 @@ def _fake_client():
     api.get_cluster.return_value = CLUSTER
     api.list_cluster_events.return_value = []
     api.list_jobs.return_value = JOBS
+    api.list_cluster_jobs.return_value = []
     api.get_job.return_value = JOBS.jobs[0]
     api.get_job_events.return_value = EVENTS
     api.get_logs.return_value = {
@@ -100,24 +102,59 @@ def test_slurm_command_tree_is_registered():
     assert "cluster" in result.output
     assert "job" in result.output
     assert "devpod" in result.output
-    assert "dashboard" in result.output
+    assert "dashboard" not in result.output
+    assert "open" not in result.output.split()
 
 
 def test_cluster_list_and_job_attempts_tables():
-    client, _ = _fake_client()
+    client, api = _fake_client()
     with patch("leptonai.cli.slurm.APIClient", return_value=client):
         clusters = CliRunner().invoke(lep, ["slurm", "cluster", "list"])
         attempts = CliRunner().invoke(
             lep,
-            ["slurm", "job", "attempts", "ns/cluster-a", "42", "--steps"],
+            ["slurm", "job", "attempts", "-i", "42", "--steps"],
         )
 
     assert clusters.exit_code == 0, clusters.output
     assert "cluster-a" in clusters.output
     assert "login.example.com" in clusters.output
     assert attempts.exit_code == 0, attempts.output
+    # The bare job ID resolves to its cluster through the jobs list.
+    api.get_job_events.assert_called_once_with("ns/cluster-a", "42")
     assert "42.batch" in attempts.output
-    assert "COMPLETED" in attempts.output
+    # Raw Slurm states (COMPLETED) are normalized to CLI casing (Completed).
+    assert "Completed" in attempts.output
+    assert "COMPLETED" not in attempts.output
+
+
+def test_state_cells_are_normalized_and_colorized():
+    from leptonai.cli.slurm import _normalize_state, _state_cell
+
+    assert _normalize_state("RUNNING") == "Running"
+    assert _normalize_state("NODE_FAIL") == "NodeFail"
+    assert _normalize_state("Queueing") == "Queueing"
+    assert _normalize_state(None) == "-"
+
+    assert _state_cell("RUNNING") == "[green]Running[/]"
+    assert _state_cell("FAILED") == "[red]Failed[/]"
+    assert _state_cell("NODE_FAIL") == "[red]NodeFail[/]"
+    assert _state_cell("PENDING") == "[yellow]Pending[/]"
+    # The first non-empty candidate wins (job_state preferred over state).
+    assert _state_cell(None, "Running") == "[green]Running[/]"
+    assert _state_cell(None, None) == "-"
+
+
+def test_job_list_table_links_to_dashboard_and_normalizes_state():
+    client, api = _fake_client()
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        result = CliRunner().invoke(lep, ["slurm", "job", "list"])
+
+    assert result.exit_code == 0, result.output
+    assert "train" in result.output
+    assert "RUNNING" not in result.output
+    api.dashboard_url.assert_any_call(
+        "overview", cluster_id="ns/cluster-a", job_id="42"
+    )
 
 
 def test_job_list_passes_workspace_filters_and_archive_mode():
@@ -133,7 +170,7 @@ def test_job_list_passes_workspace_filters_and_archive_mode():
                 "ns/cluster-a",
                 "--state",
                 "RUNNING",
-                "--archived",
+                "--include-archived",
                 "--partition",
                 "gpu",
                 "--sort-by",
@@ -149,7 +186,7 @@ def test_job_list_passes_workspace_filters_and_archive_mode():
     assert '"job_id": 42' in result.output
     api.list_jobs.assert_called_once_with(
         cluster_names=["ns/cluster-a"],
-        job_query_mode="archive_only",
+        job_query_mode="alive_and_archive",
         q=None,
         status=["RUNNING"],
         page=None,
@@ -171,7 +208,7 @@ def test_job_logs_maps_scope_and_prints_in_timestamp_order():
                 "slurm",
                 "job",
                 "logs",
-                "ns/cluster-a",
+                "-i",
                 "42",
                 "--attempt",
                 "0",
@@ -197,6 +234,156 @@ def test_job_logs_maps_scope_and_prints_in_timestamp_order():
         query=None,
         limit=100,
     )
+
+
+def _job_entry(job_id, name, cluster_id, state="Running"):
+    return {
+        "kind": "slurm",
+        "slurm_cluster": {"id": cluster_id, "name": cluster_id.split("/")[1]},
+        "metadata": {
+            "id": str(job_id),
+            "name": name,
+            "created_at": 1_700_000_000_000,
+        },
+        "spec": {"job_id": job_id, "cpus": 1, "gpus": 0, "memory_mb": 1024},
+        "status": {"state": state, "job_state": state.upper()},
+    }
+
+
+AMBIGUOUS_JOBS = WorkspaceSlurmJobList(
+    page=1,
+    page_size=2,
+    total=2,
+    jobs=[
+        _job_entry(42, "train", "ns-a/cluster-a"),
+        _job_entry(7, "train", "ns-b/cluster-b"),
+    ],
+)
+
+EMPTY_JOBS = WorkspaceSlurmJobList(page=1, page_size=0, total=0, jobs=[])
+
+
+def test_job_attempts_with_cluster_and_id_skips_job_listing():
+    client, api = _fake_client()
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        # The cluster is accepted as NAMESPACE/NAME or bare NAME; both are
+        # validated against list_clusters before any job lookup.
+        full = CliRunner().invoke(
+            lep,
+            ["slurm", "job", "attempts", "-i", "42", "--cluster", "ns/cluster-a"],
+        )
+        bare = CliRunner().invoke(
+            lep,
+            ["slurm", "job", "attempts", "-i", "42", "--cluster", "cluster-a"],
+        )
+
+    assert full.exit_code == 0, full.output
+    assert bare.exit_code == 0, bare.output
+    api.list_jobs.assert_not_called()
+    api.list_cluster_jobs.assert_not_called()
+    assert api.get_job_events.call_count == 2
+    api.get_job_events.assert_called_with("ns/cluster-a", "42")
+
+
+def test_job_commands_error_on_unknown_cluster():
+    client, api = _fake_client()
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        attempts = CliRunner().invoke(
+            lep,
+            ["slurm", "job", "attempts", "-i", "42", "--cluster", "nope"],
+        )
+        listing = CliRunner().invoke(lep, ["slurm", "job", "list", "--cluster", "nope"])
+
+    assert attempts.exit_code == 1, attempts.output
+    assert "was not found" in attempts.output
+    assert "ns/cluster-a" in attempts.output
+    api.get_job_events.assert_not_called()
+    assert listing.exit_code == 1, listing.output
+    api.list_jobs.assert_not_called()
+
+
+def test_job_attempts_errors_on_ambiguous_name():
+    client, api = _fake_client()
+    api.list_jobs.return_value = AMBIGUOUS_JOBS
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        result = CliRunner().invoke(lep, ["slurm", "job", "attempts", "-n", "train"])
+
+    assert result.exit_code == 1, result.output
+    assert "ns-a/cluster-a" in result.output
+    assert "ns-b/cluster-b" in result.output
+    api.get_job_events.assert_not_called()
+
+
+def test_job_attempts_name_resolved_inside_selected_cluster():
+    client, api = _fake_client()
+    cluster_b = LeptonSlurmCluster(
+        metadata={"id": "ns-b/cluster-b", "name": "cluster-b"},
+        spec={},
+        status={"state": "Ready", "loginNodeAddresses": []},
+    )
+    api.list_clusters.return_value = [CLUSTER, cluster_b]
+    api.list_cluster_jobs.return_value = [
+        SlurmJob(
+            metadata={"id": "7", "name": "train"},
+            spec={"job_id": 7},
+            status={"state": "Running", "job_state": "RUNNING"},
+        )
+    ]
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        result = CliRunner().invoke(
+            lep,
+            ["slurm", "job", "attempts", "-n", "train", "--cluster", "cluster-b"],
+        )
+
+    assert result.exit_code == 0, result.output
+    # A validated cluster routes the search to the cluster-scoped jobs API.
+    api.list_jobs.assert_not_called()
+    assert api.list_cluster_jobs.call_args.args == ("ns-b/cluster-b",)
+    assert api.list_cluster_jobs.call_args.kwargs["q"] == "train"
+    api.get_job_events.assert_called_once_with("ns-b/cluster-b", "7")
+
+
+def test_job_get_prints_all_jobs_sharing_a_name():
+    client, api = _fake_client()
+    api.list_jobs.return_value = AMBIGUOUS_JOBS
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        result = CliRunner().invoke(lep, ["slurm", "job", "get", "-n", "train"])
+
+    assert result.exit_code == 0, result.output
+    assert api.get_job.call_count == 2
+    assert result.output.lstrip().startswith("[")
+
+
+def test_job_selector_requires_exactly_one_of_name_or_id():
+    client, api = _fake_client()
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        neither = CliRunner().invoke(lep, ["slurm", "job", "attempts"])
+        both = CliRunner().invoke(
+            lep, ["slurm", "job", "get", "-n", "train", "-i", "42"]
+        )
+
+    assert neither.exit_code == 2, neither.output
+    assert "either --name or --id" in neither.output
+    assert both.exit_code == 2, both.output
+    assert "only one" in both.output
+    api.list_jobs.assert_not_called()
+
+
+def test_job_resolution_zero_match_hints_archived():
+    client, api = _fake_client()
+    api.list_jobs.return_value = EMPTY_JOBS
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        default = CliRunner().invoke(lep, ["slurm", "job", "attempts", "-i", "99"])
+        archived = CliRunner().invoke(
+            lep, ["slurm", "job", "attempts", "-i", "99", "--include-archived"]
+        )
+
+    assert default.exit_code == 1, default.output
+    assert "--include-archived" in default.output
+    assert default.output.count("--include-archived") == 1
+    assert archived.exit_code == 1, archived.output
+    assert "--include-archived" not in archived.output
+    assert api.list_jobs.call_args.kwargs["job_query_mode"] == "alive_and_archive"
 
 
 def test_devpod_create_remove_and_safe_ssh_print():
@@ -241,15 +428,13 @@ def test_devpod_create_remove_and_safe_ssh_print():
     assert "ssh -J alice@bastion alice@pod" in ssh.output
 
 
-def test_dashboard_print_only_uses_canonical_url_builder():
-    client, api = _fake_client()
-    with patch("leptonai.cli.slurm.APIClient", return_value=client):
-        result = CliRunner().invoke(
-            lep, ["slurm", "job", "open", "ns/cluster-a", "42", "--print-only"]
-        )
-
-    assert result.exit_code == 0, result.output
-    assert "https://dashboard.example.com" in result.output
-    api.dashboard_url.assert_called_once_with(
-        "overview", cluster_id="ns/cluster-a", job_id="42"
-    )
+def test_open_and_dashboard_commands_are_removed():
+    for args in (
+        ["slurm", "dashboard"],
+        ["slurm", "open"],
+        ["slurm", "cluster", "open", "ns/cluster-a"],
+        ["slurm", "job", "open", "ns/cluster-a", "42"],
+        ["slurm", "devpod", "open", "ns/cluster-a"],
+    ):
+        result = CliRunner().invoke(lep, args)
+        assert result.exit_code != 0, args
