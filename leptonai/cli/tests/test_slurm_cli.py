@@ -12,6 +12,11 @@ from leptonai.api.v2.types.slurm import (
 )
 from leptonai.cli import lep
 
+# The ssh commands are deliberately unregistered until direct SSH
+# connectivity is GA; they are still covered here by invoking the command
+# objects directly.
+from leptonai.cli.slurm import ssh_cluster, ssh_devpod
+
 
 CLUSTER = LeptonSlurmCluster(
     metadata={"id": "ns/cluster-a", "name": "cluster-a"},
@@ -408,15 +413,8 @@ def test_devpod_create_remove_and_safe_ssh_print():
             lep, ["slurm", "devpod", "remove", "--cluster", "cluster-a", "--yes"]
         )
         ssh = CliRunner().invoke(
-            lep,
-            [
-                "slurm",
-                "devpod",
-                "ssh",
-                "--name",
-                "cluster-a-alice",
-                "--print-only",
-            ],
+            ssh_devpod,
+            ["--name", "cluster-a-alice", "--print-only"],
         )
 
     assert created.exit_code == 0, created.output
@@ -456,7 +454,7 @@ def test_devpod_selector_requires_exactly_one_flag():
         neither = CliRunner().invoke(lep, ["slurm", "devpod", "get"])
         both = CliRunner().invoke(
             lep,
-            ["slurm", "devpod", "ssh", "-n", "cluster-a-alice", "-c", "cluster-a"],
+            ["slurm", "devpod", "shell", "-n", "cluster-a-alice", "-c", "cluster-a"],
         )
 
     assert neither.exit_code == 2, neither.output
@@ -494,23 +492,10 @@ def test_cluster_get_and_events_resolve_name_or_id():
 def test_cluster_ssh_targets_login_node_without_running():
     client, api = _fake_client()
     with patch("leptonai.cli.slurm.APIClient", return_value=client):
-        default = CliRunner().invoke(
-            lep, ["slurm", "cluster", "ssh", "-n", "cluster-a", "--print-only"]
-        )
+        default = CliRunner().invoke(ssh_cluster, ["-n", "cluster-a", "--print-only"])
         full = CliRunner().invoke(
-            lep,
-            [
-                "slurm",
-                "cluster",
-                "ssh",
-                "-i",
-                "ns/cluster-a",
-                "--user",
-                "alice",
-                "--print-only",
-                "--",
-                "-v",
-            ],
+            ssh_cluster,
+            ["-i", "ns/cluster-a", "--user", "alice", "--print-only", "--", "-v"],
         )
 
     assert default.exit_code == 0, default.output
@@ -532,30 +517,12 @@ def test_cluster_ssh_validates_login_node_choice():
     api.list_clusters.return_value = [multi]
     with patch("leptonai.cli.slurm.APIClient", return_value=client):
         picked = CliRunner().invoke(
-            lep,
-            [
-                "slurm",
-                "cluster",
-                "ssh",
-                "-n",
-                "multi",
-                "--login-node",
-                "b.example.com",
-                "--print-only",
-            ],
+            ssh_cluster,
+            ["-n", "multi", "--login-node", "b.example.com", "--print-only"],
         )
         unknown = CliRunner().invoke(
-            lep,
-            [
-                "slurm",
-                "cluster",
-                "ssh",
-                "-n",
-                "multi",
-                "--login-node",
-                "nope.example.com",
-                "--print-only",
-            ],
+            ssh_cluster,
+            ["-n", "multi", "--login-node", "nope.example.com", "--print-only"],
         )
 
     assert picked.exit_code == 0, picked.output
@@ -574,9 +541,7 @@ def test_cluster_ssh_errors_without_login_nodes():
     client, api = _fake_client()
     api.list_clusters.return_value = [provisioning]
     with patch("leptonai.cli.slurm.APIClient", return_value=client):
-        result = CliRunner().invoke(
-            lep, ["slurm", "cluster", "ssh", "-n", "new", "--print-only"]
-        )
+        result = CliRunner().invoke(ssh_cluster, ["-n", "new", "--print-only"])
 
     assert result.exit_code == 1, result.output
     assert "no login node addresses" in result.output
@@ -607,3 +572,77 @@ def test_open_and_dashboard_commands_are_removed():
     ):
         result = CliRunner().invoke(lep, args)
         assert result.exit_code != 0, args
+
+
+def test_shell_replaces_ssh_in_command_tree():
+    cluster_help = CliRunner().invoke(lep, ["slurm", "cluster", "--help"])
+    devpod_help = CliRunner().invoke(lep, ["slurm", "devpod", "--help"])
+
+    assert "shell" in cluster_help.output
+    assert "ssh" not in cluster_help.output
+    assert "shell" in devpod_help.output
+    assert "ssh" not in devpod_help.output
+    for args in (
+        ["slurm", "cluster", "ssh", "-n", "cluster-a"],
+        ["slurm", "devpod", "ssh", "-n", "cluster-a-alice"],
+    ):
+        result = CliRunner().invoke(lep, args)
+        assert result.exit_code == 2, (args, result.output)
+        assert "No such command" in result.output
+
+
+def test_shell_requires_interactive_terminal():
+    client, api = _fake_client()
+    # CliRunner feeds pipes, not TTYs, so the guard must trip before any
+    # network traffic happens.
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        cluster = CliRunner().invoke(
+            lep, ["slurm", "cluster", "shell", "-n", "cluster-a"]
+        )
+        devpod = CliRunner().invoke(
+            lep, ["slurm", "devpod", "shell", "-n", "cluster-a-alice"]
+        )
+
+    assert cluster.exit_code == 2, cluster.output
+    assert "requires a terminal" in cluster.output
+    assert devpod.exit_code == 2, devpod.output
+    api.shell_connection.assert_not_called()
+    api.devpod_shell_connection.assert_not_called()
+    api.resolve_devpod.assert_not_called()
+
+
+def test_cluster_shell_bridges_the_websocket():
+    client, api = _fake_client()
+    socket = object()
+    api.shell_connection.return_value = socket
+    with (
+        patch("leptonai.cli.slurm.APIClient", return_value=client),
+        patch("leptonai.cli.ws_shell.ensure_interactive_terminal"),
+        patch("leptonai.cli.ws_shell.run_ws_shell", return_value=0) as bridge,
+    ):
+        result = CliRunner().invoke(
+            lep, ["slurm", "cluster", "shell", "-n", "cluster-a"]
+        )
+
+    assert result.exit_code == 0, result.output
+    api.shell_connection.assert_called_once_with("ns/cluster-a")
+    bridge.assert_called_once_with(socket)
+
+
+def test_devpod_shell_bridges_and_propagates_exit_code():
+    client, api = _fake_client()
+    socket = object()
+    api.devpod_shell_connection.return_value = socket
+    with (
+        patch("leptonai.cli.slurm.APIClient", return_value=client),
+        patch("leptonai.cli.ws_shell.ensure_interactive_terminal"),
+        patch("leptonai.cli.ws_shell.run_ws_shell", return_value=130) as bridge,
+    ):
+        result = CliRunner().invoke(
+            lep, ["slurm", "devpod", "shell", "-n", "cluster-a-alice"]
+        )
+
+    assert result.exit_code == 130, result.output
+    api.resolve_devpod.assert_called_once_with("cluster-a-alice")
+    api.devpod_shell_connection.assert_called_once_with("ns/cluster-a-alice")
+    bridge.assert_called_once_with(socket)
