@@ -28,6 +28,9 @@ SLURM_JOB_QUERY_MODES = (
     "alive_and_archive",
 )
 
+# Kubernetes remote-command subprotocol spoken by the /shell endpoints.
+SLURM_SHELL_SUBPROTOCOL = "v4.channel.k8s.io"
+
 
 class SlurmAPI(APIResourse):
     """Workspace-scoped Slurm clusters, jobs, logs, and dev pods."""
@@ -229,6 +232,47 @@ class SlurmAPI(APIResourse):
         )
         response = self._get("/logs", params=params)
         return self.ensure_json(response)
+
+    @staticmethod
+    def _websocket_url(url: str) -> str:
+        if url.startswith("https://"):
+            return "wss://" + url[len("https://") :]
+        if url.startswith("http://"):
+            return "ws://" + url[len("http://") :]
+        raise ValueError(f"Cannot derive a WebSocket URL from {url!r}.")
+
+    def _open_shell(self, path: str) -> Any:
+        # Lazy import: websocket-client is only needed for interactive shells.
+        import websocket
+
+        headers = {}
+        if getattr(self._client, "auth_token", None):
+            headers["Authorization"] = f"Bearer {self._client.auth_token}"
+        connection = websocket.create_connection(
+            self._websocket_url(self._client.url + path),
+            header=headers,
+            subprotocols=[SLURM_SHELL_SUBPROTOCOL],
+            enable_multithread=True,
+            timeout=30,
+        )
+        # The 30s timeout above only guards the handshake; an idle shell must
+        # be able to sit quietly for longer than any read timeout.
+        connection.settimeout(None)
+        return connection
+
+    def shell_connection(self, cluster_id: str) -> Any:
+        """Open the interactive login-node shell WebSocket for a cluster.
+
+        The socket speaks the Kubernetes ``v4.channel.k8s.io`` channel
+        protocol; the server runs a login shell as the workspace user.
+        """
+        return self._open_shell(
+            f"/slurmclusters/{self._cluster_path(cluster_id)}/shell"
+        )
+
+    def devpod_shell_connection(self, devpod_id: str) -> Any:
+        """Open the interactive shell WebSocket for a Slurm Dev Pod."""
+        return self._open_shell(f"/slurm/devpods/{self._cluster_path(devpod_id)}/shell")
 
     def list_devpods(
         self, *, cluster_names: Optional[List[str]] = None

@@ -550,7 +550,7 @@ def slurm():
 
 @slurm.group()
 def cluster():
-    """Inspect Slurm clusters visible in the current workspace."""
+    """Inspect Slurm clusters and start login-node shells."""
 
 
 @cluster.command(name="list")
@@ -616,10 +616,11 @@ def cluster_events(
     console.print(table)
 
 
-# Hidden until login-node connectivity is generally available.
-@cluster.command(
-    name="ssh", context_settings={"ignore_unknown_options": True}, hidden=True
-)
+# Deliberately NOT registered on the cluster group: direct SSH to login
+# nodes is not reachable in most deployments yet. Use `lep slurm cluster
+# shell` instead; re-register with cluster.add_command(ssh_cluster) once
+# login-node connectivity is generally available.
+@click.command(name="ssh", context_settings={"ignore_unknown_options": True})
 @click.option("--name", "-n", help="Cluster name", type=str)
 @click.option("--id", "-i", help="Canonical NAMESPACE/NAME cluster ID", type=str)
 @click.option("--user", "-u", "ssh_user", help="Username on the login node.")
@@ -673,6 +674,32 @@ def ssh_cluster(
     completed = subprocess.run(argv, check=False)
     if completed.returncode:
         raise click.exceptions.Exit(completed.returncode)
+
+
+@cluster.command(name="shell")
+@click.option("--name", "-n", help="Cluster name", type=str)
+@click.option("--id", "-i", help="Canonical NAMESPACE/NAME cluster ID", type=str)
+def shell_cluster(name: Optional[str], id: Optional[str]) -> None:
+    """Open an interactive shell on a login node of a Slurm cluster.
+
+    The session is tunnelled through the workspace API over HTTPS (the
+    same path the dashboard terminal uses), so it works wherever `lep`
+    works. The shell runs as your workspace user on the login node.
+    """
+    # Local import keeps websocket-client off the CLI startup path.
+    from .ws_shell import ensure_interactive_terminal, run_ws_shell
+
+    _validate_name_id_selector(name, id)
+    ensure_interactive_terminal()
+    api = APIClient().slurm
+    cluster_id = _resolve_cluster(api, id or name)
+    console.print(
+        f"Opening a login-node shell on [green]{cluster_id}[/]"
+        " (type `exit` or press Ctrl-D to leave)..."
+    )
+    exit_code = run_ws_shell(api.shell_connection(cluster_id))
+    if exit_code:
+        raise click.exceptions.Exit(exit_code)
 
 
 @slurm.group()
@@ -1047,10 +1074,11 @@ def remove_devpod(
     console.print(f"[green]Removed Slurm Dev Pod {devpod_id}.[/green]")
 
 
-# Hidden until Dev Pod SSH connectivity is generally available.
-@devpod.command(
-    name="ssh", context_settings={"ignore_unknown_options": True}, hidden=True
-)
+# Deliberately NOT registered on the devpod group: the server-provided SSH
+# command is not reachable in most deployments yet. Use `lep slurm devpod
+# shell` instead; re-register with devpod.add_command(ssh_devpod) once Dev
+# Pod SSH connectivity is generally available.
+@click.command(name="ssh", context_settings={"ignore_unknown_options": True})
 @_devpod_resolution_options
 @click.argument("ssh_args", nargs=-1, type=click.UNPROCESSED)
 @click.option(
@@ -1090,6 +1118,36 @@ def ssh_devpod(
     completed = subprocess.run(argv, check=False)
     if completed.returncode:
         raise click.exceptions.Exit(completed.returncode)
+
+
+@devpod.command(name="shell")
+@_devpod_resolution_options
+def shell_devpod(
+    name: Optional[str], id: Optional[str], cluster: Optional[str]
+) -> None:
+    """Open an interactive shell in your Slurm Dev Pod.
+
+    Select the pod by --name, --id, or its owning --cluster. The session
+    is tunnelled through the workspace API over HTTPS (the same path the
+    dashboard terminal uses), so it works wherever `lep` works.
+    """
+    # Local import keeps websocket-client off the CLI startup path.
+    from .ws_shell import ensure_interactive_terminal, run_ws_shell
+
+    target = _devpod_target(name, id, cluster)
+    ensure_interactive_terminal()
+    api = APIClient().slurm
+    item = api.resolve_devpod(target)
+    devpod_id = item.metadata.id_
+    if not devpod_id:
+        raise ValueError("The Slurm Dev Pod response did not contain an ID.")
+    console.print(
+        f"Opening a shell in Dev Pod [green]{devpod_id}[/]"
+        " (type `exit` or press Ctrl-D to leave)..."
+    )
+    exit_code = run_ws_shell(api.devpod_shell_connection(devpod_id))
+    if exit_code:
+        raise click.exceptions.Exit(exit_code)
 
 
 def add_command(cli_group: click.Group) -> None:
