@@ -550,7 +550,7 @@ def slurm():
 
 @slurm.group()
 def cluster():
-    """Inspect Slurm clusters and SSH to their login nodes."""
+    """Inspect Slurm clusters visible in the current workspace."""
 
 
 @cluster.command(name="list")
@@ -616,7 +616,10 @@ def cluster_events(
     console.print(table)
 
 
-@cluster.command(name="ssh", context_settings={"ignore_unknown_options": True})
+# Hidden until login-node connectivity is generally available.
+@cluster.command(
+    name="ssh", context_settings={"ignore_unknown_options": True}, hidden=True
+)
 @click.option("--name", "-n", help="Cluster name", type=str)
 @click.option("--id", "-i", help="Canonical NAMESPACE/NAME cluster ID", type=str)
 @click.option("--user", "-u", "ssh_user", help="Username on the login node.")
@@ -1044,7 +1047,10 @@ def remove_devpod(
     console.print(f"[green]Removed Slurm Dev Pod {devpod_id}.[/green]")
 
 
-@devpod.command(name="ssh", context_settings={"ignore_unknown_options": True})
+# Hidden until Dev Pod SSH connectivity is generally available.
+@devpod.command(
+    name="ssh", context_settings={"ignore_unknown_options": True}, hidden=True
+)
 @_devpod_resolution_options
 @click.argument("ssh_args", nargs=-1, type=click.UNPROCESSED)
 @click.option(
