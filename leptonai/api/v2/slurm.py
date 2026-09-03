@@ -287,12 +287,51 @@ class SlurmAPI(APIResourse):
         response = self._get(f"/slurm/devpods/{self._cluster_path(devpod_id)}")
         return self.ensure_type(response, LeptonSlurmDevPod)
 
-    def resolve_devpod(self, target: str) -> LeptonSlurmDevPod:
-        """Resolve a dev pod ID/name or a canonical Slurm cluster ID."""
-        value = str(target).strip()
-        if not value:
-            raise ValueError("Slurm dev pod target cannot be empty.")
-        pods = self.list_devpods()
+    def resolve_devpod(
+        self, target: Optional[str] = None, *, cluster: Optional[str] = None
+    ) -> LeptonSlurmDevPod:
+        """Resolve a Dev Pod by ID/name, optionally scoped to a cluster.
+
+        With no target, ``cluster`` selects the current user's single Dev Pod
+        on that cluster. A target and cluster may be combined to disambiguate
+        an otherwise non-unique name.
+        """
+        value = str(target).strip() if target is not None else ""
+        cluster_value = str(cluster).strip() if cluster is not None else ""
+        if not value and not cluster_value:
+            raise ValueError("A Slurm Dev Pod target or cluster is required.")
+
+        pods = self.list_devpods(
+            cluster_names=[cluster_value] if cluster_value else None
+        )
+        if cluster_value:
+            cluster_name = self._cluster_name(cluster_value)
+            pods = [pod for pod in pods if pod.spec.slurm_cluster_name == cluster_name]
+            if value:
+                exact = [
+                    pod
+                    for pod in pods
+                    if value in (pod.metadata.id_, pod.metadata.name)
+                ]
+                if len(exact) == 1:
+                    return exact[0]
+                if len(exact) > 1:
+                    raise ValueError(
+                        f"Slurm dev pod target {target!r} is ambiguous in cluster "
+                        f"{cluster!r}."
+                    )
+                raise ValueError(
+                    f"No Slurm dev pod found for ID or name {target!r} in cluster "
+                    f"{cluster!r}."
+                )
+            if len(pods) == 1:
+                return pods[0]
+            if not pods:
+                raise ValueError(f"No Slurm dev pod found on cluster {cluster!r}.")
+            raise ValueError(
+                f"Multiple Slurm dev pods match cluster {cluster!r}; use --name or "
+                "--id."
+            )
 
         exact = [pod for pod in pods if value in (pod.metadata.id_, pod.metadata.name)]
         if len(exact) == 1:
@@ -300,19 +339,13 @@ class SlurmAPI(APIResourse):
         if len(exact) > 1:
             raise ValueError(f"Slurm dev pod target {target!r} is ambiguous.")
 
-        namespace = None
-        cluster_name = value
-        if "/" in value:
-            namespace, cluster_name = self.split_cluster_id(value)
-        cluster_matches = []
-        for pod in pods:
-            if pod.spec.slurm_cluster_name != cluster_name:
-                continue
-            if namespace is not None:
-                pod_namespace = (pod.metadata.id_ or "").split("/", 1)[0]
-                if pod_namespace != namespace:
-                    continue
-            cluster_matches.append(pod)
+        # An exact Dev Pod ID was checked above. Treat a remaining composite
+        # value as a canonical cluster ID, but do not compare its namespace to
+        # the Dev Pod ID: those resources use different Kubernetes namespaces.
+        cluster_name = self._cluster_name(value)
+        cluster_matches = [
+            pod for pod in pods if pod.spec.slurm_cluster_name == cluster_name
+        ]
 
         if len(cluster_matches) == 1:
             return cluster_matches[0]

@@ -43,9 +43,25 @@ def test_composite_cluster_id_and_dashboard_routes():
     assert api.dashboard_url(
         "logs", cluster_id="namespace/cluster", job_id="42"
     ).endswith("#/slurm-cluster/namespace%2Fcluster/jobs/42/logs")
+    assert api.dashboard_url("devpods", cluster_id="namespace/cluster").endswith(
+        "/clusters/slurm/detail/namespace%2Fcluster/dev-pods"
+    )
 
     with pytest.raises(ValueError, match="namespace/name"):
         api.split_cluster_id("cluster")
+
+
+def test_devpod_dashboard_url_matches_dashboard_route():
+    api, client = _api()
+    client.get_dashboard_base_url.return_value = (
+        "https://dashboard.dgxc-lepton-dev.nvidia.com/workspace/esavglrr"
+    )
+
+    assert (
+        api.dashboard_url("devpods", cluster_id="slurm/tf-test")
+        == "https://dashboard.dgxc-lepton-dev.nvidia.com/workspace/esavglrr/"
+        "clusters/slurm/detail/slurm%2Ftf-test/dev-pods"
+    )
 
 
 def test_cluster_list_exact_get_and_history_route():
@@ -202,7 +218,10 @@ def test_job_events_and_logs_use_cluster_scoped_parameters():
 
 def test_devpod_create_resolve_and_delete():
     created = {
-        "metadata": {"id": "ns/cluster-a-alice", "name": "cluster-a-alice"},
+        "metadata": {
+            "id": "devpod-cluster-a/cluster-a-alice",
+            "name": "cluster-a-alice",
+        },
         "spec": {"slurmClusterName": "cluster-a"},
         "status": {"state": "Ready", "sshCommand": "ssh alice@pod"},
     }
@@ -223,8 +242,22 @@ def test_devpod_create_resolve_and_delete():
     )
 
     client._get.return_value = _Response([created])
-    assert api.resolve_devpod("ns/cluster-a").metadata.id_ == "ns/cluster-a-alice"
+    assert (
+        api.resolve_devpod("ns/cluster-a").metadata.id_
+        == "devpod-cluster-a/cluster-a-alice"
+    )
+
+    client._get.reset_mock()
+    assert (
+        api.resolve_devpod("cluster-a-alice", cluster="ns/cluster-a").metadata.id_
+        == "devpod-cluster-a/cluster-a-alice"
+    )
+    client._get.assert_called_once_with(
+        "/slurm/devpods", params={"cluster_name": ["cluster-a"]}
+    )
 
     client._delete.return_value = _Response({})
-    assert api.delete_devpod("ns/cluster-a-alice") is True
-    client._delete.assert_called_once_with("/slurm/devpods/ns/cluster-a-alice")
+    assert api.delete_devpod("devpod-cluster-a/cluster-a-alice") is True
+    client._delete.assert_called_once_with(
+        "/slurm/devpods/devpod-cluster-a/cluster-a-alice"
+    )

@@ -12,15 +12,34 @@ from leptonai.api.v2.types.slurm import (
 )
 from leptonai.cli import lep
 
-# The ssh commands are deliberately unregistered until direct SSH
-# connectivity is GA; they are still covered here by invoking the command
-# objects directly.
-from leptonai.cli.slurm import ssh_cluster, ssh_devpod
+# Login-node SSH remains deliberately unregistered; Dev Pod SSH is exposed
+# because it uses the cluster's bastion command.
+from leptonai.cli.slurm import ssh_cluster
 
 
 CLUSTER = LeptonSlurmCluster(
     metadata={"id": "ns/cluster-a", "name": "cluster-a"},
-    spec={"devPodsConfig": {"enabled": True}},
+    spec={
+        "devPodsConfig": {
+            "enabled": True,
+            "bastion": {"enabled": True, "useLoadBalancer": True},
+            "sets": [{"name": "gpu", "nodeGroupId": "ng-gpu"}],
+        },
+        "homeDirsConfig": {"storageBackend": {"hostPath": {"path": "/mnt/home"}}},
+        "loginNodesConfig": {
+            "nodeScratchPath": "/mnt/raid",
+            "sourceCIDRs": ["10.0.0.0/8"],
+        },
+        "clusterSharedStorageConfig": {
+            "sharedStoragePaths": [
+                {"mountPath": "/shared", "readOnly": True},
+                {
+                    "mountPath": "/compute-only",
+                    "excludedNodegroupTypes": ["login"],
+                },
+            ]
+        },
+    },
     status={
         "state": "Ready",
         "loginNodeAddresses": ["login.example.com"],
@@ -28,11 +47,23 @@ CLUSTER = LeptonSlurmCluster(
 )
 
 DEVPOD = LeptonSlurmDevPod(
-    metadata={"id": "ns/cluster-a-alice", "name": "cluster-a-alice"},
-    spec={"slurmClusterName": "cluster-a"},
+    metadata={
+        "id": "ns/cluster-a-alice",
+        "uuid": "devpod-uuid",
+        "name": "cluster-a-alice",
+        "created_at": 1_700_000_000,
+        "created_by": "alice@example.com",
+        "owner": "alice@example.com",
+    },
+    spec={"slurmClusterName": "cluster-a", "devPodSetName": "gpu"},
     status={
         "state": "Ready",
         "username": "alice",
+        "imageVersion": "2026.09",
+        "containerResources": {
+            "requests": {"cpu": "4", "memory": "16Gi"},
+            "limits": {"cpu": "8"},
+        },
         "sshCommand": "ssh -J alice@bastion alice@pod",
     },
 )
@@ -131,6 +162,96 @@ def test_cluster_list_and_job_attempts_tables():
     assert "COMPLETED" not in attempts.output
 
 
+def test_cluster_list_filters_by_name_substring_and_exact_status():
+    client, api = _fake_client()
+    cluster_b = LeptonSlurmCluster(
+        metadata={"id": "ns/cluster-beta", "name": "cluster-beta"},
+        spec={},
+        status={"state": "NotReady"},
+    )
+    prod = LeptonSlurmCluster(
+        metadata={"id": "ns/prod-gpu", "name": "prod-gpu"},
+        spec={},
+        status={"state": "Error"},
+    )
+    api.list_clusters.return_value = [CLUSTER, cluster_b, prod]
+
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        by_name = CliRunner().invoke(
+            lep,
+            ["slurm", "cluster", "list", "--name", "CLUSTER", "-o", "json"],
+        )
+        by_status = CliRunner().invoke(
+            lep,
+            ["slurm", "cluster", "list", "--status", "ready", "-o", "json"],
+        )
+        combined = CliRunner().invoke(
+            lep,
+            [
+                "slurm",
+                "cluster",
+                "list",
+                "-n",
+                "cluster",
+                "-n",
+                "prod",
+                "-s",
+                "NotReady",
+                "-s",
+                "Error",
+                "-o",
+                "json",
+            ],
+        )
+
+    assert by_name.exit_code == 0, by_name.output
+    assert '"name": "cluster-a"' in by_name.output
+    assert '"name": "cluster-beta"' in by_name.output
+    assert '"name": "prod-gpu"' not in by_name.output
+
+    assert by_status.exit_code == 0, by_status.output
+    assert '"name": "cluster-a"' in by_status.output
+    # Status matching is exact: Ready must not include NotReady.
+    assert '"name": "cluster-beta"' not in by_status.output
+    assert '"name": "prod-gpu"' not in by_status.output
+
+    assert combined.exit_code == 0, combined.output
+    assert '"name": "cluster-beta"' in combined.output
+    assert '"name": "cluster-a"' not in combined.output
+    assert '"name": "prod-gpu"' in combined.output
+    assert api.list_clusters.call_count == 3
+
+
+def test_cluster_list_repeated_name_filters_are_or_conditions():
+    client, api = _fake_client()
+    prod = LeptonSlurmCluster(
+        metadata={"id": "ns/prod-gpu", "name": "prod-gpu"},
+        spec={},
+        status={"state": "Error"},
+    )
+    api.list_clusters.return_value = [CLUSTER, prod]
+
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        result = CliRunner().invoke(
+            lep,
+            [
+                "slurm",
+                "cluster",
+                "list",
+                "-n",
+                "cluster-a",
+                "-n",
+                "PROD",
+                "-o",
+                "json",
+            ],
+        )
+
+    assert result.exit_code == 0, result.output
+    assert '"name": "cluster-a"' in result.output
+    assert '"name": "prod-gpu"' in result.output
+
+
 def test_state_cells_are_normalized_and_colorized():
     from leptonai.cli.slurm import _normalize_state, _state_cell
 
@@ -142,6 +263,7 @@ def test_state_cells_are_normalized_and_colorized():
     assert _state_cell("RUNNING") == "[green]Running[/]"
     assert _state_cell("FAILED") == "[red]Failed[/]"
     assert _state_cell("NODE_FAIL") == "[red]NodeFail[/]"
+    assert _state_cell("Unrecoverable") == "[red]Unrecoverable[/]"
     assert _state_cell("PENDING") == "[yellow]Pending[/]"
     # The first non-empty candidate wins (job_state preferred over state).
     assert _state_cell(None, "Running") == "[green]Running[/]"
@@ -161,6 +283,22 @@ def test_job_list_table_links_to_dashboard_and_normalizes_state():
     )
 
 
+def test_job_list_exposes_only_supported_filter_options():
+    result = CliRunner().invoke(lep, ["slurm", "job", "list", "--help"])
+
+    assert result.exit_code == 0, result.output
+    assert "--status" in result.output
+    for unsupported in (
+        "--page",
+        "--page-size",
+        "--partition",
+        "--qos",
+        "--sort-by",
+        "--order",
+    ):
+        assert unsupported not in result.output
+
+
 def test_job_list_passes_workspace_filters_and_archive_mode():
     client, api = _fake_client()
     with patch("leptonai.cli.slurm.APIClient", return_value=client):
@@ -172,15 +310,11 @@ def test_job_list_passes_workspace_filters_and_archive_mode():
                 "list",
                 "--cluster",
                 "ns/cluster-a",
-                "--state",
+                "--status",
                 "RUNNING",
+                "--status",
+                "FAILED",
                 "--include-archived",
-                "--partition",
-                "gpu",
-                "--sort-by",
-                "job_id",
-                "--order",
-                "desc",
                 "--output",
                 "json",
             ],
@@ -192,14 +326,8 @@ def test_job_list_passes_workspace_filters_and_archive_mode():
         cluster_names=["ns/cluster-a"],
         job_query_mode="alive_and_archive",
         q=None,
-        status=["RUNNING"],
-        page=None,
-        page_size=None,
+        status=["RUNNING", "FAILED"],
         created_by=None,
-        partition=["gpu"],
-        qos=None,
-        sort_fields="job_id",
-        sort_orders="desc",
     )
 
 
@@ -413,8 +541,15 @@ def test_devpod_create_remove_and_safe_ssh_print():
             lep, ["slurm", "devpod", "remove", "--cluster", "cluster-a", "--yes"]
         )
         ssh = CliRunner().invoke(
-            ssh_devpod,
-            ["--name", "cluster-a-alice", "--print-only"],
+            lep,
+            [
+                "slurm",
+                "devpod",
+                "ssh",
+                "--name",
+                "cluster-a-alice",
+                "--print-only",
+            ],
         )
 
     assert created.exit_code == 0, created.output
@@ -425,8 +560,149 @@ def test_devpod_create_remove_and_safe_ssh_print():
     api.delete_devpod.assert_called_once_with("ns/cluster-a-alice")
     assert ssh.exit_code == 0, ssh.output
     assert "ssh -J alice@bastion alice@pod" in ssh.output
-    api.resolve_devpod.assert_any_call("cluster-a")
+    api.resolve_devpod.assert_any_call(None, cluster="ns/cluster-a")
     api.resolve_devpod.assert_any_call("cluster-a-alice")
+
+
+def test_devpod_get_shows_configuration_identity_and_connect_details():
+    client, api = _fake_client()
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        result = CliRunner().invoke(
+            lep, ["slurm", "devpod", "get", "--name", "cluster-a-alice"]
+        )
+
+    assert result.exit_code == 0, result.output
+    for expected in (
+        "Configuration",
+        "Environment profile",
+        "gpu",
+        "Profile node group",
+        "ng-gpu",
+        "CPU request",
+        "4",
+        "Memory request",
+        "16Gi",
+        "CPU limit",
+        "8",
+        "No limit",
+        "Bastion",
+        "Enabled",
+        "/home",
+        "/mnt/home",
+        "/raid",
+        "/shared",
+        "Identity",
+        "Cluster user",
+        "alice",
+        "devpod-uuid",
+        "alice@example.com",
+        "Connect",
+        "SSH via bastion",
+        "ssh -J alice@bastion alice@pod",
+        "Open in web UI",
+    ):
+        assert expected in result.output
+    assert "/compute-only" not in result.output
+    api.list_clusters.assert_called_once_with()
+    api.dashboard_url.assert_called_once_with("devpods", cluster_id="ns/cluster-a")
+
+
+def test_devpod_get_json_preserves_raw_record_without_cluster_lookup():
+    client, api = _fake_client()
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        result = CliRunner().invoke(
+            lep,
+            [
+                "slurm",
+                "devpod",
+                "get",
+                "--id",
+                "ns/cluster-a-alice",
+                "--output",
+                "json",
+            ],
+        )
+
+    assert result.exit_code == 0, result.output
+    assert '"uuid": "devpod-uuid"' in result.output
+    assert '"sshCommand": "ssh -J alice@bastion alice@pod"' in result.output
+    api.list_clusters.assert_not_called()
+
+
+def test_devpod_list_links_name_id_cell_to_web_ui():
+    client, api = _fake_client()
+    with (
+        patch("leptonai.cli.slurm.APIClient", return_value=client),
+        patch(
+            "leptonai.cli.slurm.make_name_id_cell", return_value="linked-name-id"
+        ) as name_id_cell,
+    ):
+        result = CliRunner().invoke(lep, ["slurm", "devpod", "list"])
+
+    assert result.exit_code == 0, result.output
+    api.dashboard_url.assert_called_once_with("devpods", cluster_id="ns/cluster-a")
+    api.list_clusters.assert_called_once_with()
+    name_id_cell.assert_called_once_with(
+        "cluster-a-alice",
+        "ns/cluster-a-alice",
+        link=api.dashboard_url.return_value,
+    )
+
+
+def test_devpod_ssh_runs_bastion_command_with_extra_options_before_destination():
+    client, _ = _fake_client()
+    with (
+        patch("leptonai.cli.slurm.APIClient", return_value=client),
+        patch(
+            "leptonai.cli.slurm.subprocess.run",
+            return_value=SimpleNamespace(returncode=0),
+        ) as run,
+    ):
+        result = CliRunner().invoke(
+            lep,
+            [
+                "slurm",
+                "devpod",
+                "ssh",
+                "--id",
+                "ns/cluster-a-alice",
+                "--",
+                "-v",
+            ],
+        )
+
+    assert result.exit_code == 0, result.output
+    run.assert_called_once_with(
+        ["ssh", "-v", "-J", "alice@bastion", "alice@pod"], check=False
+    )
+
+
+def test_devpod_ssh_fails_closed_when_bastion_is_disabled():
+    disabled_cluster = LeptonSlurmCluster(
+        metadata={"id": "ns/cluster-a", "name": "cluster-a"},
+        spec={"devPodsConfig": {"enabled": True, "bastion": {"enabled": False}}},
+        status={"state": "Ready"},
+    )
+    client, api = _fake_client()
+    api.list_clusters.return_value = [disabled_cluster]
+    with (
+        patch("leptonai.cli.slurm.APIClient", return_value=client),
+        patch("leptonai.cli.slurm.subprocess.run") as run,
+    ):
+        result = CliRunner().invoke(
+            lep,
+            [
+                "slurm",
+                "devpod",
+                "ssh",
+                "--id",
+                "ns/cluster-a-alice",
+            ],
+        )
+
+    assert result.exit_code == 1, result.output
+    assert "SSH via bastion is not enabled" in result.output
+    run.assert_not_called()
 
 
 def test_devpod_create_resolves_bare_cluster_name():
@@ -448,20 +724,47 @@ def test_devpod_create_resolves_bare_cluster_name():
     assert api.create_devpod.call_count == 1
 
 
-def test_devpod_selector_requires_exactly_one_flag():
+def test_devpod_selector_allows_cluster_to_scope_name_or_id():
     client, api = _fake_client()
     with patch("leptonai.cli.slurm.APIClient", return_value=client):
         neither = CliRunner().invoke(lep, ["slurm", "devpod", "get"])
-        both = CliRunner().invoke(
+        name_and_id = CliRunner().invoke(
             lep,
-            ["slurm", "devpod", "shell", "-n", "cluster-a-alice", "-c", "cluster-a"],
+            [
+                "slurm",
+                "devpod",
+                "get",
+                "-n",
+                "cluster-a-alice",
+                "-i",
+                "ns/cluster-a-alice",
+                "-c",
+                "cluster-a",
+            ],
+        )
+        scoped = CliRunner().invoke(
+            lep,
+            [
+                "slurm",
+                "devpod",
+                "get",
+                "-n",
+                "cluster-a-alice",
+                "-c",
+                "cluster-a",
+                "-o",
+                "json",
+            ],
         )
 
     assert neither.exit_code == 2, neither.output
     assert "one of --name, --id, or --cluster" in neither.output
-    assert both.exit_code == 2, both.output
-    assert "only provide one" in both.output
-    api.resolve_devpod.assert_not_called()
+    assert name_and_id.exit_code == 2, name_and_id.output
+    assert "cannot provide both --name and --id" in name_and_id.output
+    assert scoped.exit_code == 0, scoped.output
+    api.resolve_devpod.assert_called_once_with(
+        "cluster-a-alice", cluster="ns/cluster-a"
+    )
 
 
 def test_cluster_get_and_events_resolve_name_or_id():
@@ -574,21 +877,17 @@ def test_open_and_dashboard_commands_are_removed():
         assert result.exit_code != 0, args
 
 
-def test_shell_replaces_ssh_in_command_tree():
+def test_devpod_bastion_ssh_and_shell_are_in_command_tree():
     cluster_help = CliRunner().invoke(lep, ["slurm", "cluster", "--help"])
     devpod_help = CliRunner().invoke(lep, ["slurm", "devpod", "--help"])
 
     assert "shell" in cluster_help.output
     assert "ssh" not in cluster_help.output
     assert "shell" in devpod_help.output
-    assert "ssh" not in devpod_help.output
-    for args in (
-        ["slurm", "cluster", "ssh", "-n", "cluster-a"],
-        ["slurm", "devpod", "ssh", "-n", "cluster-a-alice"],
-    ):
-        result = CliRunner().invoke(lep, args)
-        assert result.exit_code == 2, (args, result.output)
-        assert "No such command" in result.output
+    assert "ssh" in devpod_help.output
+    result = CliRunner().invoke(lep, ["slurm", "cluster", "ssh", "-n", "cluster-a"])
+    assert result.exit_code == 2, result.output
+    assert "No such command" in result.output
 
 
 def test_shell_requires_interactive_terminal():

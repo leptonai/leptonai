@@ -133,17 +133,21 @@ allocation policies still apply. Use `--teleport-auth` to override the SSO conne
 For a workspace with managed Slurm, inspect clusters and jobs:
 
 ```shell
-lep slurm cluster list
-lep slurm cluster ssh -n production --user alice
-lep slurm job list --cluster production --include-archived
+lep slurm cluster list --name prod --status Ready
+lep slurm cluster shell -n production
+lep slurm job list --cluster production --status Running --include-archived
 lep slurm job attempts -i 12345 --steps
 lep slurm job logs -n my-training-job --follow
+lep slurm devpod get --cluster production
+lep slurm devpod ssh --cluster production
 ```
 
 Personal Slurm Dev Pods are available under `lep slurm devpod`; run
-`lep slurm --help` for the complete command tree. Slurm job submission and
-cancellation remain native Slurm operations (`sbatch`, `squeue`, `scancel`) on
-the cluster rather than Lepton API mutations.
+`lep slurm --help` for the complete command tree. `devpod get` shows the
+effective configuration, identity, connection details, and dashboard link;
+`devpod ssh` runs the bastion command reported by the platform. Slurm job
+submission and cancellation remain native Slurm operations (`sbatch`, `squeue`,
+`scancel`) on the cluster rather than Lepton API mutations.
 
 Run `lep --help`, or `lep <command> --help` for any subcommand, to explore everything. See the [CLI references](https://docs.nvidia.com/dgx-cloud/lepton/reference/cli/get-started/) for the full guide.
 

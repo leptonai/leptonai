@@ -97,6 +97,7 @@ _SLURM_FAILURE_STATES = {
     "NodeFail",
     "OutOfMemory",
     "Timeout",
+    "Unrecoverable",
 }
 
 
@@ -131,6 +132,59 @@ def _safe_dashboard_url(api: Any, view: str, **kwargs: Any) -> Optional[str]:
         return None
 
 
+def _devpod_cluster(
+    item: LeptonSlurmDevPod, clusters: Iterable[LeptonSlurmCluster]
+) -> Optional[LeptonSlurmCluster]:
+    """Resolve a Dev Pod's cluster by its recorded cluster name.
+
+    A Dev Pod ID has its own Kubernetes namespace, which is not necessarily
+    the Slurm cluster namespace (for example ``slurm-tf-test`` versus
+    ``slurm``). The canonical dashboard route must therefore come from the
+    cluster record rather than be synthesized from the Dev Pod ID.
+    """
+    cluster_name = (item.spec.slurm_cluster_name or "").strip()
+    if not cluster_name:
+        return None
+    matches = [cluster for cluster in clusters if cluster.metadata.name == cluster_name]
+    if len(matches) != 1 or not matches[0].metadata.id_:
+        return None
+    return matches[0]
+
+
+def _require_devpod_cluster(
+    item: LeptonSlurmDevPod, clusters: Iterable[LeptonSlurmCluster]
+) -> LeptonSlurmCluster:
+    cluster = _devpod_cluster(item, clusters)
+    if cluster is None:
+        raise ValueError(
+            "The Slurm Dev Pod's recorded cluster name did not resolve to one "
+            "canonical cluster in this workspace."
+        )
+    return cluster
+
+
+def _devpod_dashboard_url(
+    api: Any,
+    item: LeptonSlurmDevPod,
+    clusters: Iterable[LeptonSlurmCluster],
+) -> Optional[str]:
+    cluster = _devpod_cluster(item, clusters)
+    if cluster is None:
+        return None
+    return _safe_dashboard_url(api, "devpods", cluster_id=cluster.metadata.id_)
+
+
+def _reported_devpod_ssh_command(item: LeptonSlurmDevPod) -> Optional[str]:
+    command = item.status.ssh_command if item.status else None
+    return command if command and command.strip() else None
+
+
+def _web_ui_link(url: Optional[str]) -> str:
+    if not url:
+        return "-"
+    return f"[link={url}][blue underline]Open in web UI ↗[/][/link]"
+
+
 def _format_resources(cpus: Any, gpus: Any, memory_mb: Any) -> str:
     return f"{cpus or 0}C / {gpus or 0}G / {memory_mb or 0}MiB"
 
@@ -152,6 +206,33 @@ def _format_duration(start: Any, end: Any) -> str:
 
 def _diagnosis(reason: Optional[str], error: Optional[str]) -> str:
     return error or reason or "-"
+
+
+def _filter_clusters(
+    clusters: Iterable[LeptonSlurmCluster],
+    *,
+    names: Iterable[str] = (),
+    statuses: Iterable[str] = (),
+) -> List[LeptonSlurmCluster]:
+    """Apply the dashboard's client-side cluster name and status filters."""
+    name_filters = tuple(value.strip().casefold() for value in names if value.strip())
+    status_filters = {value.strip().casefold() for value in statuses if value.strip()}
+    filtered = []
+    for item in clusters:
+        name = (item.metadata.name or "").casefold()
+        state = (
+            str(getattr(item.status.state, "value", item.status.state))
+            .strip()
+            .casefold()
+            if item.status and item.status.state
+            else ""
+        )
+        if name_filters and not any(value in name for value in name_filters):
+            continue
+        if status_filters and state not in status_filters:
+            continue
+        filtered.append(item)
+    return filtered
 
 
 def _print_clusters_table(
@@ -279,8 +360,12 @@ def _print_attempts_table(
 
 
 def _print_devpods_table(
-    devpods: Iterable[LeptonSlurmDevPod], *, api: Any = None
+    devpods: Iterable[LeptonSlurmDevPod],
+    *,
+    api: Any = None,
+    clusters: Iterable[LeptonSlurmCluster] = (),
 ) -> None:
+    clusters = list(clusters)
     table = Table(title="Slurm Dev Pods", show_header=True, show_lines=True)
     table.add_column("Name / ID", overflow="fold")
     table.add_column("Cluster")
@@ -295,15 +380,8 @@ def _print_devpods_table(
         resources = status.container_resources if status else None
         requests = resources.requests if resources else None
         limits = resources.limits if resources else None
-        link = None
         devpod_id = item.metadata.id_
-        if devpod_id and "/" in devpod_id and item.spec.slurm_cluster_name:
-            namespace = devpod_id.split("/", 1)[0]
-            link = _safe_dashboard_url(
-                api,
-                "devpods",
-                cluster_id=f"{namespace}/{item.spec.slurm_cluster_name}",
-            )
+        link = _devpod_dashboard_url(api, item, clusters)
         table.add_row(
             make_name_id_cell(item.metadata.name, devpod_id, link=link),
             item.spec.slurm_cluster_name,
@@ -314,9 +392,200 @@ def _print_devpods_table(
             f"{(requests.memory if requests else None) or '-'}/"
             f"{(limits.memory if limits else None) or '-'}",
             (status.image_version if status else None) or "-",
-            "[green]Ready[/]" if status and status.ssh_command else "-",
+            "[green]Ready[/]" if _reported_devpod_ssh_command(item) else "-",
         )
     console.print(table)
+
+
+def _devpod_detail_table(title: str, rows: Iterable[Tuple[str, str]]) -> Table:
+    table = Table(title=title, show_header=False, box=None, padding=(0, 1))
+    table.add_column("Field", style="bold", no_wrap=True)
+    table.add_column("Value", overflow="fold")
+    for label, value in rows:
+        table.add_row(label, value)
+    return table
+
+
+def _devpod_profile(item: LeptonSlurmDevPod, cluster: LeptonSlurmCluster) -> Any:
+    recorded = item.spec.dev_pod_set_name
+    config = cluster.spec.dev_pods_config if cluster.spec else None
+    if not recorded or not config:
+        return None
+    return next((profile for profile in config.sets if profile.name == recorded), None)
+
+
+def _devpod_resource_value(item: LeptonSlurmDevPod, dimension: str) -> str:
+    resources = item.status.container_resources if item.status else None
+    requests = resources.requests if resources else None
+    value = getattr(requests, dimension, None) if requests else None
+    return value or "-"
+
+
+def _devpod_limit_value(item: LeptonSlurmDevPod, dimension: str) -> str:
+    resources = item.status.container_resources if item.status else None
+    limits = resources.limits if resources else None
+    if limits is None:
+        return "-"
+    value = getattr(limits, dimension, None)
+    return value or "No limit"
+
+
+def _home_directory_text(cluster: LeptonSlurmCluster) -> str:
+    home = cluster.spec.home_dirs_config if cluster.spec else None
+    backend = home.storage_backend if home else None
+    if backend and backend.host_path is not None:
+        path = backend.host_path.path
+        qualifier = (
+            f"configured on the node at {path}" if path else "configured on a node path"
+        )
+    elif backend and backend.persistent_volume is not None:
+        claim = backend.persistent_volume.claim_name
+        qualifier = (
+            f"configured on cluster volume {claim}"
+            if claim
+            else "configured on a cluster volume"
+        )
+    else:
+        qualifier = "configured on the cluster file system"
+    return f"/home ({qualifier})"
+
+
+def _scratch_text(cluster: LeptonSlurmCluster) -> str:
+    login = cluster.spec.login_nodes_config if cluster.spec else None
+    qualifier = (
+        "configured as node-local storage"
+        if login and login.node_scratch_path
+        else "held in RAM"
+    )
+    return f"/raid ({qualifier})"
+
+
+def _shared_storage_text(cluster: LeptonSlurmCluster) -> str:
+    storage = cluster.spec.cluster_shared_storage_config if cluster.spec else None
+    paths = storage.shared_storage_paths if storage else []
+    visible = []
+    for path in paths:
+        if "login" in path.excluded_node_group_types or not path.mount_path:
+            continue
+        visible.append(
+            f"{path.mount_path} (read-only)" if path.read_only else path.mount_path
+        )
+    return "\n".join(visible) or "-"
+
+
+def _bastion_text(cluster: LeptonSlurmCluster) -> str:
+    devpods = cluster.spec.dev_pods_config if cluster.spec else None
+    bastion = devpods.bastion if devpods else None
+    if not bastion or bastion.enabled is not True:
+        return "Not enabled"
+    login = cluster.spec.login_nodes_config if cluster.spec else None
+    qualifier = (
+        "reachable from the networks this cluster allows"
+        if bastion.use_load_balancer is True and login and login.source_cidrs
+        else "reachable from this cluster's private network"
+    )
+    return f"Enabled ({qualifier})"
+
+
+def _print_devpod_detail(
+    item: LeptonSlurmDevPod, cluster: LeptonSlurmCluster, *, api: Any = None
+) -> None:
+    """Render the dashboard's Configuration, Identity, and Connect facts."""
+    status = item.status
+    cluster = _require_devpod_cluster(item, [cluster])
+    cluster_id = cluster.metadata.id_
+    profile_name = item.spec.dev_pod_set_name
+    profile = _devpod_profile(item, cluster)
+    if profile_name and profile is None:
+        profile_text = f"{profile_name} (not in current cluster configuration)"
+    else:
+        profile_text = profile_name or "-"
+
+    summary = Table.grid(padding=(0, 1))
+    summary.add_column()
+    summary.add_column()
+    summary.add_row(
+        make_name_id_cell(item.metadata.name, item.metadata.id_),
+        _state_cell(status.state if status else None),
+    )
+    console.print(summary)
+
+    state = _normalize_state(status.state if status else None)
+    if state == "NotReady":
+        console.print(
+            "[yellow]Dev pod not ready:[/] "
+            + (
+                (status.reason if status else None)
+                or "The platform has not reported a reason yet."
+            )
+        )
+    elif state in ("Error", "Unrecoverable"):
+        console.print(
+            "[red]Dev pod failed:[/] "
+            + ((status.error if status else None) or "The dev pod failed to start.")
+        )
+
+    console.print(
+        _devpod_detail_table(
+            "Configuration",
+            (
+                ("Cluster", cluster_id),
+                ("Environment profile", profile_text),
+                (
+                    "Profile node group",
+                    (profile.node_group_id if profile else None) or "-",
+                ),
+                ("Image version", (status.image_version if status else None) or "-"),
+                ("CPU request", _devpod_resource_value(item, "cpu")),
+                ("Memory request", _devpod_resource_value(item, "memory")),
+                ("CPU limit", _devpod_limit_value(item, "cpu")),
+                ("Memory limit", _devpod_limit_value(item, "memory")),
+                ("Bastion", _bastion_text(cluster)),
+                ("Home directory", _home_directory_text(cluster)),
+                ("Scratch", _scratch_text(cluster)),
+                ("Shared storage", _shared_storage_text(cluster)),
+            ),
+        )
+    )
+    console.print(
+        _devpod_detail_table(
+            "Identity",
+            (
+                ("Cluster user", (status.username if status else None) or "-"),
+                ("ID", item.metadata.id_ or "-"),
+                ("UUID", item.metadata.uuid or "-"),
+                ("Created", _format_time(item.metadata.created_at)),
+                ("Created by", item.metadata.created_by or "-"),
+                ("Owner", item.metadata.owner or "-"),
+            ),
+        )
+    )
+
+    devpods = cluster.spec.dev_pods_config if cluster.spec else None
+    bastion = devpods.bastion if devpods else None
+    ssh_command = _reported_devpod_ssh_command(item)
+    if bastion and bastion.enabled is True:
+        ssh_text = ssh_command or "Available when the platform reports the command"
+    else:
+        ssh_text = "Not enabled"
+    shell_text = (
+        shlex.join(["lep", "slurm", "devpod", "shell", "--id", item.metadata.id_])
+        if state == "Ready" and item.metadata.id_
+        else "Available when the Dev Pod is ready"
+    )
+    console.print(
+        _devpod_detail_table(
+            "Connect",
+            (
+                ("Dev Pod shell", shell_text),
+                ("SSH via bastion", ssh_text),
+                (
+                    "Dashboard",
+                    _web_ui_link(_devpod_dashboard_url(api, item, [cluster])),
+                ),
+            ),
+        )
+    )
 
 
 def _extract_log_entries(payload: Any) -> List[Tuple[Optional[int], str]]:
@@ -517,30 +786,42 @@ def _job_resolution_options(command):
 
 
 def _devpod_resolution_options(command):
-    """Attach the shared Dev Pod selection flags (exactly one must be given)."""
+    """Attach shared Dev Pod selectors; cluster optionally scopes name/id."""
     command = click.option(
         "--cluster",
         "cluster",
         "-c",
-        help="Cluster NAME or NAMESPACE/NAME hosting your Dev Pod.",
+        help=(
+            "Owning cluster NAME or NAMESPACE/NAME; may be used alone or to "
+            "scope --name/--id."
+        ),
     )(command)
     command = click.option("--id", "-i", help="Dev Pod ID", type=str)(command)
     command = click.option("--name", "-n", help="Dev Pod name", type=str)(command)
     return command
 
 
-def _devpod_target(
+def _validate_devpod_selector(
     name: Optional[str], id: Optional[str], cluster: Optional[str]
-) -> str:
-    """Reduce the selector flags to the single target resolve_devpod expects."""
-    values = [value for value in (name, id, cluster) if value]
-    if not values:
+) -> None:
+    if not any((name, id, cluster)):
         raise click.UsageError("You must provide one of --name, --id, or --cluster.")
-    if len(values) > 1:
-        raise click.UsageError(
-            "You can only provide one of --name, --id, or --cluster."
-        )
-    return values[0]
+    if name and id:
+        raise click.UsageError("You cannot provide both --name and --id.")
+
+
+def _resolve_devpod_selection(
+    api: Any,
+    name: Optional[str],
+    id: Optional[str],
+    cluster: Optional[str],
+) -> LeptonSlurmDevPod:
+    """Resolve name/id globally or within an optional validated cluster."""
+    _validate_devpod_selector(name, id, cluster)
+    if not cluster:
+        return api.resolve_devpod(name or id)
+    cluster_id = _resolve_cluster(api, cluster)
+    return api.resolve_devpod(name or id, cluster=cluster_id)
 
 
 @click_group()
@@ -554,11 +835,27 @@ def cluster():
 
 
 @cluster.command(name="list")
+@click.option(
+    "--name",
+    "names",
+    "-n",
+    multiple=True,
+    help="Filter by cluster name substring (case-insensitive; repeatable).",
+)
+@click.option(
+    "--status",
+    "statuses",
+    "-s",
+    multiple=True,
+    help="Filter by exact cluster status (case-insensitive; repeatable).",
+)
 @click.option("--output", "output_format", "-o", type=OUTPUT_FORMAT, default="table")
-def list_clusters(output_format: str) -> None:
-    """List Slurm clusters visible in the current workspace."""
+def list_clusters(
+    names: Tuple[str, ...], statuses: Tuple[str, ...], output_format: str
+) -> None:
+    """List Slurm clusters, optionally filtering by name and status."""
     api = APIClient().slurm
-    clusters = api.list_clusters()
+    clusters = _filter_clusters(api.list_clusters(), names=names, statuses=statuses)
     if output_format == "json":
         _print_json(clusters)
     else:
@@ -715,7 +1012,13 @@ def job():
     multiple=True,
     help="Filter by cluster NAME or NAMESPACE/NAME; repeatable.",
 )
-@click.option("--state", "states", multiple=True, help="Job state; repeatable.")
+@click.option(
+    "--status",
+    "statuses",
+    "-s",
+    multiple=True,
+    help="Filter by job status; repeatable.",
+)
 @click.option(
     "--include-archived",
     "-ia",
@@ -725,62 +1028,16 @@ def job():
 )
 @click.option("--query", "q", "-q", help="Filter by job name substring or job ID.")
 @click.option("--created-by", multiple=True, help="Creator email; repeatable.")
-@click.option("--partition", multiple=True, help="Partition; repeatable.")
-@click.option("--qos", multiple=True, help="QoS; repeatable.")
-@click.option("--page", type=click.IntRange(min=1))
-@click.option("--page-size", type=click.IntRange(min=1, max=500))
-@click.option(
-    "--sort-by",
-    multiple=True,
-    type=click.Choice(
-        (
-            "cluster_name",
-            "created_at",
-            "job_id",
-            "account",
-            "priority",
-            "cpus",
-            "memory_mb",
-            "storage_mb",
-            "gpus",
-            "gpu_memory_mb",
-            "node_count",
-            "partition",
-            "qos",
-            "exit_code",
-        ),
-        case_sensitive=False,
-    ),
-    help="Sort field; repeatable.",
-)
-@click.option(
-    "--order",
-    "sort_orders",
-    multiple=True,
-    type=click.Choice(("asc", "desc"), case_sensitive=False),
-    help="Sort order corresponding to each --sort-by.",
-)
 @click.option("--output", "output_format", "-o", type=OUTPUT_FORMAT, default="table")
 def list_jobs(
     cluster_names: Tuple[str, ...],
-    states: Tuple[str, ...],
+    statuses: Tuple[str, ...],
     include_archived: bool,
     q: Optional[str],
     created_by: Tuple[str, ...],
-    partition: Tuple[str, ...],
-    qos: Tuple[str, ...],
-    page: Optional[int],
-    page_size: Optional[int],
-    sort_by: Tuple[str, ...],
-    sort_orders: Tuple[str, ...],
     output_format: str,
 ) -> None:
     """List Slurm jobs across one or more clusters."""
-    if sort_orders and len(sort_by) != len(sort_orders):
-        raise click.UsageError("Use one --order for each --sort-by value.")
-    if sort_by and not sort_orders:
-        sort_orders = tuple("desc" for _ in sort_by)
-
     mode = "alive_and_archive" if include_archived else "alive_only"
     api = APIClient().slurm
     resolved_clusters: Optional[List[str]] = None
@@ -793,14 +1050,8 @@ def list_jobs(
         cluster_names=resolved_clusters,
         job_query_mode=mode,
         q=q,
-        status=list(states) or None,
-        page=page,
-        page_size=page_size,
+        status=list(statuses) or None,
         created_by=list(created_by) or None,
-        partition=list(partition) or None,
-        qos=list(qos) or None,
-        sort_fields=",".join(sort_by) or None,
-        sort_orders=",".join(sort_orders) or None,
     )
     if output_format == "json":
         _print_json(result)
@@ -1018,15 +1269,31 @@ def list_devpods(cluster_names: Tuple[str, ...], output_format: str) -> None:
     if output_format == "json":
         _print_json(devpods)
     else:
-        _print_devpods_table(devpods, api=api)
+        _print_devpods_table(devpods, api=api, clusters=api.list_clusters())
 
 
 @devpod.command(name="get")
+@click.option("--output", "output_format", "-o", type=OUTPUT_FORMAT, default="table")
 @_devpod_resolution_options
-def get_devpod(name: Optional[str], id: Optional[str], cluster: Optional[str]) -> None:
-    """Get your Dev Pod by --name, --id, or its owning --cluster."""
-    target = _devpod_target(name, id, cluster)
-    _print_json(APIClient().slurm.resolve_devpod(target))
+def get_devpod(
+    name: Optional[str],
+    id: Optional[str],
+    cluster: Optional[str],
+    output_format: str,
+) -> None:
+    """Get your Dev Pod's configuration and identity.
+
+    Select it by --name or --id, optionally scoped by --cluster; the owning
+    --cluster may also be used alone. Use --output json for the unmodified API
+    record.
+    """
+    api = APIClient().slurm
+    item = _resolve_devpod_selection(api, name, id, cluster)
+    if output_format == "json":
+        _print_json(item)
+        return
+    owning_cluster = _require_devpod_cluster(item, api.list_clusters())
+    _print_devpod_detail(item, owning_cluster, api=api)
 
 
 @devpod.command(name="create")
@@ -1062,9 +1329,9 @@ def remove_devpod(
     cluster: Optional[str],
     assume_yes: bool,
 ) -> None:
-    """Remove your Dev Pod by --name, --id, or its owning --cluster."""
+    """Remove your Dev Pod by name/id and optional cluster scope."""
     api = APIClient().slurm
-    item = api.resolve_devpod(_devpod_target(name, id, cluster))
+    item = _resolve_devpod_selection(api, name, id, cluster)
     devpod_id = item.metadata.id_
     if not devpod_id:
         raise ValueError("The Slurm Dev Pod response did not contain an ID.")
@@ -1074,11 +1341,7 @@ def remove_devpod(
     console.print(f"[green]Removed Slurm Dev Pod {devpod_id}.[/green]")
 
 
-# Deliberately NOT registered on the devpod group: the server-provided SSH
-# command is not reachable in most deployments yet. Use `lep slurm devpod
-# shell` instead; re-register with devpod.add_command(ssh_devpod) once Dev
-# Pod SSH connectivity is generally available.
-@click.command(name="ssh", context_settings={"ignore_unknown_options": True})
+@devpod.command(name="ssh", context_settings={"ignore_unknown_options": True})
 @_devpod_resolution_options
 @click.argument("ssh_args", nargs=-1, type=click.UNPROCESSED)
 @click.option(
@@ -1091,18 +1354,28 @@ def ssh_devpod(
     ssh_args: Tuple[str, ...],
     print_only: bool,
 ) -> None:
-    """Connect to a Slurm Dev Pod over its server-provided SSH command.
+    """Connect to a Slurm Dev Pod via its cluster bastion.
 
-    Select the pod by --name, --id, or its owning --cluster. Extra SSH
-    options can be passed after ``--``.
+    Runs the exact SSH command reported by the platform. Select the pod by
+    --name or --id, optionally scoped by --cluster; the owning --cluster may
+    also be used alone. Extra SSH options can be passed after ``--``.
     """
-    target = _devpod_target(name, id, cluster)
-    item = APIClient().slurm.resolve_devpod(target)
-    command = item.status.ssh_command if item.status else None
+    api = APIClient().slurm
+    item = _resolve_devpod_selection(api, name, id, cluster)
+    owning_cluster = _require_devpod_cluster(item, api.list_clusters())
+    devpods = owning_cluster.spec.dev_pods_config if owning_cluster.spec else None
+    bastion = devpods.bastion if devpods else None
+    if not bastion or bastion.enabled is not True:
+        raise ValueError(
+            "SSH via bastion is not enabled in the Dev Pod's current cluster "
+            "configuration. Use `lep slurm devpod shell` instead."
+        )
+    command = _reported_devpod_ssh_command(item)
     if not command:
         state = item.status.state if item.status else "unknown"
         raise ValueError(
-            f"Slurm Dev Pod {item.metadata.id_ or target!r} has no SSH command "
+            f"Slurm Dev Pod {item.metadata.id_ or name or id or cluster!r} "
+            "has no SSH command "
             f"(state: {state})."
         )
     try:
@@ -1111,7 +1384,10 @@ def ssh_devpod(
         raise ValueError(f"Invalid SSH command returned by the workspace: {error}")
     if not argv or argv[0] != "ssh":
         raise ValueError("The workspace returned an unsupported Dev Pod SSH command.")
-    argv.extend(ssh_args)
+    # The command supplied by the platform already ends in the destination.
+    # User-provided SSH options must precede it; appending them would make
+    # OpenSSH interpret them as a remote command instead.
+    argv[1:1] = ssh_args
     click.echo(shlex.join(argv))
     if print_only:
         return
@@ -1127,17 +1403,18 @@ def shell_devpod(
 ) -> None:
     """Open an interactive shell in your Slurm Dev Pod.
 
-    Select the pod by --name, --id, or its owning --cluster. The session
-    is tunnelled through the workspace API over HTTPS (the same path the
-    dashboard terminal uses), so it works wherever `lep` works.
+    Select the pod by --name or --id, optionally scoped by --cluster; the
+    owning --cluster may also be used alone. The session is tunnelled through
+    the workspace API over HTTPS (the same path the dashboard terminal uses),
+    so it works wherever `lep` works.
     """
     # Local import keeps websocket-client off the CLI startup path.
     from .ws_shell import ensure_interactive_terminal, run_ws_shell
 
-    target = _devpod_target(name, id, cluster)
+    _validate_devpod_selector(name, id, cluster)
     ensure_interactive_terminal()
     api = APIClient().slurm
-    item = api.resolve_devpod(target)
+    item = _resolve_devpod_selection(api, name, id, cluster)
     devpod_id = item.metadata.id_
     if not devpod_id:
         raise ValueError("The Slurm Dev Pod response did not contain an ID.")
