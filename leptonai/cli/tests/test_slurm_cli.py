@@ -1,3 +1,4 @@
+from functools import partial
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
@@ -10,11 +11,8 @@ from leptonai.api.v2.types.slurm import (
     SlurmJobEventList,
     WorkspaceSlurmJobList,
 )
+from leptonai.api.v2.slurm import SlurmAPI
 from leptonai.cli import lep
-
-# Login-node SSH remains deliberately unregistered; Dev Pod SSH is exposed
-# because it uses the cluster's bastion command.
-from leptonai.cli.slurm import ssh_cluster
 
 
 CLUSTER = LeptonSlurmCluster(
@@ -106,6 +104,9 @@ EVENTS = SlurmJobEventList(
 
 def _fake_client():
     api = Mock()
+    # Cluster resolution runs the real SDK logic over list_clusters' return value.
+    api.split_cluster_id.side_effect = SlurmAPI.split_cluster_id
+    api.resolve_cluster.side_effect = partial(SlurmAPI.resolve_cluster, api)
     api.list_clusters.return_value = [CLUSTER]
     api.list_cluster_events.return_value = []
     api.list_jobs.return_value = JOBS
@@ -792,65 +793,6 @@ def test_cluster_get_and_events_resolve_name_or_id():
     assert "either --name or --id" in neither.output
 
 
-def test_cluster_ssh_targets_login_node_without_running():
-    client, api = _fake_client()
-    with patch("leptonai.cli.slurm.APIClient", return_value=client):
-        default = CliRunner().invoke(ssh_cluster, ["-n", "cluster-a", "--print-only"])
-        full = CliRunner().invoke(
-            ssh_cluster,
-            ["-i", "ns/cluster-a", "--user", "alice", "--print-only", "--", "-v"],
-        )
-
-    assert default.exit_code == 0, default.output
-    assert "ssh login.example.com" in default.output
-    assert full.exit_code == 0, full.output
-    assert "ssh alice@login.example.com -v" in full.output
-
-
-def test_cluster_ssh_validates_login_node_choice():
-    multi = LeptonSlurmCluster(
-        metadata={"id": "ns/multi", "name": "multi"},
-        spec={},
-        status={
-            "state": "Ready",
-            "loginNodeAddresses": ["a.example.com", "b.example.com"],
-        },
-    )
-    client, api = _fake_client()
-    api.list_clusters.return_value = [multi]
-    with patch("leptonai.cli.slurm.APIClient", return_value=client):
-        picked = CliRunner().invoke(
-            ssh_cluster,
-            ["-n", "multi", "--login-node", "b.example.com", "--print-only"],
-        )
-        unknown = CliRunner().invoke(
-            ssh_cluster,
-            ["-n", "multi", "--login-node", "nope.example.com", "--print-only"],
-        )
-
-    assert picked.exit_code == 0, picked.output
-    assert "ssh b.example.com" in picked.output
-    assert unknown.exit_code == 1, unknown.output
-    assert "Available login nodes" in unknown.output
-    assert "a.example.com" in unknown.output
-
-
-def test_cluster_ssh_errors_without_login_nodes():
-    provisioning = LeptonSlurmCluster(
-        metadata={"id": "ns/new", "name": "new"},
-        spec={},
-        status={"state": "Provisioning", "loginNodeAddresses": []},
-    )
-    client, api = _fake_client()
-    api.list_clusters.return_value = [provisioning]
-    with patch("leptonai.cli.slurm.APIClient", return_value=client):
-        result = CliRunner().invoke(ssh_cluster, ["-n", "new", "--print-only"])
-
-    assert result.exit_code == 1, result.output
-    assert "no login node addresses" in result.output
-    assert "Provisioning" in result.output
-
-
 def test_slurm_commands_reject_positional_arguments():
     client, _ = _fake_client()
     with patch("leptonai.cli.slurm.APIClient", return_value=client):
@@ -945,3 +887,74 @@ def test_devpod_shell_bridges_and_propagates_exit_code():
     api.resolve_devpod.assert_called_once_with("cluster-a-alice")
     api.devpod_shell_connection.assert_called_once_with("ns/cluster-a-alice")
     bridge.assert_called_once_with(socket)
+
+
+def test_job_logs_follow_seeds_newest_page_then_drains_full_pages():
+    client, api = _fake_client()
+
+    def page(first, count):
+        values = [[str(first + i), f"line-{first + i}"] for i in range(count)]
+        return {"data": {"result": [{"values": values}]}}
+
+    api.get_logs.side_effect = [
+        page(1_000, 2),  # backward seed: the newest lines in the window
+        page(2_000, 3),  # forward: a full page, so the next poll is immediate
+        page(3_000, 1),  # forward: a short page, so the loop sleeps
+        KeyboardInterrupt(),
+    ]
+    with (
+        patch("leptonai.cli.slurm.APIClient", return_value=client),
+        patch("leptonai.cli.slurm.time.sleep") as sleep,
+    ):
+        result = CliRunner().invoke(
+            lep, ["slurm", "job", "logs", "-i", "42", "--follow", "--limit", "3"]
+        )
+
+    assert result.exit_code == 0, result.output
+    calls = api.get_logs.call_args_list
+    assert [call.kwargs["direction"] for call in calls] == [
+        "backward",
+        "forward",
+        "forward",
+        "forward",
+    ]
+    # Every forward poll resumes right after the newest timestamp seen so far.
+    assert [call.kwargs["start"] for call in calls[1:]] == [1_002, 2_003, 3_001]
+    assert sleep.call_count == 1
+    assert result.output.index("line-1000") < result.output.index("line-3000")
+    assert "Stopped following" in result.output
+
+
+def test_devpod_list_validates_cluster_filter():
+    client, api = _fake_client()
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        unknown = CliRunner().invoke(lep, ["slurm", "devpod", "list", "-c", "nope"])
+        known = CliRunner().invoke(
+            lep, ["slurm", "devpod", "list", "-c", "cluster-a", "-o", "json"]
+        )
+
+    assert unknown.exit_code == 1, unknown.output
+    assert "was not found" in unknown.output
+    assert known.exit_code == 0, known.output
+    # The unknown name never reaches the API; the known one is canonicalized.
+    api.list_devpods.assert_called_once_with(cluster_names=["ns/cluster-a"])
+
+
+def test_devpod_cluster_scope_lists_clusters_once():
+    client, api = _fake_client()
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        shown = CliRunner().invoke(lep, ["slurm", "devpod", "get", "-c", "cluster-a"])
+
+    assert shown.exit_code == 0, shown.output
+    assert "Configuration" in shown.output
+    api.resolve_devpod.assert_called_once_with(None, cluster="ns/cluster-a")
+    api.list_clusters.assert_called_once_with()
+
+    client, api = _fake_client()
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        ssh = CliRunner().invoke(
+            lep, ["slurm", "devpod", "ssh", "-c", "cluster-a", "--print-only"]
+        )
+
+    assert ssh.exit_code == 0, ssh.output
+    api.list_clusters.assert_called_once_with()

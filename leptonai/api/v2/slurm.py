@@ -6,7 +6,7 @@ cluster ID is split across two backend path segments or that log data is served
 by the shared Loki-compatible endpoint.
 """
 
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import quote
 
 from .api_resource import APIResourse
@@ -30,6 +30,37 @@ SLURM_JOB_QUERY_MODES = (
 
 # Kubernetes remote-command subprotocol spoken by the /shell endpoints.
 SLURM_SHELL_SUBPROTOCOL = "v4.channel.k8s.io"
+
+
+class SlurmClusterLookupError(ValueError):
+    """A cluster NAME or NAMESPACE/NAME did not resolve to exactly one cluster.
+
+    ``candidates`` lists what is worth showing the caller: every visible
+    cluster when nothing matched, or the conflicting clusters when a bare
+    name was ambiguous.
+    """
+
+    def __init__(
+        self,
+        cluster: str,
+        candidates: List[LeptonSlurmCluster],
+        *,
+        ambiguous: bool,
+    ):
+        self.cluster = cluster
+        self.candidates = candidates
+        self.ambiguous = ambiguous
+        ids = ", ".join(str(item.metadata.id_) for item in candidates)
+        if ambiguous:
+            message = (
+                f"Slurm cluster {cluster!r} matches several clusters; use "
+                f"NAMESPACE/NAME: {ids}."
+            )
+        else:
+            message = f"Slurm cluster {cluster!r} was not found."
+            if ids:
+                message += f" Available clusters: {ids}."
+        super().__init__(message)
 
 
 class SlurmAPI(APIResourse):
@@ -66,13 +97,41 @@ class SlurmAPI(APIResourse):
         return self.ensure_list(response, LeptonSlurmCluster)
 
     def get_cluster(self, cluster_id: str) -> LeptonSlurmCluster:
-        # There is deliberately no resource GET route.  Keep that detail here
-        # so CLI commands and SDK callers share exact matching semantics.
+        """Get a cluster by its canonical ``namespace/name`` ID."""
         self.split_cluster_id(cluster_id)
-        for cluster in self.list_clusters():
-            if cluster.metadata.id_ == cluster_id:
-                return cluster
-        raise ValueError(f"Slurm cluster {cluster_id!r} was not found.")
+        return self.resolve_cluster(cluster_id)
+
+    def resolve_cluster(
+        self,
+        cluster: str,
+        *,
+        clusters: Optional[List[LeptonSlurmCluster]] = None,
+    ) -> LeptonSlurmCluster:
+        """Resolve a cluster NAME or NAMESPACE/NAME to its record.
+
+        There is deliberately no resource GET route, so this is an exact match
+        over the cluster list; pass ``clusters`` to reuse one already fetched.
+        Failing loudly matters: the workspace jobs route silently drops unknown
+        cluster filters, which would otherwise read as "job not found".
+        """
+        value = str(cluster).strip()
+        by_id = "/" in value
+        if by_id:
+            self.split_cluster_id(value)
+        elif not value:
+            raise ValueError("Slurm cluster name cannot be empty.")
+        if clusters is None:
+            clusters = self.list_clusters()
+        matches = [
+            item
+            for item in clusters
+            if value == (item.metadata.id_ if by_id else item.metadata.name)
+        ]
+        if len(matches) == 1:
+            return matches[0]
+        if not matches:
+            raise SlurmClusterLookupError(cluster, list(clusters), ambiguous=False)
+        raise SlurmClusterLookupError(cluster, matches, ambiguous=True)
 
     def list_cluster_events(
         self,
@@ -89,6 +148,47 @@ class SlurmAPI(APIResourse):
         )
         return self.ensure_list(response, SlurmClusterEvent)
 
+    @classmethod
+    def _job_query_params(
+        cls,
+        job_query_mode: str,
+        *,
+        cluster_names: Optional[List[str]] = None,
+        q: Optional[str] = None,
+        status: Optional[List[str]] = None,
+        page: Optional[int] = None,
+        page_size: Optional[int] = None,
+        created_by: Optional[List[str]] = None,
+        partition: Optional[List[str]] = None,
+        qos: Optional[List[str]] = None,
+        sort_fields: Optional[str] = None,
+        sort_orders: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Build the query shared by the workspace and cluster job routes."""
+        if job_query_mode not in SLURM_JOB_QUERY_MODES:
+            raise ValueError(
+                "Invalid Slurm job query mode. Expected one of: "
+                + ", ".join(SLURM_JOB_QUERY_MODES)
+            )
+        params: Dict[str, Any] = {"job_query_mode": job_query_mode}
+        if cluster_names:
+            params["cluster_name"] = [cls._cluster_name(v) for v in cluster_names]
+        for key, value in (
+            ("q", q),
+            ("status", status),
+            ("created_by", created_by),
+            ("partition", partition),
+            ("qos", qos),
+            ("sort_fields", sort_fields),
+            ("sort_orders", sort_orders),
+        ):
+            if value:
+                params[key] = value
+        for key, value in (("page", page), ("page_size", page_size)):
+            if value is not None:
+                params[key] = value
+        return params
+
     def list_jobs(
         self,
         *,
@@ -104,34 +204,19 @@ class SlurmAPI(APIResourse):
         sort_fields: Optional[str] = None,
         sort_orders: Optional[str] = None,
     ) -> WorkspaceSlurmJobList:
-        if job_query_mode not in SLURM_JOB_QUERY_MODES:
-            raise ValueError(
-                "Invalid Slurm job query mode. Expected one of: "
-                + ", ".join(SLURM_JOB_QUERY_MODES)
-            )
-
-        params: Any = {"job_query_mode": job_query_mode}
-        if cluster_names:
-            params["cluster_name"] = [self._cluster_name(v) for v in cluster_names]
-        if q:
-            params["q"] = q
-        if status:
-            params["status"] = status
-        if page is not None:
-            params["page"] = page
-        if page_size is not None:
-            params["page_size"] = page_size
-        if created_by:
-            params["created_by"] = created_by
-        if partition:
-            params["partition"] = partition
-        if qos:
-            params["qos"] = qos
-        if sort_fields:
-            params["sort_fields"] = sort_fields
-        if sort_orders:
-            params["sort_orders"] = sort_orders
-
+        params = self._job_query_params(
+            job_query_mode,
+            cluster_names=cluster_names,
+            q=q,
+            status=status,
+            page=page,
+            page_size=page_size,
+            created_by=created_by,
+            partition=partition,
+            qos=qos,
+            sort_fields=sort_fields,
+            sort_orders=sort_orders,
+        )
         response = self._get("/slurm/jobs", params=params)
         return self.ensure_type(response, WorkspaceSlurmJobList)
 
@@ -151,22 +236,14 @@ class SlurmAPI(APIResourse):
         No pagination parameters are sent, so the server responds with the
         bare job array (capped at its default of 1000 entries).
         """
-        if job_query_mode not in SLURM_JOB_QUERY_MODES:
-            raise ValueError(
-                "Invalid Slurm job query mode. Expected one of: "
-                + ", ".join(SLURM_JOB_QUERY_MODES)
-            )
-        params: Any = {"job_query_mode": job_query_mode}
-        if q:
-            params["q"] = q
-        if status:
-            params["status"] = status
-        if created_by:
-            params["created_by"] = created_by
-        if partition:
-            params["partition"] = partition
-        if qos:
-            params["qos"] = qos
+        params = self._job_query_params(
+            job_query_mode,
+            q=q,
+            status=status,
+            created_by=created_by,
+            partition=partition,
+            qos=qos,
+        )
         response = self._get(
             f"/slurmclusters/{self._cluster_path(cluster_id)}/jobs", params=params
         )
@@ -245,9 +322,13 @@ class SlurmAPI(APIResourse):
         # Lazy import: websocket-client is only needed for interactive shells.
         import websocket
 
-        headers = {}
-        if getattr(self._client, "auth_token", None):
-            headers["Authorization"] = f"Bearer {self._client.auth_token}"
+        # Reuse the bearer header the HTTP client already built instead of
+        # formatting the token a second time here.
+        headers = {
+            key: value
+            for key, value in getattr(self._client, "_header", {}).items()
+            if key.lower() == "authorization"
+        }
         connection = websocket.create_connection(
             self._websocket_url(self._client.url + path),
             header=headers,
@@ -294,7 +375,8 @@ class SlurmAPI(APIResourse):
 
         With no target, ``cluster`` selects the current user's single Dev Pod
         on that cluster. A target and cluster may be combined to disambiguate
-        an otherwise non-unique name.
+        an otherwise non-unique name. Without a cluster, a target matching no
+        Dev Pod ID or name is tried as a cluster NAME or NAMESPACE/NAME.
         """
         value = str(target).strip() if target is not None else ""
         cluster_value = str(cluster).strip() if cluster is not None else ""
@@ -304,58 +386,56 @@ class SlurmAPI(APIResourse):
         pods = self.list_devpods(
             cluster_names=[cluster_value] if cluster_value else None
         )
+        scope = ""
         if cluster_value:
-            cluster_name = self._cluster_name(cluster_value)
-            pods = [pod for pod in pods if pod.spec.slurm_cluster_name == cluster_name]
-            if value:
-                exact = [
-                    pod
-                    for pod in pods
-                    if value in (pod.metadata.id_, pod.metadata.name)
-                ]
-                if len(exact) == 1:
-                    return exact[0]
-                if len(exact) > 1:
-                    raise ValueError(
-                        f"Slurm dev pod target {target!r} is ambiguous in cluster "
-                        f"{cluster!r}."
-                    )
-                raise ValueError(
-                    f"No Slurm dev pod found for ID or name {target!r} in cluster "
-                    f"{cluster!r}."
+            pods = self._devpods_on_cluster(pods, cluster_value)
+            scope = f" in cluster {cluster!r}"
+            if not value:
+                if not pods:
+                    raise ValueError(f"No Slurm dev pod found on cluster {cluster!r}.")
+                return self._only_devpod(
+                    pods,
+                    f"Multiple Slurm dev pods match cluster {cluster!r}; use --name "
+                    "or --id.",
                 )
-            if len(pods) == 1:
-                return pods[0]
-            if not pods:
-                raise ValueError(f"No Slurm dev pod found on cluster {cluster!r}.")
-            raise ValueError(
-                f"Multiple Slurm dev pods match cluster {cluster!r}; use --name or "
-                "--id."
-            )
 
         exact = [pod for pod in pods if value in (pod.metadata.id_, pod.metadata.name)]
-        if len(exact) == 1:
-            return exact[0]
-        if len(exact) > 1:
-            raise ValueError(f"Slurm dev pod target {target!r} is ambiguous.")
+        if exact:
+            return self._only_devpod(
+                exact, f"Slurm dev pod target {target!r} is ambiguous{scope}."
+            )
+        if cluster_value:
+            raise ValueError(
+                f"No Slurm dev pod found for ID or name {target!r}{scope}."
+            )
 
         # An exact Dev Pod ID was checked above. Treat a remaining composite
         # value as a canonical cluster ID, but do not compare its namespace to
         # the Dev Pod ID: those resources use different Kubernetes namespaces.
-        cluster_name = self._cluster_name(value)
-        cluster_matches = [
-            pod for pod in pods if pod.spec.slurm_cluster_name == cluster_name
-        ]
-
-        if len(cluster_matches) == 1:
-            return cluster_matches[0]
-        if not cluster_matches:
+        on_cluster = self._devpods_on_cluster(pods, value)
+        if not on_cluster:
             raise ValueError(
                 f"No Slurm dev pod found for ID, name, or cluster {target!r}."
             )
-        raise ValueError(
-            f"Multiple Slurm dev pods match {target!r}; use the canonical dev pod ID."
+        return self._only_devpod(
+            on_cluster,
+            f"Multiple Slurm dev pods match {target!r}; use the canonical dev pod ID.",
         )
+
+    @classmethod
+    def _devpods_on_cluster(
+        cls, pods: List[LeptonSlurmDevPod], cluster_id_or_name: str
+    ) -> List[LeptonSlurmDevPod]:
+        cluster_name = cls._cluster_name(cluster_id_or_name)
+        return [pod for pod in pods if pod.spec.slurm_cluster_name == cluster_name]
+
+    @staticmethod
+    def _only_devpod(
+        pods: List[LeptonSlurmDevPod], ambiguous_message: str
+    ) -> LeptonSlurmDevPod:
+        if len(pods) == 1:
+            return pods[0]
+        raise ValueError(ambiguous_message)
 
     def create_devpod(
         self,
