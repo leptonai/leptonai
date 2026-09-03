@@ -28,6 +28,7 @@ class SlurmBaseModel(BaseModel):
 
 class SlurmMetadata(SlurmBaseModel):
     id_: Optional[str] = Field(default=None, alias="id")
+    uuid: Optional[str] = None
     name: Optional[str] = None
     description: Optional[str] = None
     created_at: Optional[int] = None
@@ -52,21 +53,90 @@ class SlurmContainerResources(SlurmBaseModel):
 class SlurmDevPodSetConfig(SlurmBaseModel):
     name: Optional[str] = None
     node_group_id: Optional[str] = Field(default=None, alias="nodeGroupId")
+    # Kept for compatibility with the early Slurm API preview. Current
+    # workspaces publish the two explicit limit objects below.
     resource_limits: Optional[SlurmResourceList] = Field(
         default=None, alias="resourceLimits"
     )
+    resource_container_limits: Optional[SlurmResourceList] = Field(
+        default=None, alias="resourceContainerLimits"
+    )
+    resource_request_limits: Optional[SlurmResourceList] = Field(
+        default=None, alias="resourceRequestLimits"
+    )
+
+
+class SlurmBastionConfig(SlurmBaseModel):
+    enabled: Optional[bool] = None
+    node_group_id: Optional[str] = Field(default=None, alias="nodeGroupId")
+    node_selector: Optional[Dict[str, str]] = Field(default=None, alias="nodeSelector")
+    use_load_balancer: Optional[bool] = Field(default=None, alias="useLoadBalancer")
 
 
 class SlurmDevPodsConfig(SlurmBaseModel):
     enabled: Optional[bool] = None
     enable_teleport: Optional[bool] = Field(default=None, alias="enableTeleport")
+    bastion: Optional[SlurmBastionConfig] = None
     sets: List[SlurmDevPodSetConfig] = Field(default_factory=list)
+
+
+class SlurmHostPathStorageBackend(SlurmBaseModel):
+    path: Optional[str] = None
+
+
+class SlurmPersistentVolumeStorageBackend(SlurmBaseModel):
+    claim_name: Optional[str] = Field(default=None, alias="claimName")
+
+
+class SlurmHomeDirsStorageBackend(SlurmBaseModel):
+    efs: Optional[Dict[str, object]] = None
+    host_path: Optional[SlurmHostPathStorageBackend] = Field(
+        default=None, alias="hostPath"
+    )
+    persistent_volume: Optional[SlurmPersistentVolumeStorageBackend] = Field(
+        default=None, alias="persistentVolume"
+    )
+
+
+class SlurmHomeDirsConfig(SlurmBaseModel):
+    storage_backend: Optional[SlurmHomeDirsStorageBackend] = Field(
+        default=None, alias="storageBackend"
+    )
+
+
+class SlurmLoginNodesConfig(SlurmBaseModel):
+    node_group_id: Optional[str] = Field(default=None, alias="nodeGroupId")
+    node_scratch_path: Optional[str] = Field(default=None, alias="nodeScratchPath")
+    source_cidrs: List[str] = Field(default_factory=list, alias="sourceCIDRs")
+
+
+class SlurmSharedStoragePath(SlurmBaseModel):
+    mount_path: Optional[str] = Field(default=None, alias="mountPath")
+    read_only: Optional[bool] = Field(default=None, alias="readOnly")
+    excluded_node_group_types: List[str] = Field(
+        default_factory=list, alias="excludedNodegroupTypes"
+    )
+
+
+class SlurmClusterSharedStorageConfig(SlurmBaseModel):
+    shared_storage_paths: List[SlurmSharedStoragePath] = Field(
+        default_factory=list, alias="sharedStoragePaths"
+    )
 
 
 class SlurmClusterSpec(SlurmBaseModel):
     worker_cluster_name: Optional[str] = Field(default=None, alias="workerClusterName")
     dev_pods_config: Optional[SlurmDevPodsConfig] = Field(
         default=None, alias="devPodsConfig"
+    )
+    home_dirs_config: Optional[SlurmHomeDirsConfig] = Field(
+        default=None, alias="homeDirsConfig"
+    )
+    login_nodes_config: Optional[SlurmLoginNodesConfig] = Field(
+        default=None, alias="loginNodesConfig"
+    )
+    cluster_shared_storage_config: Optional[SlurmClusterSharedStorageConfig] = Field(
+        default=None, alias="clusterSharedStorageConfig"
     )
 
 
