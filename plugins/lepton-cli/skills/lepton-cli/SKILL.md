@@ -48,6 +48,10 @@ Rules:
 - If the CLI is not logged in for the target workspace, fall back to provided `LEP_*` environment variables when available.
 - Prefer the exact `LEP_*` variables above when using environment credentials. Do not substitute `LEPTON_WORKSPACE_*` names unless the installed `lep` help or local configuration proves this CLI version reads them.
 - Do not run `lep workspace token`, print config files, echo tokens, or include tokens in final answers unless the user explicitly asks.
+- A secure-default `lep endpoint create` can print a newly generated API token.
+  Treat that output as a secret: do not quote it in commentary or final answers,
+  do not persist the transcript, and tell the user to save and rotate it through a
+  secure channel.
 - Prefer existing config/env credentials. Only run `lep workspace login -i <id> -t <token>` when the user explicitly provides credentials and accepts that the token may be persisted by the CLI.
 - If a read-only `lep` command fails with `FailedToOpenSocket`, DNS, or other connection errors that look like a sandboxed network, surface the error to the user and ask whether to retry with broader network permission rather than silently retrying.
 

@@ -176,6 +176,7 @@ def _legacy_endpoint_level_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
     return _prune_none({
         "ingress_enabled": _get(spec, "ingress_enabled"),
         "ingress_timeout_seconds": _get(spec, "ingress_timeout_seconds"),
+        "allow_unauthenticated_access": _get(spec, "allow_unauthenticated_access"),
         "access_config": _get(spec, "auth_config"),
         "api_tokens": _get(spec, "api_tokens"),
         "routing_policy": _get(spec, "routing_policy"),
@@ -515,6 +516,9 @@ def http_endpoint_to_legacy(ep: Dict[str, Any]) -> Dict[str, Any]:
         "queue_config": _get(component, "queue_config"),
         "auto_scaler": _get(component, "autoscaling"),
         "auth_config": _get(_get(ep, "spec", {}), "access_config"),
+        "allow_unauthenticated_access": _get(
+            _get(ep, "spec", {}), "allow_unauthenticated_access"
+        ),
         "reservation_config": _get(component, "reservation_config"),
         "load_balance_config": _get(_get(ep, "spec", {}), "load_balancing"),
         "health": _get(component, "health"),
