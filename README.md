@@ -11,7 +11,7 @@
 
 The LeptonAI Python library lets you operate the [NVIDIA DGX Cloud Lepton](https://docs.nvidia.com/dgx-cloud/lepton) platform from Python and the command line. Key features include:
 
-- A `lep` command-line tool to create and manage endpoints, batch jobs, dev pods, Ray and Slurm clusters, fine-tuning jobs, storage, secrets, and more.
+- A `lep` command-line tool to create and manage endpoints, batch jobs, dev pods, Ray clusters, fine-tuning jobs, storage, secrets, and more, plus inspect managed Slurm clusters and jobs.
 - A `Client` to call your deployed endpoints like native Python functions.
 - Pythonic configuration specs that are readily shipped to the cloud.
 - Skills that let agents operate the Lepton platform for you.
@@ -47,6 +47,25 @@ lep job create -n my-job --container-image my-registry/my-trainer:latest --comma
 # Launch an interactive dev pod
 lep pod create -n my-pod --resource-shape gpu.a10
 ```
+
+For a workspace with managed Slurm, inspect clusters and jobs:
+
+```shell
+lep slurm cluster list --name prod --status Ready
+lep slurm cluster shell -n production
+lep slurm job list --cluster production --status Running --include-archived
+lep slurm job attempts -i 12345 --steps
+lep slurm job logs -n my-training-job --follow
+lep slurm devpod get --cluster production
+lep slurm devpod ssh --cluster production
+```
+
+Personal Slurm Dev Pods are available under `lep slurm devpod`; run
+`lep slurm --help` for the complete command tree. `devpod get` shows the
+effective configuration, identity, connection details, and dashboard link;
+`devpod ssh` runs the bastion command reported by the platform. Slurm job
+submission and cancellation remain native Slurm operations (`sbatch`, `squeue`,
+`scancel`) on the cluster rather than Lepton API mutations.
 
 Run `lep --help`, or `lep <command> --help` for any subcommand, to explore everything. See the [CLI references](https://docs.nvidia.com/dgx-cloud/lepton/reference/cli/get-started/) for the full guide.
 

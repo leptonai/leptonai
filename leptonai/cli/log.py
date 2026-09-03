@@ -4,7 +4,7 @@ import traceback
 
 from loguru import logger
 from .util import _get_newest_job_by_name
-from .util import click_group, console
+from .util import click_group, console, epoch_scale
 from .util import resolve_save_path, PathResolutionError
 
 from ..api.v2.client import APIClient
@@ -95,15 +95,7 @@ def _preprocess_time(
             isinstance(input_time, str) and re.fullmatch(r"-?\d+", input_time.strip())
         ):
             epoch_int = int(input_time)
-            abs_val = abs(epoch_int)
-            if abs_val < 100_000_000_000:  # seconds
-                ns = epoch_int * 1_000_000_000
-            elif abs_val < 100_000_000_000_000:  # milliseconds
-                ns = epoch_int * 1_000_000
-            elif abs_val < 100_000_000_000_000_000:  # microseconds
-                ns = epoch_int * 1_000
-            else:  # nanoseconds
-                ns = epoch_int
+            ns = epoch_int * (1_000_000_000 // epoch_scale(epoch_int))
             return ns + search_time_offset_ns
 
     now = datetime.now(timezone.utc) if not local_time else datetime.now().astimezone()
