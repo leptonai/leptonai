@@ -12,6 +12,7 @@ import click
 from rich.table import Table
 
 from ..api.v2.client import APIClient
+from ..api.v2.slurm import SlurmClusterLookupError
 from ..api.v2.types.slurm import (
     LeptonSlurmCluster,
     LeptonSlurmDevPod,
@@ -20,7 +21,14 @@ from ..api.v2.types.slurm import (
     WorkspaceSlurmJobList,
 )
 from .log import _preprocess_time
-from .util import click_group, colorize_state, console, make_name_id_cell
+from .util import (
+    click_group,
+    colorize_state,
+    console,
+    epoch_to_seconds,
+    format_epoch_cell,
+    make_name_id_cell,
+)
 
 
 OUTPUT_FORMAT = click.Choice(("table", "json"), case_sensitive=False)
@@ -44,25 +52,9 @@ def _print_json(value: Any) -> None:
     click.echo(json.dumps(_model_dump(value), indent=2, sort_keys=True, default=str))
 
 
-def _epoch_seconds(value: Any) -> Optional[float]:
-    if value in (None, "", 0, "0"):
-        return None
-    try:
-        numeric = float(value)
-    except (TypeError, ValueError):
-        return None
-    absolute = abs(numeric)
-    if absolute >= 100_000_000_000_000_000:
-        return numeric / 1_000_000_000
-    if absolute >= 100_000_000_000_000:
-        return numeric / 1_000_000
-    if absolute >= 100_000_000_000:
-        return numeric / 1_000
-    return numeric
-
-
 def _format_time(value: Any) -> str:
-    seconds = _epoch_seconds(value)
+    """Format an epoch of any precision as an absolute UTC time."""
+    seconds = epoch_to_seconds(value)
     if seconds is not None:
         try:
             return datetime.fromtimestamp(seconds, tz=timezone.utc).strftime(
@@ -73,20 +65,6 @@ def _format_time(value: Any) -> str:
     if value in (None, "", 0, "0"):
         return "-"
     return str(value)
-
-
-def _format_time_cell(value: Any) -> str:
-    """Format an epoch of any precision as a local-time table cell.
-
-    Matches the two-line 'YYYY-MM-DD\\nHH:MM:SS' layout used by `lep job list`.
-    """
-    seconds = _epoch_seconds(value)
-    if seconds is None:
-        return "-"
-    try:
-        return datetime.fromtimestamp(seconds).strftime("%Y-%m-%d\n%H:%M:%S")
-    except (OSError, OverflowError, ValueError):
-        return str(value)
 
 
 # Slurm-only terminal states that must render red like Error/Failed do in
@@ -190,8 +168,8 @@ def _format_resources(cpus: Any, gpus: Any, memory_mb: Any) -> str:
 
 
 def _format_duration(start: Any, end: Any) -> str:
-    start_seconds = _epoch_seconds(start)
-    end_seconds = _epoch_seconds(end)
+    start_seconds = epoch_to_seconds(start)
+    end_seconds = epoch_to_seconds(end)
     if start_seconds is None or end_seconds is None or end_seconds < start_seconds:
         return "-"
     duration = int(end_seconds - start_seconds)
@@ -214,19 +192,17 @@ def _filter_clusters(
     names: Iterable[str] = (),
     statuses: Iterable[str] = (),
 ) -> List[LeptonSlurmCluster]:
-    """Apply the dashboard's client-side cluster name and status filters."""
+    """Apply the dashboard's client-side cluster name and status filters.
+
+    Status values compare against the normalized state the table shows.
+    """
     name_filters = tuple(value.strip().casefold() for value in names if value.strip())
     status_filters = {value.strip().casefold() for value in statuses if value.strip()}
     filtered = []
     for item in clusters:
         name = (item.metadata.name or "").casefold()
-        state = (
-            str(getattr(item.status.state, "value", item.status.state))
-            .strip()
-            .casefold()
-            if item.status and item.status.state
-            else ""
-        )
+        state = _normalize_state(item.status.state if item.status else None)
+        state = "" if state == "-" else state.casefold()
         if name_filters and not any(value in name for value in name_filters):
             continue
         if status_filters and state not in status_filters:
@@ -318,7 +294,7 @@ def _print_jobs_table(result: WorkspaceSlurmJobList, *, api: Any = None) -> None
             item.metadata.created_by or item.metadata.owner or "-",
             f"{item.status.partition or '-'} / {item.status.qos or '-'}",
             _format_resources(item.spec.cpus, item.spec.gpus, item.spec.memory_mb),
-            _format_time_cell(item.metadata.created_at),
+            format_epoch_cell(item.metadata.created_at),
         )
     console.print(table)
     _print_failed_clusters(result.failed_clusters)
@@ -341,7 +317,7 @@ def _print_attempts_table(
             _state_cell(attempt.state),
             ", ".join(attempt.nodes) or "-",
             _format_resources(attempt.cpus, attempt.gpus, attempt.memory_mb),
-            _format_time_cell(attempt.start_at or attempt.submit_at),
+            format_epoch_cell(attempt.start_at or attempt.submit_at),
             _format_duration(attempt.start_at, attempt.end_at),
             "-" if attempt.return_code is None else str(attempt.return_code),
         )
@@ -352,7 +328,7 @@ def _print_attempts_table(
                     _state_cell(step.state),
                     ", ".join(step.nodes) or "-",
                     _format_resources(step.cpus, step.gpus, step.memory_mb),
-                    _format_time_cell(step.start_at or step.submit_at),
+                    format_epoch_cell(step.start_at or step.submit_at),
                     _format_duration(step.start_at, step.end_at),
                     "-" if step.return_code is None else str(step.return_code),
                 )
@@ -414,20 +390,18 @@ def _devpod_profile(item: LeptonSlurmDevPod, cluster: LeptonSlurmCluster) -> Any
     return next((profile for profile in config.sets if profile.name == recorded), None)
 
 
-def _devpod_resource_value(item: LeptonSlurmDevPod, dimension: str) -> str:
-    resources = item.status.container_resources if item.status else None
-    requests = resources.requests if resources else None
-    value = getattr(requests, dimension, None) if requests else None
-    return value or "-"
+def _devpod_resource_text(item: LeptonSlurmDevPod, kind: str, dimension: str) -> str:
+    """Render one container resource; ``kind`` is ``requests`` or ``limits``.
 
-
-def _devpod_limit_value(item: LeptonSlurmDevPod, dimension: str) -> str:
+    A dimension missing from a reported limits block means "No limit"; any
+    other absence renders as "-".
+    """
     resources = item.status.container_resources if item.status else None
-    limits = resources.limits if resources else None
-    if limits is None:
+    values = getattr(resources, kind, None) if resources else None
+    if values is None:
         return "-"
-    value = getattr(limits, dimension, None)
-    return value or "No limit"
+    fallback = "No limit" if kind == "limits" else "-"
+    return getattr(values, dimension, None) or fallback
 
 
 def _home_directory_text(cluster: LeptonSlurmCluster) -> str:
@@ -490,9 +464,12 @@ def _bastion_text(cluster: LeptonSlurmCluster) -> str:
 def _print_devpod_detail(
     item: LeptonSlurmDevPod, cluster: LeptonSlurmCluster, *, api: Any = None
 ) -> None:
-    """Render the dashboard's Configuration, Identity, and Connect facts."""
+    """Render the dashboard's Configuration, Identity, and Connect facts.
+
+    ``cluster`` is the Dev Pod's owning cluster as returned by
+    :func:`_require_devpod_cluster`.
+    """
     status = item.status
-    cluster = _require_devpod_cluster(item, [cluster])
     cluster_id = cluster.metadata.id_
     profile_name = item.spec.dev_pod_set_name
     profile = _devpod_profile(item, cluster)
@@ -536,10 +513,10 @@ def _print_devpod_detail(
                     (profile.node_group_id if profile else None) or "-",
                 ),
                 ("Image version", (status.image_version if status else None) or "-"),
-                ("CPU request", _devpod_resource_value(item, "cpu")),
-                ("Memory request", _devpod_resource_value(item, "memory")),
-                ("CPU limit", _devpod_limit_value(item, "cpu")),
-                ("Memory limit", _devpod_limit_value(item, "memory")),
+                ("CPU request", _devpod_resource_text(item, "requests", "cpu")),
+                ("Memory request", _devpod_resource_text(item, "requests", "memory")),
+                ("CPU limit", _devpod_resource_text(item, "limits", "cpu")),
+                ("Memory limit", _devpod_resource_text(item, "limits", "memory")),
                 ("Bastion", _bastion_text(cluster)),
                 ("Home directory", _home_directory_text(cluster)),
                 ("Scratch", _scratch_text(cluster)),
@@ -628,6 +605,72 @@ def _print_log_entries(
             click.echo(message)
 
 
+_FOLLOW_LOOKBACK_NS = 5 * 60 * 1_000_000_000
+
+
+def _follow_logs(
+    api: Any,
+    cluster_id: str,
+    common: Dict[str, Any],
+    *,
+    start_ns: Optional[int],
+    timestamps: bool,
+    poll_interval: float,
+) -> None:
+    """Tail Slurm logs until interrupted.
+
+    Without ``--start`` the first request fetches the newest page (like
+    ``tail -f``) instead of replaying the look-back window oldest-first.
+    Afterwards the loop polls forward from the last timestamp seen; a full
+    page means more lines are waiting, so it re-requests immediately and only
+    sleeps once a poll comes back short.
+    """
+    limit = common["limit"]
+
+    def emit(payload: Any) -> Tuple[int, Optional[int]]:
+        entries = _extract_log_entries(payload)
+        _print_log_entries(entries, timestamps=timestamps)
+        seen = [stamp for stamp, _ in entries if stamp is not None]
+        return len(entries), (max(seen) + 1 if seen else None)
+
+    cursor = start_ns
+    try:
+        if cursor is None:
+            cursor = time.time_ns() - _FOLLOW_LOOKBACK_NS
+            _, newest = emit(
+                api.get_logs(
+                    cluster_id,
+                    start=cursor,
+                    end=time.time_ns(),
+                    direction="backward",
+                    **common,
+                )
+            )
+            if newest is not None:
+                cursor = newest
+        while True:
+            window_end = time.time_ns()
+            # A remote timestamp can run ahead of the local clock; skip the
+            # poll rather than send a window the server rejects.
+            while window_end > cursor:
+                count, newest = emit(
+                    api.get_logs(
+                        cluster_id,
+                        start=cursor,
+                        end=window_end,
+                        direction="forward",
+                        **common,
+                    )
+                )
+                if newest is not None:
+                    cursor = newest
+                if newest is None or count < limit:
+                    break
+            time.sleep(poll_interval)
+    except KeyboardInterrupt:
+        console.print("[dim]Stopped following Slurm logs.[/dim]")
+
+
 def _job_identifier(item: WorkspaceSlurmJob) -> str:
     if item.spec is not None and item.spec.job_id is not None:
         return str(item.spec.job_id)
@@ -653,31 +696,28 @@ def _validate_name_id_selector(name: Optional[str], id: Optional[str]) -> None:
 
 def _resolve_cluster(
     api: Any, cluster: str, *, clusters: Optional[List[LeptonSlurmCluster]] = None
-) -> str:
-    """Resolve a cluster NAME or NAMESPACE/NAME to the canonical ID.
-
-    Fails loudly when nothing matches: the workspace jobs route skips
-    unknown cluster filters silently, which would read as "job not found".
-    """
-    if clusters is None:
-        clusters = api.list_clusters()
-    if "/" in cluster:
-        matches = [item for item in clusters if item.metadata.id_ == cluster]
-    else:
-        matches = [item for item in clusters if item.metadata.name == cluster]
-    if len(matches) == 1:
-        return str(matches[0].metadata.id_)
-    if not matches:
-        console.print(f"Slurm cluster [red]{cluster}[/] was not found.")
-        if clusters:
-            console.print("Available clusters:")
-            for item in clusters:
-                console.print(f"  {item.metadata.id_}")
+) -> LeptonSlurmCluster:
+    """Resolve a cluster NAME or NAMESPACE/NAME, listing candidates on failure."""
+    try:
+        return api.resolve_cluster(cluster, clusters=clusters)
+    except SlurmClusterLookupError as error:
+        if error.ambiguous:
+            console.print(
+                f"[red]{cluster}[/] matches several clusters; use NAMESPACE/NAME:"
+            )
+        else:
+            console.print(f"Slurm cluster [red]{cluster}[/] was not found.")
+            if error.candidates:
+                console.print("Available clusters:")
+        for item in error.candidates:
+            console.print(f"  {item.metadata.id_}")
         sys.exit(1)
-    console.print(f"[red]{cluster}[/] matches several clusters; use NAMESPACE/NAME:")
-    for item in matches:
-        console.print(f"  {item.metadata.id_}")
-    sys.exit(1)
+
+
+def _resolve_cluster_id(
+    api: Any, cluster: str, *, clusters: Optional[List[LeptonSlurmCluster]] = None
+) -> str:
+    return str(_resolve_cluster(api, cluster, clusters=clusters).metadata.id_)
 
 
 def _resolve_jobs(
@@ -815,12 +855,17 @@ def _resolve_devpod_selection(
     name: Optional[str],
     id: Optional[str],
     cluster: Optional[str],
+    *,
+    clusters: Optional[List[LeptonSlurmCluster]] = None,
 ) -> LeptonSlurmDevPod:
-    """Resolve name/id globally or within an optional validated cluster."""
-    _validate_devpod_selector(name, id, cluster)
+    """Resolve a validated name/id selection, optionally scoped to a cluster.
+
+    Callers that already listed clusters pass them in so scoping by
+    ``--cluster`` does not cost a second round-trip.
+    """
     if not cluster:
         return api.resolve_devpod(name or id)
-    cluster_id = _resolve_cluster(api, cluster)
+    cluster_id = _resolve_cluster_id(api, cluster, clusters=clusters)
     return api.resolve_devpod(name or id, cluster=cluster_id)
 
 
@@ -869,9 +914,7 @@ def get_cluster(name: Optional[str], id: Optional[str]) -> None:
     """Get a Slurm cluster by --name or --id (NAMESPACE/NAME)."""
     _validate_name_id_selector(name, id)
     api = APIClient().slurm
-    clusters = api.list_clusters()
-    cluster_id = _resolve_cluster(api, id or name, clusters=clusters)
-    _print_json(next(c for c in clusters if c.metadata.id_ == cluster_id))
+    _print_json(_resolve_cluster(api, id or name))
 
 
 @cluster.command(name="events")
@@ -893,7 +936,7 @@ def cluster_events(
     """
     _validate_name_id_selector(name, id)
     api = APIClient().slurm
-    cluster_id = _resolve_cluster(api, id or name)
+    cluster_id = _resolve_cluster_id(api, id or name)
     events = api.list_cluster_events(cluster_id, limit=limit, event_type=event_type)
     if output_format == "json":
         _print_json(events)
@@ -913,66 +956,6 @@ def cluster_events(
     console.print(table)
 
 
-# Deliberately NOT registered on the cluster group: direct SSH to login
-# nodes is not reachable in most deployments yet. Use `lep slurm cluster
-# shell` instead; re-register with cluster.add_command(ssh_cluster) once
-# login-node connectivity is generally available.
-@click.command(name="ssh", context_settings={"ignore_unknown_options": True})
-@click.option("--name", "-n", help="Cluster name", type=str)
-@click.option("--id", "-i", help="Canonical NAMESPACE/NAME cluster ID", type=str)
-@click.option("--user", "-u", "ssh_user", help="Username on the login node.")
-@click.option(
-    "--login-node",
-    help="Login node address to connect to; defaults to the cluster's first one.",
-)
-@click.argument("ssh_args", nargs=-1, type=click.UNPROCESSED)
-@click.option(
-    "--print-only", is_flag=True, help="Print the SSH command without running it."
-)
-def ssh_cluster(
-    name: Optional[str],
-    id: Optional[str],
-    ssh_user: Optional[str],
-    login_node: Optional[str],
-    ssh_args: Tuple[str, ...],
-    print_only: bool,
-) -> None:
-    """SSH to a login node of a Slurm cluster.
-
-    Select the cluster by --name or --id (NAMESPACE/NAME). Without --user
-    the local SSH configuration decides the login name. Extra SSH options
-    can be passed after ``--``.
-    """
-    _validate_name_id_selector(name, id)
-    api = APIClient().slurm
-    clusters = api.list_clusters()
-    cluster_id = _resolve_cluster(api, id or name, clusters=clusters)
-    item = next(c for c in clusters if c.metadata.id_ == cluster_id)
-    addresses = item.status.login_node_addresses if item.status else []
-    if not addresses:
-        state = _normalize_state(item.status.state if item.status else None)
-        console.print(
-            f"Slurm cluster [red]{cluster_id}[/] reports no login node addresses"
-            f" (state: {state})."
-        )
-        sys.exit(1)
-    if login_node and login_node not in addresses:
-        console.print(f"Login node [red]{login_node}[/] is not on {cluster_id}.")
-        console.print("Available login nodes:")
-        for address in addresses:
-            console.print(f"  {address}")
-        sys.exit(1)
-    address = login_node or addresses[0]
-    destination = f"{ssh_user}@{address}" if ssh_user else address
-    argv = ["ssh", destination, *ssh_args]
-    click.echo(shlex.join(argv))
-    if print_only:
-        return
-    completed = subprocess.run(argv, check=False)
-    if completed.returncode:
-        raise click.exceptions.Exit(completed.returncode)
-
-
 @cluster.command(name="shell")
 @click.option("--name", "-n", help="Cluster name", type=str)
 @click.option("--id", "-i", help="Canonical NAMESPACE/NAME cluster ID", type=str)
@@ -989,7 +972,7 @@ def shell_cluster(name: Optional[str], id: Optional[str]) -> None:
     _validate_name_id_selector(name, id)
     ensure_interactive_terminal()
     api = APIClient().slurm
-    cluster_id = _resolve_cluster(api, id or name)
+    cluster_id = _resolve_cluster_id(api, id or name)
     console.print(
         f"Opening a login-node shell on [green]{cluster_id}[/]"
         " (type `exit` or press Ctrl-D to leave)..."
@@ -1044,7 +1027,8 @@ def list_jobs(
     if cluster_names:
         clusters = api.list_clusters()
         resolved_clusters = [
-            _resolve_cluster(api, value, clusters=clusters) for value in cluster_names
+            _resolve_cluster_id(api, value, clusters=clusters)
+            for value in cluster_names
         ]
     result = api.list_jobs(
         cluster_names=resolved_clusters,
@@ -1080,7 +1064,7 @@ def get_job(
     """
     _validate_name_id_selector(name, id)
     api = APIClient().slurm
-    cluster_id = _resolve_cluster(api, cluster) if cluster else None
+    cluster_id = _resolve_cluster_id(api, cluster) if cluster else None
     if id and cluster_id:
         _print_json(api.get_job(cluster_id, id, slurm_api=raw_slurm))
         return
@@ -1113,7 +1097,7 @@ def job_attempts(
     """
     _validate_name_id_selector(name, id)
     api = APIClient().slurm
-    cluster_id = _resolve_cluster(api, cluster) if cluster else None
+    cluster_id = _resolve_cluster_id(api, cluster) if cluster else None
     if id and cluster_id:
         events = api.get_job_events(cluster_id, id)
     else:
@@ -1146,7 +1130,13 @@ def job_attempts(
 @click.option("--start", help="UTC time or epoch (seconds/ms/us/ns).")
 @click.option("--end", help="UTC time or epoch (seconds/ms/us/ns).")
 @click.option("--limit", type=click.IntRange(min=1), default=100, show_default=True)
-@click.option("--follow", "follow", "-f", is_flag=True, help="Poll for new log lines.")
+@click.option(
+    "--follow",
+    "follow",
+    "-f",
+    is_flag=True,
+    help="Print the newest lines, then keep polling for new ones.",
+)
 @click.option("--timestamps", is_flag=True, help="Prefix each line with its UTC time.")
 @click.option(
     "--poll-interval",
@@ -1192,7 +1182,7 @@ def job_logs(
         "stderr": "stderr.log",
     }[log_type]
     api = APIClient().slurm
-    resolved_cluster = _resolve_cluster(api, cluster) if cluster else None
+    resolved_cluster = _resolve_cluster_id(api, cluster) if cluster else None
     if id and resolved_cluster:
         cluster_id, job_id = resolved_cluster, id
     else:
@@ -1224,28 +1214,14 @@ def job_logs(
         )
         _print_log_entries(_extract_log_entries(payload), timestamps=timestamps)
         return
-
-    cursor = (
-        start_ns if start_ns is not None else time.time_ns() - 5 * 60 * 1_000_000_000
+    _follow_logs(
+        api,
+        cluster_id,
+        common,
+        start_ns=start_ns,
+        timestamps=timestamps,
+        poll_interval=poll_interval,
     )
-    try:
-        while True:
-            window_end = time.time_ns()
-            payload = api.get_logs(
-                cluster_id,
-                start=cursor,
-                end=window_end,
-                direction="forward",
-                **common,
-            )
-            entries = _extract_log_entries(payload)
-            _print_log_entries(entries, timestamps=timestamps)
-            timestamps_seen = [stamp for stamp, _ in entries if stamp is not None]
-            if timestamps_seen:
-                cursor = max(timestamps_seen) + 1
-            time.sleep(poll_interval)
-    except KeyboardInterrupt:
-        console.print("[dim]Stopped following Slurm logs.[/dim]")
 
 
 @slurm.group()
@@ -1265,11 +1241,19 @@ def devpod():
 def list_devpods(cluster_names: Tuple[str, ...], output_format: str) -> None:
     """List Slurm Dev Pods owned by the current user."""
     api = APIClient().slurm
-    devpods = api.list_devpods(cluster_names=list(cluster_names) or None)
+    clusters: List[LeptonSlurmCluster] = []
+    if cluster_names or output_format != "json":
+        clusters = api.list_clusters()
+    # Validate --cluster like `job list` does: the API silently drops unknown
+    # names from the filter instead of failing.
+    selected = [
+        _resolve_cluster_id(api, value, clusters=clusters) for value in cluster_names
+    ]
+    devpods = api.list_devpods(cluster_names=selected or None)
     if output_format == "json":
         _print_json(devpods)
     else:
-        _print_devpods_table(devpods, api=api, clusters=api.list_clusters())
+        _print_devpods_table(devpods, api=api, clusters=clusters)
 
 
 @devpod.command(name="get")
@@ -1287,13 +1271,14 @@ def get_devpod(
     --cluster may also be used alone. Use --output json for the unmodified API
     record.
     """
+    _validate_devpod_selector(name, id, cluster)
     api = APIClient().slurm
-    item = _resolve_devpod_selection(api, name, id, cluster)
     if output_format == "json":
-        _print_json(item)
+        _print_json(_resolve_devpod_selection(api, name, id, cluster))
         return
-    owning_cluster = _require_devpod_cluster(item, api.list_clusters())
-    _print_devpod_detail(item, owning_cluster, api=api)
+    clusters = api.list_clusters()
+    item = _resolve_devpod_selection(api, name, id, cluster, clusters=clusters)
+    _print_devpod_detail(item, _require_devpod_cluster(item, clusters), api=api)
 
 
 @devpod.command(name="create")
@@ -1315,7 +1300,7 @@ def create_devpod(
 ) -> None:
     """Create your Dev Pod on a Slurm cluster."""
     api = APIClient().slurm
-    cluster_id = _resolve_cluster(api, cluster)
+    cluster_id = _resolve_cluster_id(api, cluster)
     created = api.create_devpod(cluster_id, set_name=set_name, cpu=cpu, memory=memory)
     _print_json(created)
 
@@ -1330,6 +1315,7 @@ def remove_devpod(
     assume_yes: bool,
 ) -> None:
     """Remove your Dev Pod by name/id and optional cluster scope."""
+    _validate_devpod_selector(name, id, cluster)
     api = APIClient().slurm
     item = _resolve_devpod_selection(api, name, id, cluster)
     devpod_id = item.metadata.id_
@@ -1360,9 +1346,11 @@ def ssh_devpod(
     --name or --id, optionally scoped by --cluster; the owning --cluster may
     also be used alone. Extra SSH options can be passed after ``--``.
     """
+    _validate_devpod_selector(name, id, cluster)
     api = APIClient().slurm
-    item = _resolve_devpod_selection(api, name, id, cluster)
-    owning_cluster = _require_devpod_cluster(item, api.list_clusters())
+    clusters = api.list_clusters()
+    item = _resolve_devpod_selection(api, name, id, cluster, clusters=clusters)
+    owning_cluster = _require_devpod_cluster(item, clusters)
     devpods = owning_cluster.spec.dev_pods_config if owning_cluster.spec else None
     bastion = devpods.bastion if devpods else None
     if not bastion or bastion.enabled is not True:

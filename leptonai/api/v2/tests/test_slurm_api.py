@@ -3,7 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from leptonai.api.v2.slurm import SlurmAPI
+from leptonai.api.v2.slurm import SlurmAPI, SlurmClusterLookupError
 
 
 class _Response:
@@ -261,3 +261,62 @@ def test_devpod_create_resolve_and_delete():
     client._delete.assert_called_once_with(
         "/slurm/devpods/devpod-cluster-a/cluster-a-alice"
     )
+
+
+def test_resolve_cluster_matches_name_or_id_and_reports_candidates():
+    cluster_a = {"metadata": {"id": "ns/cluster-a", "name": "cluster-a"}}
+    twin = {"metadata": {"id": "other/cluster-a", "name": "cluster-a"}}
+    api, client = _api([cluster_a, twin])
+
+    assert api.resolve_cluster("ns/cluster-a").metadata.id_ == "ns/cluster-a"
+    client._get.assert_called_once_with("/slurmclusters")
+
+    # A pre-fetched list avoids a second round-trip.
+    clusters = api.list_clusters()
+    client._get.reset_mock()
+    resolved = api.resolve_cluster("other/cluster-a", clusters=clusters)
+    assert resolved.metadata.id_ == "other/cluster-a"
+    client._get.assert_not_called()
+
+    with pytest.raises(SlurmClusterLookupError, match="several clusters") as info:
+        api.resolve_cluster("cluster-a", clusters=clusters)
+    assert info.value.ambiguous is True
+    assert [item.metadata.id_ for item in info.value.candidates] == [
+        "ns/cluster-a",
+        "other/cluster-a",
+    ]
+
+    with pytest.raises(SlurmClusterLookupError, match="was not found") as info:
+        api.resolve_cluster("nope", clusters=clusters)
+    assert info.value.ambiguous is False
+    assert len(info.value.candidates) == 2
+    assert "Available clusters: ns/cluster-a, other/cluster-a" in str(info.value)
+
+    with pytest.raises(ValueError, match="namespace/name"):
+        api.resolve_cluster("a/b/c", clusters=clusters)
+    with pytest.raises(ValueError, match="was not found"):
+        api.get_cluster("ns/missing")
+
+
+def test_list_cluster_jobs_shares_the_job_query_builder():
+    api, client = _api([])
+
+    api.list_cluster_jobs(
+        "ns/cluster-a",
+        job_query_mode="alive_and_archive",
+        q="train",
+        status=["RUNNING"],
+        created_by=["user@example.com"],
+    )
+
+    client._get.assert_called_once_with(
+        "/slurmclusters/ns/cluster-a/jobs",
+        params={
+            "job_query_mode": "alive_and_archive",
+            "q": "train",
+            "status": ["RUNNING"],
+            "created_by": ["user@example.com"],
+        },
+    )
+    with pytest.raises(ValueError, match="query mode"):
+        api.list_cluster_jobs("ns/cluster-a", job_query_mode="nope")

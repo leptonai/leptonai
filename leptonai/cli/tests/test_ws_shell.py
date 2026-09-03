@@ -1,5 +1,6 @@
 import json
 import os
+from unittest.mock import patch
 
 import websocket
 
@@ -100,3 +101,23 @@ def test_websocket_url_swaps_scheme_only():
         == "wss://gw.example.com/api/v2/workspaces/ws"
     )
     assert SlurmAPI._websocket_url("http://localhost:8080/x") == "ws://localhost:8080/x"
+
+
+def test_receive_loop_finishes_partial_writes():
+    real_write = os.write
+    out_read, out_write = os.pipe()
+    # Simulate a kernel that accepts one byte per write, as an interrupted
+    # write to a TTY can.
+    with patch(
+        "leptonai.cli.ws_shell.os.write",
+        side_effect=lambda fd, data: real_write(fd, bytes(data[:1])),
+    ) as write:
+        result = _receive_loop(_ScriptedSocket([b"\x01hello"]), out_write, 2)
+    os.close(out_write)
+
+    try:
+        assert result == (0, None)
+        assert _read_all(out_read) == b"hello"
+        assert write.call_count == 5
+    finally:
+        os.close(out_read)

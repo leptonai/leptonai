@@ -748,6 +748,49 @@ def format_timestamp_ms(ms: Optional[int]) -> str:
         return "N/A"
 
 
+def epoch_scale(value: Union[int, float]) -> int:
+    """Return the divisor that brings an epoch of unknown precision to seconds.
+
+    Magnitude picks the unit: below 1e11 is seconds, below 1e14 milliseconds,
+    below 1e17 microseconds, and anything larger nanoseconds.
+    """
+    magnitude = abs(value)
+    if magnitude >= 100_000_000_000_000_000:
+        return 1_000_000_000
+    if magnitude >= 100_000_000_000_000:
+        return 1_000_000
+    if magnitude >= 100_000_000_000:
+        return 1_000
+    return 1
+
+
+def epoch_to_seconds(value: Any) -> Optional[float]:
+    """Normalize an epoch of any precision to seconds; None when empty or invalid."""
+    if value in (None, "", 0, "0"):
+        return None
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return None
+    return numeric / epoch_scale(numeric)
+
+
+def format_epoch_cell(value: Any) -> str:
+    """Format an epoch of any precision as the two-line local-time list cell.
+
+    Same layout as :func:`format_timestamp_ms`, which is fixed to milliseconds.
+    """
+    seconds = epoch_to_seconds(value)
+    if seconds is None:
+        return "-"
+    from datetime import datetime
+
+    try:
+        return datetime.fromtimestamp(seconds).strftime("%Y-%m-%d\n%H:%M:%S")
+    except (OSError, OverflowError, ValueError):
+        return str(value)
+
+
 def _stringify_state(state: Optional[Union[str, Any]]) -> str:
     """Extract string from enum or plain string; fall back to '-'."""
     if state is None:
