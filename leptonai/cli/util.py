@@ -949,3 +949,131 @@ def labels_to_selector(labels, base_query: Optional[str] = None) -> Optional[str
         else:
             parts.append(label)
     return ",".join(parts) if parts else None
+
+
+def make_block_option_command(
+    *,
+    markers,
+    flags,
+    param_name,
+    list_fields=(),
+    bool_flags=(),
+    help_text="",
+):
+    """
+    Build a click.Command subclass that pre-parses repeatable option blocks.
+
+    A block starts with one of ``markers`` followed by a key token, e.g.
+    ``-svc frontend``, and captures the flags in ``flags`` (a mapping from flag
+    spelling to field name) until the next marker. Tokens that are not block
+    flags are handed to click unchanged, so global options may appear anywhere.
+    Fields in ``list_fields`` accumulate repeated values; fields in
+    ``bool_flags`` take no value (presence means True). The parsed blocks are
+    injected into ``ctx.params[param_name]`` as a list of dicts, each carrying
+    the block key under ``"key"``.
+
+    The returned class extends the blank-string guard applied to every other
+    command, and appends ``help_text`` to ``--help``.
+    """
+
+    marker_set = tuple(markers)
+    flag_map = dict(flags)
+    list_field_set = set(list_fields)
+    bool_flag_set = set(bool_flags)
+    field_names = set(flag_map.values())
+
+    class BlockOptionCommand(_ValidatedCommand):
+        def _new_block(self, key):
+            block = {"key": key}
+            for field in field_names:
+                if field in list_field_set:
+                    block[field] = []
+                elif field in bool_flag_set:
+                    block[field] = False
+                else:
+                    block[field] = None
+            return block
+
+        def parse_args(self, ctx, args):
+            blocks = []
+            current = None
+            remaining = []
+            marker_label = "/".join(marker_set)
+            # Flags that double as global options (e.g. -e/--env) belong to the
+            # command itself while no block is open, and to the block afterwards.
+            global_opts = set()
+            for param in self.params:
+                global_opts.update(getattr(param, "opts", ()))
+                global_opts.update(getattr(param, "secondary_opts", ()))
+            i = 0
+            n = len(args)
+            while i < n:
+                tok = args[i]
+                flag, value = tok, None
+                if tok.startswith("--") and "=" in tok:
+                    flag, value = tok.split("=", 1)
+
+                if flag in flag_map and current is None and flag in global_opts:
+                    remaining.append(tok)
+                    i += 1
+                    continue
+
+                if flag in marker_set:
+                    if value is None:
+                        if i + 1 >= n or args[i + 1].startswith("-"):
+                            raise click.UsageError(
+                                f'"{flag}" requires a value (e.g. `{flag} frontend`).'
+                            )
+                        value = args[i + 1]
+                        i += 1
+                    if not value.strip():
+                        raise click.UsageError(f'"{flag}" must not be blank.')
+                    current = self._new_block(value.strip())
+                    blocks.append(current)
+                    i += 1
+                    continue
+
+                if flag in flag_map:
+                    if current is None:
+                        raise click.UsageError(
+                            f'"{flag}" must follow a {marker_label} marker.'
+                        )
+                    field = flag_map[flag]
+                    if field in bool_flag_set:
+                        if value is not None:
+                            raise click.UsageError(f'"{flag}" takes no value.')
+                        current[field] = True
+                        i += 1
+                        continue
+                    if value is None:
+                        if i + 1 >= n:
+                            raise click.UsageError(f'"{flag}" requires a value.')
+                        nxt = args[i + 1]
+                        if nxt in marker_set or nxt in flag_map or nxt.startswith("--"):
+                            raise click.UsageError(f'"{flag}" requires a value.')
+                        value = nxt
+                        i += 1
+                    if not value.strip():
+                        raise click.UsageError(
+                            f'"{flag}" must not be empty or only whitespace.'
+                        )
+                    if field in list_field_set:
+                        current[field].append(value)
+                    else:
+                        current[field] = value
+                    i += 1
+                    continue
+
+                remaining.append(tok)
+                i += 1
+
+            ctx.params[param_name] = blocks
+            return super().parse_args(ctx, remaining)
+
+        def get_help(self, ctx):
+            base_help = super().get_help(ctx)
+            if not help_text:
+                return base_help
+            return f"{base_help}\n\n{help_text}"
+
+    return BlockOptionCommand

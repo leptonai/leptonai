@@ -17,6 +17,17 @@ class ReplicaReadinessReason(str, Enum):
     SystemError = "SystemError"
     RequireReadinessApproval = "RequireReadinessApproval"
     Queueing = "Queueing"
+    # Reasons emitted by the dynamo replica endpoints and the newer readiness
+    # classifier (see dashboard `deployment-dynamo-detail-replicas.md`).
+    WaitingForCapacity = "WaitingForCapacity"
+    Migrating = "Migrating"
+    UserCodeError = "UserCodeError"
+    DeploymentConfigError = "DeploymentConfigError"
+    Failed = "Failed"
+    Preempting = "Preempting"
+    Completed = "Completed"
+    Terminated = "Terminated"
+    NodeNotReady = "NodeNotReady"
     Unknown = "Unknown"
 
     @classmethod

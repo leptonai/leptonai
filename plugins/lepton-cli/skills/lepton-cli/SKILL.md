@@ -83,6 +83,7 @@ Before running the mutation, read the workload's current state with a narrow rea
 ## Known Gotchas
 
 - `deployment` may be available as an alias for `endpoint`.
+- Dynamo endpoints are a separate resource: use `lep dynamo ...`, not `lep endpoint ...`. `lep dynamo log` returns a snapshot of a replica's recent lines rather than a stream.
 - Some command groups may be hidden from top-level help but still invokable. If the user asks for a known Lepton resource, try `lep <group> --help` before concluding it is unsupported.
 - Slurm clusters are not self-serve — they are provisioned on request by the Lepton team. See [references/workloads.md](references/workloads.md).
 - Help output is authoritative for the installed CLI version; command availability and flags can vary by version.

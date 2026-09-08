@@ -11,7 +11,7 @@
 
 The LeptonAI Python library lets you operate the [NVIDIA DGX Cloud Lepton](https://docs.nvidia.com/dgx-cloud/lepton) platform from Python and the command line. Key features include:
 
-- A `lep` command-line tool to create and manage endpoints, batch jobs, dev pods, Ray and Slurm clusters, fine-tuning jobs, storage, secrets, and more.
+- A `lep` command-line tool to create and manage endpoints, Dynamo graph deployments, batch jobs, dev pods, Ray and Slurm clusters, fine-tuning jobs, storage, secrets, and more.
 - A `Client` to call your deployed endpoints like native Python functions.
 - Pythonic configuration specs that are readily shipped to the cloud.
 - Skills that let agents operate the Lepton platform for you.
@@ -78,6 +78,19 @@ lep job create -n my-job --container-image my-registry/my-trainer:latest --comma
 
 # Launch an interactive dev pod
 lep pod create -n my-pod --resource-shape gpu.a10
+```
+
+Dynamo graph deployments (multi-service LLM inference with a vLLM, SGLang, or
+TensorRT-LLM backend) have their own command group. Each `-svc` block configures
+one service; the frontend is required and workers inherit its node group:
+
+```shell
+lep dynamo create -n my-dynamo --framework vllm \
+  -svc frontend --resource-shape cpu.small --node-group my-node-group \
+  -svc worker --resource-shape gpu.h100-80gb --replicas 2 -e MODEL=Qwen/Qwen3-0.6B
+lep dynamo status -n my-dynamo
+lep dynamo log -n my-dynamo -s worker --tail 200
+lep dynamo update -n my-dynamo -svc worker --replicas 4
 ```
 
 Run `lep --help`, or `lep <command> --help` for any subcommand, to explore everything. See the [CLI references](https://docs.nvidia.com/dgx-cloud/lepton/reference/cli/get-started/) for the full guide.

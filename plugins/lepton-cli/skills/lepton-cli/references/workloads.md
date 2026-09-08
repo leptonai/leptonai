@@ -24,6 +24,19 @@ independently. Supported backend frameworks are sglang, vllm, and trtllm.
 Use Dynamo when disaggregated serving is needed for better throughput or
 latency on large LLMs.
 
+CLI: the `lep dynamo` group. Read-only: `lep dynamo list`, `lep dynamo status -n
+<name>`, `lep dynamo get -n <name> [-p spec.json]`, `lep dynamo services -n
+<name>`, `lep dynamo service -n <name> -s <service>`, `lep dynamo replicas -n
+<name> [-s <service>]`, `lep dynamo log -n <name> [-s <service>] [-r <replica>]
+[--tail N]` (snapshot of the last lines; `lep log get --dynamo <name>` for
+historical windows), `lep dynamo metrics -n <name>`, `lep dynamo history -n
+<name>`. Mutating: `lep dynamo create` (repeatable `-svc <frontend|worker|
+prefill-worker|decode-worker>` blocks, `--dry-run` prints the payload), `lep
+dynamo update` (merge patch; `--dryrun` validates server side), `lep dynamo
+restart -n <name> -s <service>`, `lep dynamo remove-replica -n <name> -r
+<replica>`, `lep dynamo remove -n <name>`. The mutating commands prompt for
+confirmation; pass `-y` only after the user has explicitly confirmed.
+
 ## Dev Pods
 
 Single-replica, long-lived interactive environments. A Dev Pod is a personal
