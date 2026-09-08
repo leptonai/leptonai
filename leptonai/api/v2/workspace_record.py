@@ -301,18 +301,11 @@ class WorkspaceRecord(object):
     ) -> Optional[int]:
         workspace_id = workspace_id if workspace_id else cls.get_current_workspace_id()
 
-        skip_flag = (
-            skip_if_token_exists
-            or workspace_id is None
-            or not cls.has(workspace_id)
-            or cls.get(workspace_id).token_expires_at is not None
-        )
-        if skip_flag:
-            return cls.get(workspace_id).token_expires_at
-
         info = cls.get(workspace_id)
         if not info:
             return None
+        if skip_if_token_exists or info.token_expires_at is not None:
+            return info.token_expires_at
         try:
             token_expires_at = _get_token_expires_at(
                 workspace_id,
