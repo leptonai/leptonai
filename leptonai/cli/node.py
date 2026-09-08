@@ -12,8 +12,14 @@ from .util import (
     get_client,
     make_name_id_cell,
     resolve_node_groups,
+    LooseChoice,
+    keyword_matches,
+    normalize_keyword,
+    prefix_matches,
+    state_matches,
 )
 from ..api.v2.client import APIClient
+from ..api.v2.types.node_reservation import ReservationStatusEnum
 from ..api.v2.types.dedicated_node_group import (
     Node,
     NodeSpec,
@@ -972,9 +978,79 @@ def _format_reservation_row(reservation, node_gpu_by_id):
     )
 
 
+RESERVATION_STATUS_FILTER_VALUES = tuple(
+    phase.value
+    for phase in ReservationStatusEnum
+    if phase is not ReservationStatusEnum.Unknown
+)
+
+
+def _filter_reservations(reservations, *, keyword=None, statuses=(), users=()):
+    """Apply the reservation list filters; different filters are combined with AND."""
+    normalized_keyword = normalize_keyword(keyword)
+
+    def matches(reservation):
+        meta = getattr(reservation, "metadata", None)
+        spec = getattr(reservation, "spec", None)
+        status = getattr(reservation, "status", None)
+
+        if not keyword_matches(
+            normalized_keyword,
+            getattr(meta, "name", None) if meta else None,
+            getattr(spec, "display_name", None) if spec else None,
+            getattr(meta, "id_", None) if meta else None,
+        ):
+            return False
+
+        if not state_matches(
+            statuses, getattr(status, "phase", None) if status else None
+        ):
+            return False
+
+        if users:
+            candidates = list((getattr(spec, "users", None) if spec else None) or [])
+            created_by = getattr(spec, "created_by", None) if spec else None
+            if created_by:
+                candidates.append(created_by)
+            if not any(prefix_matches(candidate, users) for candidate in candidates):
+                return False
+
+        return True
+
+    return [reservation for reservation in reservations if matches(reservation)]
+
+
 @node.command(name="list-reservations")
 @click.argument("name", type=str)
-def list_reservations_command(name):
+@click.option(
+    "--search",
+    "--keyword",
+    "-q",
+    "keyword",
+    type=str,
+    help="Case-insensitive substring search across reservation name and ID.",
+)
+@click.option(
+    "--status",
+    "-s",
+    "statuses",
+    type=LooseChoice(RESERVATION_STATUS_FILTER_VALUES),
+    multiple=True,
+    help="Filter by reservation status (case-insensitive). Repeat for OR.",
+)
+@click.option(
+    "--user",
+    "--created-by",
+    "-u",
+    "users",
+    type=str,
+    multiple=True,
+    help=(
+        "Filter by authorized user or creator (case-insensitive prefix of the user"
+        " ID or email). Repeat for OR."
+    ),
+)
+def list_reservations_command(name, keyword=None, statuses=(), users=()):
     """
     List node reservations under a node group.
 
@@ -982,6 +1058,11 @@ def list_reservations_command(name):
     For each reservation it shows the status, the desired/approved/reserved node
     counts (with the reserved node IDs), the GPU usage on the reserved nodes, the
     authorized users, and who created it and when.
+
+    --search matches the reservation name or ID (as in the dashboard), --status
+    filters by reservation status and --user by authorized user or creator.
+    Repeated values within one option are ORed together; different options are
+    combined with AND.
     """
     node_groups = resolve_node_groups([name], is_exact_match=False)
     if not node_groups:
@@ -1005,6 +1086,16 @@ def list_reservations_command(name):
             console.print(
                 f"[yellow]No reservations found in node group {ng_name}"
                 f" ({ng_id}).[/yellow]"
+            )
+            continue
+
+        reservations = _filter_reservations(
+            reservations, keyword=keyword, statuses=statuses, users=users
+        )
+        if not reservations:
+            console.print(
+                "[yellow]No reservations match the specified filters in node group"
+                f" {ng_name} ({ng_id}).[/yellow]"
             )
             continue
 

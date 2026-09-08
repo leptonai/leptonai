@@ -25,6 +25,7 @@ from .util import (
     format_timestamp_ms,
     resolve_save_path,
     PathResolutionError,
+    labels_to_selector,
 )
 
 from .util import make_container_port_from_string  # noqa: F401
@@ -826,16 +827,19 @@ def create(
     )
 
 
+JOB_STATE_NAMES = ", ".join(
+    state.value for state in LeptonJobState if state is not LeptonJobState.Unknown
+)
+
+
 @job.command(name="list")
 @click.option(
     "--state",
     "-s",
     help=(
         "Filter jobs by state. Case-insensitive and matches the beginning of the state"
-        " name. Available states: Starting, Running, Failed, Completed, Stopped,"
-        " Stopping, Deleting, Deleted, Restarting, Archived, Queueing, Awaiting,"
-        " PendingRetry. Example: 'run' will match 'Running'. Can specify multiple"
-        " states."
+        f" name. Available states: {JOB_STATE_NAMES}. Example: 'run' will match"
+        " 'Running'. Can specify multiple states."
     ),
     type=str,
     required=False,
@@ -876,6 +880,17 @@ def create(
     multiple=True,
 )
 @click.option(
+    "--label",
+    "-l",
+    "labels",
+    type=str,
+    multiple=True,
+    help=(
+        "Filter jobs by label: KEY (label must exist), KEY=VALUE or KEY:VALUE."
+        " Repeat for AND. Raw label selector expressions are passed through."
+    ),
+)
+@click.option(
     "--include-archived",
     "-ia",
     is_flag=True,
@@ -885,7 +900,7 @@ def create(
         " jobs."
     ),
 )
-def list_command(state, user, name_or_id, node_group, include_archived):
+def list_command(state, user, name_or_id, node_group, include_archived, labels=()):
     """
     Lists all jobs in the current workspace.
 
@@ -894,9 +909,10 @@ def list_command(state, user, name_or_id, node_group, include_archived):
     - User: Case-insensitive prefix match (e.g., 'alice' matches 'alice123')
     - Name/ID: Case-insensitive substring match (e.g., 'train' matches 'training-job-123')
     - Node Group: Case-insensitive substring match
+    - Label: KEY, KEY=VALUE or KEY:VALUE (repeat for AND), as in the dashboard
 
     Multiple filters can be combined. For example:
-    lep job list -s queue -u alice -n train -ng h100
+    lep job list -s queue -u alice -n train -ng h100 -l team=research
     """
 
     if include_archived and state:
@@ -917,8 +933,9 @@ def list_command(state, user, name_or_id, node_group, include_archived):
         list_params["q"] = name_or_id
     if node_group:
         list_params["node_groups"] = list(node_group)
-    if include_archived:
-        list_params["job_query_mode"] = "alive_and_archive"
+    label_selector = labels_to_selector(labels)
+    if label_selector:
+        list_params["query"] = label_selector
 
     job_query_mode = (
         LeptonJobQueryMode.AliveAndArchive.value
@@ -933,6 +950,9 @@ def list_command(state, user, name_or_id, node_group, include_archived):
             " user id to filter archived jobs."
         )
         sys.exit(0)
+    if len(jobs) == 0 and list_params:
+        console.print("[yellow]No jobs match the specified filters.[/yellow]")
+        return
 
     _display_jobs_table(jobs, dashboard_base_url=client.get_dashboard_base_url())
 

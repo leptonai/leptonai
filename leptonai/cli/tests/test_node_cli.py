@@ -22,11 +22,17 @@ from leptonai.api.v2.types.dedicated_node_group import (
     NodeStatus,
     Volume,
 )
+from leptonai.api.v2.types.node_reservation import (
+    NodeReservation,
+    NodeReservationSpec,
+    NodeReservationStatus,
+)
 from leptonai.api.v2.types.storage_data_source import StorageDataSource
 from leptonai.api.v2.types.storage_permission import StoragePermission
 from leptonai.cli import lep as cli
 from leptonai.cli.node import (
     _filter_nodes,
+    _filter_reservations,
     _format_network_cell,
     _merge_nodes_with_machines,
     console as node_console,
@@ -1547,5 +1553,135 @@ def test_list_nodes_command_rejects_unknown_status():
         ["list-nodes", "--node-group", "gpu-group", "--status", "Unknown"],
     )
 
+    assert result.exit_code == 2
+    assert "Invalid value for '--status'" in result.output
+
+
+# ---------------------------------------------------------------------------
+# `lep node list-reservations` filters
+# ---------------------------------------------------------------------------
+
+
+def _reservation(
+    name, *, phase="Reserved", users=None, created_by=None, display_name=None
+):
+    return NodeReservation(
+        metadata=Metadata(id=f"{name}-id", name=name, created_at=1000),
+        spec=NodeReservationSpec(
+            users=users,
+            created_by=created_by,
+            display_name=display_name,
+            desired_nodes=2,
+            approved_nodes=2,
+        ),
+        status=NodeReservationStatus(phase=phase, reserved_count=0),
+    )
+
+
+@pytest.fixture
+def reservations():
+    return [
+        _reservation(
+            "Training-Q3",
+            phase="Reserved",
+            users=["alice@example.com"],
+            created_by="admin@example.com",
+        ),
+        _reservation(
+            "eval-run",
+            phase="PendingApproval",
+            users=["bob@example.com"],
+            created_by="bob@example.com",
+        ),
+        _reservation(
+            "expired-batch",
+            phase="Expired",
+            users=[],
+            created_by="alice@example.com",
+            display_name="Old Batch",
+        ),
+    ]
+
+
+def _reservation_names(items):
+    return [item.metadata.name for item in items]
+
+
+def test_filter_reservations_keyword_matches_name_display_name_or_id(reservations):
+    assert _reservation_names(
+        _filter_reservations(reservations, keyword="TRAINING")
+    ) == ["Training-Q3"]
+    assert _reservation_names(
+        _filter_reservations(reservations, keyword="old batch")
+    ) == ["expired-batch"]
+    assert _reservation_names(
+        _filter_reservations(reservations, keyword="eval-run-id")
+    ) == ["eval-run"]
+
+
+def test_filter_reservations_status_values_are_ored(reservations):
+    assert _reservation_names(
+        _filter_reservations(reservations, statuses=["PendingApproval", "Expired"])
+    ) == ["eval-run", "expired-batch"]
+    assert _filter_reservations(reservations, statuses=["Rejected"]) == []
+
+
+def test_filter_reservations_user_matches_authorized_users_or_creator(reservations):
+    assert _reservation_names(_filter_reservations(reservations, users=["alice"])) == [
+        "Training-Q3",
+        "expired-batch",
+    ]
+    assert _reservation_names(_filter_reservations(reservations, users=["ADMIN@"])) == [
+        "Training-Q3"
+    ]
+    assert _reservation_names(
+        _filter_reservations(reservations, users=["alice"], statuses=["Reserved"])
+    ) == ["Training-Q3"]
+
+
+def test_list_reservations_command_applies_filters(reservations, monkeypatch):
+    monkeypatch.setattr(node_console, "width", 240)
+    node_group = SimpleNamespace(metadata=SimpleNamespace(name="gpu-group", id_="ng-1"))
+    client = SimpleNamespace(
+        nodegroup=SimpleNamespace(
+            list_reservations=Mock(return_value=reservations),
+            list_nodes=Mock(return_value=[]),
+        )
+    )
+
+    with patch("leptonai.cli.node.resolve_node_groups", return_value=[node_group]):
+        with patch("leptonai.cli.node.get_client", return_value=client):
+            result = CliRunner().invoke(
+                node,
+                [
+                    "list-reservations",
+                    "gpu-group",
+                    "--status",
+                    "pending-approval",
+                    "-u",
+                    "bob",
+                ],
+            )
+            no_match = CliRunner().invoke(
+                node, ["list-reservations", "gpu-group", "--search", "nothing"]
+            )
+
+    assert result.exit_code == 0, result.output
+    assert "eval-run" in result.output
+    assert "Training-Q3" not in result.output
+    assert "expired-batch" not in result.output
+    assert no_match.exit_code == 0, no_match.output
+    assert (
+        "No reservations match the specified filters in node group gpu-group (ng-1)."
+        in no_match.output
+    )
+    # Nodes are only fetched (for GPU usage) when there is something to display.
+    assert client.nodegroup.list_nodes.call_count == 1
+
+
+def test_list_reservations_command_rejects_unknown_status():
+    result = CliRunner().invoke(
+        node, ["list-reservations", "gpu-group", "--status", "Unknown"]
+    )
     assert result.exit_code == 2
     assert "Invalid value for '--status'" in result.output

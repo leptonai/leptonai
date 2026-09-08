@@ -19,11 +19,17 @@ from .util import (
     apply_nodegroup_and_queue_config,
     resolve_save_path,
     PathResolutionError,
+    LooseChoice,
+    creator_matches,
+    keyword_matches,
+    normalize_keyword,
+    state_matches,
 )
 from ..api.v2.client import APIClient
 from ..api.v2.types.common import LeptonVisibility, Metadata, LeptonUserSecurityContext
 from ..api.v2.types.raycluster import (
     LeptonRayCluster,
+    LeptonRayClusterState,
     LeptonRayClusterUserSpec,
     RayHeadGroupSpec,
     RayWorkerGroupSpec,
@@ -1086,6 +1092,69 @@ def _print_rayclusters_table(rayclusters) -> None:
     console.print(table)
 
 
+# States offered by the dashboard's Ray cluster status filter.
+RAYCLUSTER_STATE_FILTER_VALUES = tuple(
+    state.value
+    for state in LeptonRayClusterState
+    if state is not LeptonRayClusterState.Unknown
+)
+
+# Ray job submission states as reported by the Ray dashboard.
+RAY_JOB_STATUS_FILTER_VALUES = tuple(status.value for status in JobStatus)
+
+
+def _filter_rayclusters(rayclusters, *, names=(), keyword=None, states=(), creators=()):
+    """Apply the Ray cluster list filters; different filters are combined with AND."""
+    lowered_names = [str(n).lower() for n in names or ()]
+    normalized_keyword = normalize_keyword(keyword)
+
+    def matches(rc):
+        metadata = getattr(rc, "metadata", None)
+        status = getattr(rc, "status", None)
+        name = getattr(metadata, "name", None) if metadata else None
+
+        if lowered_names and not (
+            name and any(n in name.lower() for n in lowered_names)
+        ):
+            return False
+
+        if not keyword_matches(
+            normalized_keyword,
+            name,
+            getattr(metadata, "id_", None) if metadata else None,
+        ):
+            return False
+
+        if not state_matches(
+            states, getattr(status, "state", None) if status else None
+        ):
+            return False
+
+        if not creator_matches(metadata, creators):
+            return False
+
+        return True
+
+    return [rc for rc in rayclusters if matches(rc)]
+
+
+def _filter_ray_jobs(jobs, *, keyword=None, statuses=()):
+    """Apply the Ray job list filters; different filters are combined with AND."""
+    normalized_keyword = normalize_keyword(keyword)
+
+    def matches(job):
+        if not keyword_matches(
+            normalized_keyword,
+            getattr(job, "submission_id", None),
+            getattr(job, "job_id", None),
+            getattr(job, "entrypoint", None),
+        ):
+            return False
+        return state_matches(statuses, getattr(job, "status", None))
+
+    return [job for job in jobs if matches(job)]
+
+
 @raycluster.command(name="list")
 @click.option(
     "--name",
@@ -1098,21 +1167,56 @@ def _print_rayclusters_table(rayclusters) -> None:
     required=False,
     multiple=True,
 )
-def list_command(name):
+@click.option(
+    "--search",
+    "--keyword",
+    "-q",
+    "keyword",
+    type=str,
+    help="Case-insensitive substring search across Ray cluster name and ID.",
+)
+@click.option(
+    "--state",
+    "--status",
+    "-s",
+    "states",
+    type=LooseChoice(RAYCLUSTER_STATE_FILTER_VALUES),
+    multiple=True,
+    help=(
+        "Filter by cluster state (case-insensitive; 'not-ready' and 'NotReady' are"
+        " accepted for 'Not Ready'). Repeat for OR."
+    ),
+)
+@click.option(
+    "--created-by",
+    "--user",
+    "-u",
+    "creators",
+    type=str,
+    multiple=True,
+    help=(
+        "Filter by creator (case-insensitive prefix of the user ID or email)."
+        " Repeat for OR."
+    ),
+)
+def list_command(name, keyword=None, states=(), creators=()):
     """
     Lists all Ray clusters in the current workspace.
+
+    Filters mirror the dashboard's Ray cluster list: --search matches the name
+    or ID, --state filters by cluster state and --created-by by creator.
+    Repeated values within one option are ORed together; different options
+    are combined with AND. Example: lep raycluster list -s ready -u alice
     """
     client = APIClient()
     rayclusters = client.raycluster.list_all()
-    if name:
-        lowered = [x.lower() for x in name]
-        rayclusters = [
-            rc
-            for rc in rayclusters
-            if rc.metadata
-            and rc.metadata.name
-            and any(n in rc.metadata.name.lower() for n in lowered)
-        ]
+    has_filters = any([name, keyword, states, creators])
+    rayclusters = _filter_rayclusters(
+        rayclusters, names=name, keyword=keyword, states=states, creators=creators
+    )
+    if has_filters and not rayclusters:
+        console.print("[yellow]No Ray clusters match the specified filters.[/yellow]")
+        return
     _print_rayclusters_table(rayclusters)
 
 
@@ -2068,9 +2172,29 @@ def stop_job_command(name, job_id):
 @click.option(
     "--name", "-n", help="The raycluster name to list jobs for.", required=True
 )
-def list_jobs_command(name):
+@click.option(
+    "--search",
+    "--keyword",
+    "-q",
+    "keyword",
+    type=str,
+    help="Case-insensitive substring search across Ray job ID and entrypoint.",
+)
+@click.option(
+    "--status",
+    "--state",
+    "-s",
+    "statuses",
+    type=LooseChoice(RAY_JOB_STATUS_FILTER_VALUES),
+    multiple=True,
+    help="Filter by Ray job status (case-insensitive). Repeat for OR.",
+)
+def list_jobs_command(name, keyword=None, statuses=()):
     """
     Lists Ray jobs on a given Ray cluster.
+
+    --search matches the job ID or entrypoint and --status filters by Ray job
+    status (repeat for OR); the two are combined with AND.
     """
     base_client = APIClient()
 
@@ -2104,6 +2228,14 @@ def list_jobs_command(name):
 
     if not jobs:
         console.print("No Ray jobs found on this cluster.")
+        return
+
+    has_filters = any([keyword, statuses])
+    jobs = _filter_ray_jobs(jobs, keyword=keyword, statuses=statuses)
+    if has_filters and not jobs:
+        console.print(
+            "[yellow]No Ray jobs match the specified filters on this cluster.[/yellow]"
+        )
         return
 
     def _fmt_ts_ms(ts_ms):

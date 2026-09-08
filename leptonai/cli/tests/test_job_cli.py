@@ -6,7 +6,8 @@ tmpdir = tempfile.mkdtemp()
 os.environ["LEPTON_CACHE_DIR"] = tmpdir
 
 import unittest
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 from click.testing import CliRunner
 from loguru import logger
@@ -114,3 +115,44 @@ class TestJobCliStorageAttachment(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestJobListFilters(unittest.TestCase):
+    def _invoke(self, args, jobs=None):
+        client = SimpleNamespace(
+            job=SimpleNamespace(list_all=Mock(return_value=list(jobs or []))),
+            get_dashboard_base_url=lambda: None,
+        )
+        with patch("leptonai.cli.job.get_client", return_value=client):
+            result = CliRunner().invoke(cli, ["job", "list", *args])
+        return result, client.job.list_all
+
+    def test_job_list_passes_labels_as_a_label_selector(self):
+        result, list_all = self._invoke(
+            ["-l", "team:research", "--label", "env=prod", "-l", "owner"]
+        )
+        self.assertEqual(result.exit_code, 0, result.output)
+        kwargs = list_all.call_args.kwargs
+        self.assertEqual(kwargs["query"], "team=research,env=prod,owner")
+        self.assertEqual(kwargs["job_query_mode"], "alive_only")
+        self.assertIn("No jobs match the specified filters.", result.output)
+
+    def test_job_list_without_filters_sends_no_selector(self):
+        result, list_all = self._invoke([])
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertNotIn("query", list_all.call_args.kwargs)
+        self.assertNotIn("No jobs match the specified filters.", result.output)
+
+    def test_job_list_include_archived_uses_the_archive_query_mode(self):
+        result, list_all = self._invoke(["-ia", "-u", "alice"])
+        self.assertEqual(result.exit_code, 0, result.output)
+        kwargs = list_all.call_args.kwargs
+        self.assertEqual(kwargs["job_query_mode"], "alive_and_archive")
+        self.assertEqual(kwargs["created_by"], ["alice"])
+        self.assertIn("No jobs matched your filters.", result.output)
+
+    def test_job_list_state_help_is_derived_from_the_enum(self):
+        result = CliRunner().invoke(cli, ["job", "list", "--help"])
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("Terminating", result.output)
+        self.assertIn("-l, --label", result.output)
