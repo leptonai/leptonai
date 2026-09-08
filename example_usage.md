@@ -3,6 +3,7 @@
 ## Table of Contents
 - [Ingress Canary Deployments](#ingress-canary-deployments)
 - [IP Whitelist](#ip-whitelist-usage-examples)
+- [Dynamo Graph Deployments](#dynamo-graph-deployments)
 
 ---
 
@@ -276,3 +277,78 @@ not make the endpoint token-free.
 5. **IP Whitelist**: Stored in `auth_config.ip_allowlist` field
 6. **Unauthenticated Access**: Requires the explicit `--allow-unauthenticated-access` opt-out and displays a warning
 7. **Flexible Input**: IP whitelist accepts both individual values and comma-separated lists
+
+---
+
+# Dynamo Graph Deployments
+
+A Dynamo deployment is a multi-service inference graph served by NVIDIA Dynamo.
+Every `-svc` block configures one service. The frontend is required; workers
+inherit the frontend's node group, and prefill/decode workers are only valid in
+disaggregated mode (which vLLM does not support). Image, working directory, and
+run command default to the official Dynamo runtime for the chosen framework.
+
+### 1. Aggregated serving (frontend + worker, vLLM)
+
+```bash
+lep dynamo create -n qwen-agg --framework vllm \
+  -e HF_HUB_ENABLE_HF_TRANSFER=1 -s HF_TOKEN \
+  -svc frontend --resource-shape cpu.small --node-group my-node-group \
+  -svc worker --resource-shape gpu.h100-80gb --replicas 2 \
+    --command "python3 -m dynamo.vllm --model Qwen/Qwen3-8B"
+
+lep dynamo status -n qwen-agg          # summary, services, health, replicas
+lep dynamo log -n qwen-agg -s worker   # last 100 lines of the first ready worker replica
+```
+
+### 2. Disaggregated serving (frontend + prefill + decode, SGLang, multinode)
+
+```bash
+lep dynamo create -n qwen-disagg --framework sglang --serving-mode disaggregated \
+  -svc frontend --resource-shape cpu.small --node-group my-node-group \
+  -svc prefill-worker --resource-shape gpu.h100-80gb:8 --node-count 2 \
+  -svc decode-worker --resource-shape gpu.h100-80gb:8 --replicas 2
+
+lep dynamo services -n qwen-disagg
+lep dynamo service -n qwen-disagg -s prefill-worker
+```
+
+### 3. Preview, export and re-create from a spec file
+
+```bash
+# Print the request payload without creating anything
+lep dynamo create -n preview --dry-run \
+  -svc frontend --resource-shape cpu.small --node-group my-node-group
+
+# Export the spec of an existing deployment, then re-create it with overrides
+lep dynamo get -n qwen-agg -p ./qwen-agg.json
+lep dynamo create -n qwen-agg-copy -f ./qwen-agg.json -svc worker --replicas 4
+```
+
+### 4. Update (JSON Merge Patch)
+
+```bash
+# Scale a service; service changes ask for confirmation (pass -y to skip)
+lep dynamo update -n qwen-agg -svc worker --replicas 4
+
+# Change the run command and validate server side without persisting
+lep dynamo update -n qwen-agg --dryrun \
+  -svc worker --command "python3 -m dynamo.vllm --model Qwen/Qwen3-32B"
+
+# Remove a service, disable ingress, replace the shared env list
+lep dynamo update -n qwen-agg -svc worker --remove --no-ingress -e MODEL=x -y
+
+# Anything the flags do not cover: a raw merge patch file
+lep dynamo update -n qwen-agg -f ./patch.json
+```
+
+### 5. Operate replicas
+
+```bash
+lep dynamo replicas -n qwen-agg --state ready
+lep dynamo restart -n qwen-agg -s worker
+lep dynamo remove-replica -n qwen-agg -r <replica-id> -s worker
+lep dynamo metrics -n qwen-agg --window 6
+lep log get --dynamo qwen-agg --dynamo-service worker --start "today 09:00" --end now
+lep dynamo remove -n qwen-agg
+```
