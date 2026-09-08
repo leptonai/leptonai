@@ -1,4 +1,4 @@
-from typing import Union, List, Iterator, Optional
+from typing import Union, List, Iterator, Optional, Dict, Any
 
 from .api_resource import APIResourse
 from .job_validation import validate_job_create
@@ -99,8 +99,13 @@ class JobAPI(APIResourse):
         )
         return self.ensure_type(response, LeptonJob)
 
-    def update(self, name_or_job: Union[str, LeptonJob], spec: LeptonJob) -> bool:
-        response = self._patch(f"/jobs/{self._to_id(name_or_job)}", json=spec)
+    def update(
+        self,
+        name_or_job: Union[str, LeptonJob],
+        spec: Union[LeptonJob, Dict[str, Any]],
+    ) -> bool:
+        payload = self.safe_json(spec) if isinstance(spec, LeptonJob) else spec
+        response = self._patch(f"/jobs/{self._to_id(name_or_job)}", json=payload)
         return self.ensure_ok(response)
 
     def delete(
