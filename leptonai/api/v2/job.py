@@ -77,7 +77,7 @@ class JobAPI(APIResourse):
             "query": pattern,
         }
         responses = self._get("/jobs", params=params)
-        return self.ensure_list(responses, LeptonJob)
+        return self.ensure_list(responses, LeptonJob, list_key="jobs")
 
     def create(self, spec: LeptonJob) -> LeptonJob:
         """
