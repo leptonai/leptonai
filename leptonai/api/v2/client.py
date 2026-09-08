@@ -621,9 +621,10 @@ class APIClient(object):
         """
         kwargs.setdefault("headers", self._header)
         kwargs.setdefault("timeout", self._timeout)
-        # if kwargs does have headers, but does not have Authorization, we will add it.
+        header_names = {name.casefold() for name in kwargs["headers"]}
         for k, v in self._header.items():
-            kwargs["headers"].setdefault(k, v)
+            if k.casefold() not in header_names:
+                kwargs["headers"][k] = v
         return kwargs
 
     def _get(self, path: str, *args, **kwargs):
