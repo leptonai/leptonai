@@ -5,9 +5,17 @@ from leptonai.api.v2.types.deployment import LeptonDeployment
 from leptonai.api.v2.types.job import LeptonJob
 from leptonai.api.v2.types.replica import Replica
 from leptonai.api.v2.types.job import LeptonJobQueryMode
+from leptonai.api.v2.types.dynamo import LeptonDynamoGraphDeployment
 
 
 class LogAPI(APIResourse):
+    @staticmethod
+    def _dynamo_id(name_or_dynamo: Union[str, LeptonDynamoGraphDeployment]) -> str:
+        if isinstance(name_or_dynamo, str):
+            return name_or_dynamo
+        metadata = name_or_dynamo.metadata
+        return (metadata.id_ or metadata.name) if metadata else ""  # type: ignore
+
     def _workload_log_param(self) -> str:
         """The query key the shared ``/logs*`` routes use for a deployment/endpoint.
 
@@ -31,6 +39,8 @@ class LogAPI(APIResourse):
         q: str = "",
         job_query_mode: str = LeptonJobQueryMode.AliveAndArchive.value,
         direction: str = "backward",
+        name_or_dynamo: Union[str, LeptonDynamoGraphDeployment] = None,
+        dynamo_service: str = None,
     ):
         """
         Call /logs/timeseries to retrieve aggregated time series for logs.
@@ -39,6 +49,9 @@ class LogAPI(APIResourse):
             name_or_deployment: Deployment name or object
             name_or_job: Job id or object
             replica: Replica id or object
+            name_or_dynamo: Dynamo graph deployment id or object (sent as
+                ``dynamo_graph_deployment=``)
+            dynamo_service: Optional Dynamo service name to narrow the scope
             start: Start timestamp (ns)
             end: End timestamp (ns)
             interval_ms: Bucket interval in milliseconds
@@ -81,6 +94,11 @@ class LogAPI(APIResourse):
                 else name_or_job.metadata.id_
             )
             query_kwargs["job"] = job_id
+        elif name_or_dynamo:
+            query_kwargs["dynamo_graph_deployment"] = self._dynamo_id(name_or_dynamo)
+
+        if dynamo_service:
+            query_kwargs["dynamo_service"] = dynamo_service
 
         if replica:
             replica_id = replica if isinstance(replica, str) else replica.metadata.id_
@@ -108,6 +126,8 @@ class LogAPI(APIResourse):
         limit: int = 5000,
         q: str = "",
         job_query_mode: str = "alive_and_archive",
+        name_or_dynamo: Union[str, LeptonDynamoGraphDeployment] = None,
+        dynamo_service: str = None,
     ) -> str:
         query_kwargs = {}
         if start and end:
@@ -143,6 +163,12 @@ class LogAPI(APIResourse):
 
         elif job_history_name:
             query_kwargs["job_history_name"] = job_history_name
+
+        elif name_or_dynamo:
+            query_kwargs["dynamo_graph_deployment"] = self._dynamo_id(name_or_dynamo)
+
+        if dynamo_service:
+            query_kwargs["dynamo_service"] = dynamo_service
 
         if replica:
             replica_id = replica if isinstance(replica, str) else replica.metadata.id_

@@ -9,6 +9,7 @@ from . import auth
 from . import common
 from . import dedicated_node_group
 from . import deployment
+from . import dynamo
 from . import events
 from . import finetune
 from . import ingress

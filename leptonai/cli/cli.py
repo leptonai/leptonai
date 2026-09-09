@@ -29,6 +29,7 @@ from . import log
 from . import raycluster
 from . import template
 from . import finetune
+from . import dynamo
 
 from .util import click_group
 
@@ -78,6 +79,7 @@ log.add_command(lep)
 raycluster.add_command(lep)
 template.add_command(lep)
 finetune.add_command(lep)
+dynamo.add_command(lep)
 
 
 @lep.command()

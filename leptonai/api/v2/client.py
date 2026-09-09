@@ -31,6 +31,7 @@ from .resource_shape import ResourceShapeAPI
 from .template import TemplateAPI
 from .finetune import FineTuneAPI
 from .raycluster import RayClusterAPI
+from .dynamo import DynamoGraphDeploymentAPI
 
 
 from .utils import (
@@ -335,6 +336,9 @@ class APIClient(object):
         self.finetune = FineTuneAPI(self)
         self.shapes = ResourceShapeAPI(self)
         self.raycluster = RayClusterAPI(self)
+        # Dynamo graph deployments live under /dynamographdeployments and are
+        # independent of the enable_new_deployment_api switch below.
+        self.dynamo = DynamoGraphDeploymentAPI(self)
 
         # Deployment ("endpoint") and pod ("devpod") each have two backing
         # implementations: the legacy /deployments-based API and the new

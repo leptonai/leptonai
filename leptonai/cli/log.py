@@ -195,6 +195,8 @@ def fetch_all_within_time_slot(
     time_start,
     time_end,
     cur_log_result,
+    dynamo=None,
+    dynamo_service=None,
 ):
     client = APIClient()
     while time_end >= time_start:
@@ -212,6 +214,8 @@ def fetch_all_within_time_slot(
                     end=time_end,
                     limit=10000,
                     q=query,
+                    name_or_dynamo=dynamo,
+                    dynamo_service=dynamo_service,
                 )
                 break
             except Exception as e:
@@ -304,6 +308,23 @@ def log():
     ),
 )
 @click.option(
+    "--dynamo",
+    "-dn",
+    type=str,
+    default=None,
+    help=(
+        "The name of a Dynamo deployment. Combine with --dynamo-service and/or"
+        " --replica to narrow the scope. Historical Dynamo logs may require an"
+        " enterprise workspace tier."
+    ),
+)
+@click.option(
+    "--dynamo-service",
+    type=str,
+    default=None,
+    help="Only logs of this Dynamo service (requires --dynamo).",
+)
+@click.option(
     "--replica",
     type=str,
     default=None,
@@ -377,6 +398,8 @@ def log_command(
     deployment,
     job,
     job_name,
+    dynamo,
+    dynamo_service,
     replica,
     job_history_name,
     start,
@@ -429,24 +452,35 @@ def log_command(
 
     # Save logs to file
     lep log get -d my-deployment --start "today 09:00" --end now --path ./logs/
+
+    # Get logs from one service of a Dynamo deployment
+    lep log get --dynamo my-dynamo --dynamo-service frontend --start "today 09:00" --end now
     """
 
     if (
         not deployment
         and not job
         and not job_name
+        and not dynamo
         and not replica
         and not job_history_name
     ):
         console.print(
-            "[red]No deployment name, job id, job name or replica id provided.[/red]"
+            "[red]No deployment name, job id, job name, dynamo deployment name or"
+            " replica id provided.[/red]"
         )
         sys.exit(1)
 
-    if sum(bool(var) for var in [deployment, job, job_name, job_history_name]) > 1:
+    if (
+        sum(bool(var) for var in [deployment, job, job_name, job_history_name, dynamo])
+        > 1
+    ):
         raise ValueError(
-            "Only one of 'deployment', 'job', or 'job_history_name' can be specified."
+            "Only one of 'deployment', 'job', 'job_history_name' or 'dynamo' can be"
+            " specified."
         )
+    if dynamo_service and not dynamo:
+        raise ValueError("--dynamo-service requires --dynamo.")
 
     client = APIClient()
 
@@ -463,6 +497,28 @@ def log_command(
         client.deployment.get(deployment)
     if job and not job_name:
         client.job.get(job)
+    if dynamo:
+        dynamo_obj = client.dynamo.get(dynamo)
+        dynamo_services = list(
+            (dynamo_obj.spec.services if dynamo_obj.spec else None) or {}
+        )
+        if dynamo_service and dynamo_services and dynamo_service not in dynamo_services:
+            console.print(
+                f"[bold red]Warning:[/bold red] No service named '{dynamo_service}'"
+                f" found for {dynamo}. Available services:"
+                f" {', '.join(dynamo_services)}."
+            )
+            sys.exit(1)
+        if replica:
+            dynamo_replicas = client.dynamo.list_replicas(
+                dynamo, service=dynamo_service
+            )
+            if replica not in [r.metadata.id_ for r in dynamo_replicas]:
+                console.print(
+                    f"[bold red]Warning:[/bold red] No replica named '{replica}' found"
+                    f" for {dynamo}."
+                )
+                sys.exit(1)
 
     if (job or deployment) and replica:
         replicas = (
@@ -506,6 +562,8 @@ def log_command(
             end=unix_end_probe,
             limit=1,
             q=query,
+            name_or_dynamo=dynamo,
+            dynamo_service=dynamo_service,
         )
         if not probe or not probe.get("data", {}).get("result"):
             console.print("[yellow]No logs found in the specified time range.[/]")
@@ -537,7 +595,7 @@ def log_command(
             # Resolve save path early before starting progress/executor
             if path:
                 default_filename = (
-                    f"log-{job or deployment or replica or job_history_name or ''}{datetime.now().strftime('%Y%m%d-%H%M%S')}.txt"
+                    f"log-{job or deployment or dynamo or replica or job_history_name or ''}{datetime.now().strftime('%Y%m%d-%H%M%S')}.txt"
                 )
                 try:
                     path = resolve_save_path(path, default_filename)
@@ -570,6 +628,8 @@ def log_command(
                             time_start,
                             time_end,
                             log_list[index],
+                            dynamo,
+                            dynamo_service,
                         )
                         futures.append(future)
                         future_to_index[future] = index
@@ -674,6 +734,8 @@ def log_command(
                     end=cur_unix_end,
                     limit=cur_limit if cur_limit < 10000 else 10000,
                     q=query,
+                    name_or_dynamo=dynamo,
+                    dynamo_service=dynamo_service,
                 )
                 lines = log_dict["data"]["result"]
 
@@ -704,7 +766,7 @@ def log_command(
     def fetch_and_print_logs(start, end, limit, path=None):
         if path and limit is not None:
             default_filename = (
-                f"log-{job or deployment or replica or job_history_name or ''}{datetime.now().strftime('%Y%m%d-%H%M%S')}.txt"
+                f"log-{job or deployment or dynamo or replica or job_history_name or ''}{datetime.now().strftime('%Y%m%d-%H%M%S')}.txt"
             )
             try:
                 path = resolve_save_path(path, default_filename)
