@@ -6,16 +6,25 @@ tmpdir = tempfile.mkdtemp()
 os.environ["LEPTON_CACHE_DIR"] = tmpdir
 
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
+import pytest
 from click.testing import CliRunner
 from loguru import logger
 
 from leptonai import config
 from leptonai.api.v2.api_resource import ClientError
+from leptonai.api.v2.types.affinity import LeptonResourceAffinity
 from leptonai.api.v2.types.common import Metadata
-from leptonai.api.v2.types.deployment import LeptonDeployment, LeptonDeploymentUserSpec
+from leptonai.api.v2.types.deployment import (
+    LeptonDeployment,
+    LeptonDeploymentStatus,
+    LeptonDeploymentUserSpec,
+    ResourceRequirement,
+)
 from leptonai.cli import lep as cli
+from leptonai.cli.deployment import _filter_endpoints, console as deployment_console
 
 
 logger.info(f"Using cache dir: {config.CACHE_DIR}")
@@ -384,3 +393,180 @@ class TestEndpointUpdateNoOp(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# ---------------------------------------------------------------------------
+# `lep endpoint list` filters (pytest style)
+# ---------------------------------------------------------------------------
+
+
+def _endpoint(
+    name,
+    *,
+    state="Ready",
+    phase=None,
+    created_by=None,
+    owner=None,
+    node_groups=None,
+    is_pod=False,
+):
+    affinity = (
+        LeptonResourceAffinity(allowed_dedicated_node_groups=list(node_groups))
+        if node_groups
+        else None
+    )
+    return LeptonDeployment(
+        metadata=Metadata(
+            id=f"{name}-id",
+            name=name,
+            created_at=1000,
+            created_by=created_by,
+            owner=owner or created_by,
+        ),
+        spec=LeptonDeploymentUserSpec(
+            is_pod=is_pod,
+            resource_requirement=ResourceRequirement(
+                resource_shape="cpu.small", min_replicas=1, affinity=affinity
+            ),
+        ),
+        status=LeptonDeploymentStatus(
+            state=state,
+            phase=phase,
+            endpoint={"internal_endpoint": "", "external_endpoint": ""},
+        ),
+    )
+
+
+@pytest.fixture
+def endpoints():
+    return [
+        _endpoint(
+            "Alpha-API",
+            state="Ready",
+            created_by="alice@example.com",
+            node_groups=["h100-cluster"],
+        ),
+        _endpoint(
+            "beta-worker",
+            state="Not Ready",
+            phase="Stopped",
+            created_by="bob@example.com",
+            node_groups=["a100-cluster"],
+        ),
+        _endpoint("gamma-api", state="Starting", created_by="alice@example.com"),
+    ]
+
+
+def _endpoint_names(items):
+    return [item.metadata.name for item in items]
+
+
+@pytest.mark.parametrize(
+    "keyword, expected",
+    [
+        ("api", ["Alpha-API", "gamma-api"]),
+        ("ALPHA", ["Alpha-API"]),
+        ("worker-id", ["beta-worker"]),
+        ("nomatch", []),
+    ],
+)
+def test_filter_endpoints_keyword_matches_name_or_id_case_insensitively(
+    endpoints, keyword, expected
+):
+    assert _endpoint_names(_filter_endpoints(endpoints, keyword=keyword)) == expected
+
+
+def test_filter_endpoints_state_matches_displayed_state_or_phase(endpoints):
+    assert _endpoint_names(_filter_endpoints(endpoints, states=["Not Ready"])) == [
+        "beta-worker"
+    ]
+    assert _endpoint_names(_filter_endpoints(endpoints, states=["Stopped"])) == [
+        "beta-worker"
+    ]
+    assert _endpoint_names(
+        _filter_endpoints(endpoints, states=["Ready", "Starting"])
+    ) == ["Alpha-API", "gamma-api"]
+    assert _filter_endpoints(endpoints, states=["Error"]) == []
+
+
+def test_filter_endpoints_creator_is_case_insensitive_prefix(endpoints):
+    assert _endpoint_names(_filter_endpoints(endpoints, creators=["ALICE"])) == [
+        "Alpha-API",
+        "gamma-api",
+    ]
+    assert _endpoint_names(
+        _filter_endpoints(endpoints, creators=["bob@example.com"])
+    ) == ["beta-worker"]
+    assert _filter_endpoints(endpoints, creators=["example.com"]) == []
+
+
+def test_filter_endpoints_node_group_is_case_insensitive_substring(endpoints):
+    assert _endpoint_names(_filter_endpoints(endpoints, node_groups=["H100"])) == [
+        "Alpha-API"
+    ]
+    assert _endpoint_names(
+        _filter_endpoints(endpoints, node_groups=["h100", "a100"])
+    ) == ["Alpha-API", "beta-worker"]
+
+
+def test_filter_endpoints_combines_filters_with_and(endpoints):
+    assert _endpoint_names(
+        _filter_endpoints(
+            endpoints, names=["api"], creators=["alice"], states=["Ready"]
+        )
+    ) == ["Alpha-API"]
+    assert _filter_endpoints(endpoints, names=["api"], states=["Not Ready"]) == []
+
+
+def _invoke_endpoint_list(items, args):
+    fake_client = SimpleNamespace(
+        deployment=SimpleNamespace(list_all=lambda: items),
+        get_dashboard_base_url=lambda: None,
+    )
+    with patch("leptonai.cli.deployment.APIClient", return_value=fake_client):
+        return CliRunner().invoke(cli, ["endpoint", "list", *args])
+
+
+def test_endpoint_list_applies_filters_and_ignores_pods(endpoints, monkeypatch):
+    monkeypatch.setattr(deployment_console, "width", 240)
+    items = endpoints + [
+        _endpoint("alice-pod", created_by="alice@example.com", is_pod=True)
+    ]
+    result = _invoke_endpoint_list(
+        items, ["-u", "alice", "-s", "ready", "-s", "starting"]
+    )
+    assert result.exit_code == 0, result.output
+    assert "Alpha-API" in result.output
+    assert "gamma-api" in result.output
+    assert "beta-worker" not in result.output
+    assert "alice-pod" not in result.output
+
+
+@pytest.mark.parametrize(
+    "spelling", ["Not Ready", "not ready", "NotReady", "not-ready"]
+)
+def test_endpoint_list_accepts_loose_state_spellings(endpoints, monkeypatch, spelling):
+    monkeypatch.setattr(deployment_console, "width", 240)
+    result = _invoke_endpoint_list(endpoints, ["--state", spelling])
+    assert result.exit_code == 0, result.output
+    assert "beta-worker" in result.output
+    assert "Alpha-API" not in result.output
+
+
+def test_endpoint_list_reports_when_no_endpoint_matches(endpoints):
+    result = _invoke_endpoint_list(endpoints, ["--search", "nothing-here"])
+    assert result.exit_code == 0, result.output
+    assert "No endpoints match the specified filters." in result.output
+
+
+def test_endpoint_list_keeps_empty_workspace_message_without_filters():
+    result = _invoke_endpoint_list([], [])
+    assert result.exit_code == 0, result.output
+    assert "No endpoints found." in result.output
+
+
+def test_endpoint_list_rejects_unknown_state(endpoints):
+    result = _invoke_endpoint_list(endpoints, ["--state", "bogus"])
+    assert result.exit_code == 2
+    assert "Invalid value for '--state'" in result.output
+    assert "'Not Ready'" in result.output

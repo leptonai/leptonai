@@ -3,6 +3,7 @@ Common utilities for the CLI.
 """
 
 import os
+import re
 import sys
 import traceback
 from typing import Any, Dict, List, Optional, Union
@@ -797,3 +798,154 @@ def make_name_id_cell(
         id_markup = f"[bright_black]{safe_id}[/]" if safe_id else ""
 
     return name_markup if not id_markup else f"{name_markup}\n{id_markup}"
+
+
+# ---------------------------------------------------------------------------
+# Shared list-filter helpers.
+#
+# The `lep <resource> list` commands mirror the web dashboard's filter bar: a
+# free-text search (case-insensitive substring), multi-select state filters
+# (exact, OR within the option) and creator filters. Different options are
+# combined with AND. These helpers keep the semantics identical across the
+# resource modules.
+# ---------------------------------------------------------------------------
+
+
+def _fold_choice(value: Any) -> str:
+    """Collapse case, whitespace, hyphens and underscores for loose matching."""
+    return re.sub(r"[\s_-]+", "", str(value)).casefold()
+
+
+class LooseChoice(click.Choice):
+    """A click.Choice that tolerates casing, spaces, hyphens and underscores.
+
+    State names on the platform mix styles ("Not Ready", "PendingRetry",
+    "ready-to-repair"), so ``--state notready``, ``--state not-ready`` and
+    ``--state "Not Ready"`` all resolve to the canonical ``"Not Ready"``.
+    Invalid values fail with the standard click message listing the canonical
+    choices.
+    """
+
+    def __init__(self, choices):
+        super().__init__(list(choices), case_sensitive=False)
+        self._canonical_by_fold = {_fold_choice(c): c for c in self.choices}
+
+    def convert(self, value, param, ctx):
+        if value in self.choices:
+            return value
+        canonical = self._canonical_by_fold.get(_fold_choice(value))
+        if canonical is None:
+            choices = ", ".join(repr(c) for c in self.choices)
+            self.fail(f"{value!r} is not one of {choices}.", param, ctx)
+        return canonical
+
+    def get_metavar(self, param, ctx=None):
+        # Show the canonical spellings in --help; click would otherwise print
+        # the case-folded forms for a case-insensitive Choice.
+        choices_str = "|".join(str(c) for c in self.choices)
+        if (
+            getattr(param, "required", False)
+            and getattr(param, "param_type_name", "") == "argument"
+        ):
+            return f"{{{choices_str}}}"
+        return f"[{choices_str}]"
+
+
+def normalize_keyword(keyword: Optional[str]) -> str:
+    """Normalize a free-text search term; empty/None means "no filter"."""
+    return keyword.strip().lower() if keyword else ""
+
+
+def keyword_matches(keyword: str, *candidates: Any) -> bool:
+    """Case-insensitive substring match of ``keyword`` against any candidate.
+
+    ``keyword`` must already be normalized with :func:`normalize_keyword`; an
+    empty keyword matches everything. ``None`` candidates are skipped.
+    """
+    if not keyword:
+        return True
+    return any(
+        keyword in str(candidate).lower()
+        for candidate in candidates
+        if candidate is not None
+    )
+
+
+def prefix_matches(value: Any, prefixes) -> bool:
+    """Case-insensitive prefix match of ``value`` against any of ``prefixes``.
+
+    An empty ``prefixes`` collection matches everything (no filter).
+    """
+    if not prefixes:
+        return True
+    text = str(value).lower() if value is not None else ""
+    return any(text.startswith(str(prefix).lower()) for prefix in prefixes)
+
+
+def state_matches(wanted, *states: Any) -> bool:
+    """Whether any of ``states`` (enum or str) is in the ``wanted`` collection.
+
+    An empty ``wanted`` collection matches everything (no filter). Comparison
+    is on the canonical state string, case-insensitively.
+    """
+    if not wanted:
+        return True
+    wanted_lower = {str(getattr(w, "value", w)).lower() for w in wanted}
+    return any(
+        _stringify_state(state).lower() in wanted_lower
+        for state in states
+        if state is not None
+    )
+
+
+def creator_matches(metadata: Any, creators) -> bool:
+    """Match ``creators`` (case-insensitive prefixes) against a resource's creator.
+
+    The dashboard filters on ``metadata.created_by``; ``metadata.owner`` is
+    accepted as well because that is what the CLI tables display.
+    """
+    if not creators:
+        return True
+    created_by = getattr(metadata, "created_by", None) if metadata else None
+    owner = getattr(metadata, "owner", None) if metadata else None
+    return prefix_matches(created_by, creators) or prefix_matches(owner, creators)
+
+
+def node_group_matches(affinity: Any, node_group_terms) -> bool:
+    """Case-insensitive substring match against the allowed dedicated node groups."""
+    if not node_group_terms:
+        return True
+    node_groups = (
+        getattr(affinity, "allowed_dedicated_node_groups", None) if affinity else None
+    ) or []
+    return any(
+        str(term).lower() in str(node_group).lower()
+        for term in node_group_terms
+        for node_group in node_groups
+    )
+
+
+def labels_to_selector(labels, base_query: Optional[str] = None) -> Optional[str]:
+    """Build a label selector from repeatable ``--label`` values.
+
+    Each value is ``KEY`` (label must exist), ``KEY=VALUE`` or ``KEY:VALUE``
+    (the dashboard's spelling; the first ':' becomes '='). Values that already
+    look like selector expressions are passed through. Entries are ANDed by
+    joining them with ',' as the label-selector grammar requires, together with
+    an optional raw ``base_query`` selector.
+    """
+    parts = []
+    if base_query and base_query.strip():
+        parts.append(base_query.strip())
+    for label in labels or ():
+        label = str(label).strip()
+        if not label:
+            continue
+        if any(token in label for token in ("=", "!", "(", " ")):
+            parts.append(label)
+        elif ":" in label:
+            key, _, value = label.partition(":")
+            parts.append(f"{key}={value}")
+        else:
+            parts.append(label)
+    return ",".join(parts) if parts else None

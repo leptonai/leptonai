@@ -3,8 +3,46 @@ import json
 import sys
 import click
 
-from .util import console, click_group, resolve_save_path, PathResolutionError
+from .util import (
+    console,
+    click_group,
+    resolve_save_path,
+    PathResolutionError,
+    LooseChoice,
+    keyword_matches,
+    normalize_keyword,
+)
 from ..api.v2.client import APIClient
+
+# Workload types offered by the dashboard's template filter ("pod", "job"); the
+# CLI also lists endpoint templates, whose API spelling is "deployment".
+TEMPLATE_WORKLOAD_FILTER_VALUES = ("pod", "job", "endpoint", "deployment")
+
+
+def _filter_templates(templates, *, keyword=None, workloads=()):
+    """Apply the template list filters; different filters are combined with AND."""
+    normalized_keyword = normalize_keyword(keyword)
+    wanted_workloads = {
+        "deployment" if str(w).lower() == "endpoint" else str(w).lower()
+        for w in workloads or ()
+    }
+
+    def matches(template):
+        meta = getattr(template, "metadata", None)
+        spec = getattr(template, "spec", None)
+        if not keyword_matches(
+            normalized_keyword,
+            getattr(meta, "name", None) if meta else None,
+            getattr(meta, "id_", None) if meta else None,
+        ):
+            return False
+        if wanted_workloads:
+            workload = (getattr(spec, "workload_type", None) if spec else None) or ""
+            if workload.lower() not in wanted_workloads:
+                return False
+        return True
+
+    return [template for template in templates if matches(template)]
 
 
 @click_group()
@@ -14,11 +52,53 @@ def template():
 
 
 @template.command(name="list")
-def list_command():
-    """List all templates with Name/ID/Workload type."""
+@click.option(
+    "--search",
+    "--keyword",
+    "-q",
+    "keyword",
+    type=str,
+    help="Case-insensitive substring search across template name and ID.",
+)
+@click.option(
+    "--workload",
+    "-w",
+    "workloads",
+    type=LooseChoice(TEMPLATE_WORKLOAD_FILTER_VALUES),
+    multiple=True,
+    help=(
+        "Filter by workload type ('endpoint' and 'deployment' are equivalent)."
+        " Repeat for OR."
+    ),
+)
+@click.option(
+    "--public", "public_only", is_flag=True, help="List only public templates."
+)
+@click.option(
+    "--private", "private_only", is_flag=True, help="List only private templates."
+)
+def list_command(keyword=None, workloads=(), public_only=False, private_only=False):
+    """List all templates with Name/ID/Workload type.
+
+    --search matches the template name or ID and --workload filters by workload
+    type (as in the dashboard); --public/--private restrict the listing to one
+    template collection. Different filters are combined with AND.
+    """
+    if public_only and private_only:
+        raise click.UsageError("--public and --private are mutually exclusive.")
+
     client = APIClient()
-    public_items = client.template.list_public()
-    private_items = client.template.list_private()
+    public_items = [] if private_only else client.template.list_public()
+    private_items = [] if public_only else client.template.list_private()
+
+    has_filters = any([keyword, workloads])
+    public_items = _filter_templates(public_items, keyword=keyword, workloads=workloads)
+    private_items = _filter_templates(
+        private_items, keyword=keyword, workloads=workloads
+    )
+    if has_filters and not public_items and not private_items:
+        console.print("[yellow]No templates match the specified filters.[/yellow]")
+        return
 
     table = Table(title="Templates", show_lines=True)
     table.add_column("Name / ID")

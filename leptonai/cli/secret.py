@@ -10,6 +10,11 @@ from .util import (
     console,
     check,
     click_group,
+    LooseChoice,
+    keyword_matches,
+    normalize_keyword,
+    prefix_matches,
+    state_matches,
 )
 from leptonai.config import LEPTON_RESERVED_ENV_NAMES
 from ..api.v2.client import APIClient
@@ -85,14 +90,71 @@ def create(name, value, public_key):
     )
 
 
+SECRET_VISIBILITY_FILTER_VALUES = tuple(
+    visibility.value for visibility in LeptonVisibility
+)
+
+
+def _filter_secrets(secrets, *, keyword=None, owners=(), visibility=None):
+    """Apply the secret list filters; different filters are combined with AND."""
+    normalized_keyword = normalize_keyword(keyword)
+    wanted_visibility = (visibility,) if visibility else ()
+
+    def matches(secret):
+        if not keyword_matches(normalized_keyword, getattr(secret, "name", None)):
+            return False
+        if not prefix_matches(getattr(secret, "owner", None), owners):
+            return False
+        return state_matches(wanted_visibility, getattr(secret, "visibility", None))
+
+    return [secret for secret in secrets if matches(secret)]
+
+
 @secret.command(name="list")
-def list_command():
+@click.option(
+    "--search",
+    "--keyword",
+    "-q",
+    "keyword",
+    type=str,
+    help="Case-insensitive substring search on the secret name.",
+)
+@click.option(
+    "--owner",
+    "--created-by",
+    "--user",
+    "-u",
+    "owners",
+    type=str,
+    multiple=True,
+    help=(
+        "Filter by owner (case-insensitive prefix of the user ID or email). Repeat"
+        " for OR."
+    ),
+)
+@click.option(
+    "--visibility",
+    type=LooseChoice(SECRET_VISIBILITY_FILTER_VALUES),
+    help="Show only public or only private secrets.",
+)
+def list_command(keyword=None, owners=(), visibility=None):
     """
     Lists all secrets in the current workspace. Note that the secret values are
     always hidden.
+
+    --search matches the secret name and --owner the owner (as in the
+    dashboard); --visibility narrows to public or private secrets. Different
+    filters are combined with AND.
     """
     client = APIClient()
     secrets = client.secret.list_all()
+    has_filters = any([keyword, owners, visibility])
+    secrets = _filter_secrets(
+        secrets, keyword=keyword, owners=owners, visibility=visibility
+    )
+    if has_filters and not secrets:
+        console.print("[yellow]No secrets match the specified filters.[/yellow]")
+        return
     secrets.sort(key=lambda s: s.name)
     table = Table(title="Secrets", show_lines=True)
     table.add_column("Name")

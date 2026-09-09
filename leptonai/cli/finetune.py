@@ -16,6 +16,7 @@ from .util import (
     apply_nodegroup_and_queue_config,
     resolve_save_path,
     PathResolutionError,
+    labels_to_selector,
 )
 from ..api.v2.client import APIClient
 from leptonai.api.v2.types.job import (
@@ -319,6 +320,17 @@ def _print_finetune_jobs_table(jobs, dashboard_base_url: Optional[str] = None):
 )
 @click.option("--query", type=str, required=False, help="Label selector query.")
 @click.option(
+    "--label",
+    "-l",
+    "labels",
+    type=str,
+    multiple=True,
+    help=(
+        "Filter by label: KEY (label must exist), KEY=VALUE or KEY:VALUE. Repeat for"
+        " AND; combined with --query."
+    ),
+)
+@click.option(
     "--status", type=str, multiple=True, help="Filter by job state (repeatable)."
 )
 @click.option(
@@ -359,8 +371,15 @@ def list_command(
     page: Optional[int],
     page_size: Optional[int],
     include_archived: bool,
+    labels=(),
 ):
-    """List finetune jobs."""
+    """List finetune jobs.
+
+    Filters mirror the dashboard: -q matches the job name, --status and
+    --node-group accept repeated values (OR), --created-by filters by creator
+    and --label/--query filter by labels. Different filters are combined with
+    AND.
+    """
     client = APIClient()
     job_query_mode = (
         LeptonJobQueryMode.AliveAndArchive.value
@@ -370,7 +389,7 @@ def list_command(
     jobs = client.finetune.list_all(
         job_query_mode=job_query_mode,
         q=q,
-        query=query,
+        query=labels_to_selector(labels, base_query=query),
         status=list(status) if status else None,
         node_groups=list(node_groups) if node_groups else None,
         page=page,

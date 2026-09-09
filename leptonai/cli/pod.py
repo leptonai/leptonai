@@ -36,6 +36,12 @@ from .util import (
     format_timestamp_ms,
     resolve_save_path,
     PathResolutionError,
+    LooseChoice,
+    creator_matches,
+    keyword_matches,
+    node_group_matches,
+    normalize_keyword,
+    state_matches,
 )
 from .util import make_container_ports_from_str_list
 from ..api.v2.client import APIClient
@@ -514,12 +520,127 @@ def get(name, path):
             sys.exit(1)
 
 
+# States offered by the dashboard's pod status filter (legacy and new devpod
+# API spellings both normalize to these), plus the remaining lifecycle states.
+POD_STATE_FILTER_VALUES = tuple(
+    state.value
+    for state in LeptonDeploymentState
+    if state is not LeptonDeploymentState.Unknown
+)
+
+
+def _compile_pattern(ctx, param, value):
+    """Click callback: validate the --pattern regular expression up front."""
+    if value is None:
+        return None
+    try:
+        return re.compile(value)
+    except re.error as e:
+        raise click.BadParameter(f"invalid regular expression: {e}")
+
+
+def _filter_pods(
+    pods,
+    *,
+    pattern=None,
+    keyword=None,
+    states=(),
+    creators=(),
+    node_groups=(),
+):
+    """Apply the pod list filters; different filters are combined with AND."""
+    compiled = re.compile(pattern) if isinstance(pattern, str) else pattern
+    normalized_keyword = normalize_keyword(keyword)
+
+    def matches(d):
+        metadata = getattr(d, "metadata", None)
+        spec = getattr(d, "spec", None)
+        status = getattr(d, "status", None)
+        name = getattr(metadata, "name", None) if metadata else None
+
+        if compiled is not None and not compiled.search(name or ""):
+            return False
+
+        if not keyword_matches(
+            normalized_keyword,
+            name,
+            getattr(metadata, "id_", None) if metadata else None,
+        ):
+            return False
+
+        # Like endpoints, the legacy API folds Stopping/Stopped into
+        # state="Not Ready" and keeps the real state in `phase`; match either.
+        if not state_matches(
+            states,
+            getattr(status, "state", None) if status else None,
+            getattr(status, "phase", None) if status else None,
+        ):
+            return False
+
+        if not creator_matches(metadata, creators):
+            return False
+
+        rr = getattr(spec, "resource_requirement", None) if spec else None
+        affinity = getattr(rr, "affinity", None) if rr else None
+        if not node_group_matches(affinity, node_groups):
+            return False
+
+        return True
+
+    return [d for d in pods if matches(d)]
+
+
 @pod.command(name="list")
 @click.option(
     "--pattern",
     "-p",
     help="Regular expression pattern to filter pod names.",
     default=None,
+    callback=_compile_pattern,
+)
+@click.option(
+    "--search",
+    "--keyword",
+    "-q",
+    "keyword",
+    type=str,
+    help="Case-insensitive substring search across pod name and ID.",
+)
+@click.option(
+    "--state",
+    "--status",
+    "-s",
+    "states",
+    type=LooseChoice(POD_STATE_FILTER_VALUES),
+    multiple=True,
+    help=(
+        "Filter by pod state (case-insensitive; 'not-ready' and 'NotReady' are"
+        " accepted for 'Not Ready'). Matches the displayed state or the underlying"
+        " lifecycle phase. Repeat for OR."
+    ),
+)
+@click.option(
+    "--created-by",
+    "--user",
+    "-u",
+    "creators",
+    type=str,
+    multiple=True,
+    help=(
+        "Filter by creator (case-insensitive prefix of the user ID or email)."
+        " Repeat for OR."
+    ),
+)
+@click.option(
+    "--node-group",
+    "-ng",
+    "node_groups",
+    type=str,
+    multiple=True,
+    help=(
+        "Filter by node group (case-insensitive substring of the node group"
+        " name/ID). Repeat for OR."
+    ),
 )
 @click.option(
     "--detail",
@@ -528,22 +649,36 @@ def get(name, path):
     default=False,
     help="Show SSH/TCP/JupyterLab columns in the table.",
 )
-def list_command(pattern, detail):
+def list_command(pattern, detail, keyword=None, states=(), creators=(), node_groups=()):
     """
     Lists all pods in the current workspace.
+
+    Filters mirror the dashboard's pod list: --search matches the name or ID,
+    --state filters by lifecycle state and --created-by by creator. Repeated
+    values within one option are ORed together; different options (and
+    --pattern) are combined with AND. Example:
+    lep pod list -s ready -u alice -ng h100
     """
     client = APIClient()
 
     deployments = client.pod.list_all()
 
-    logger.trace(f"Deployments:\n{[d for d in deployments if d.spec.is_pod]}")
-    pods = [
-        d
-        for d in deployments
-        if d.spec.is_pod and (pattern is None or re.search(pattern, d.metadata.name))
-    ]
+    pods = [d for d in deployments if d.spec and d.spec.is_pod]
+    logger.trace(f"Pods:\n{pods}")
+    has_filters = any([pattern is not None, keyword, states, creators, node_groups])
+    pods = _filter_pods(
+        pods,
+        pattern=pattern,
+        keyword=keyword,
+        states=states,
+        creators=creators,
+        node_groups=node_groups,
+    )
     if len(pods) == 0:
-        console.print("No pods found. Use `lep pod create` to create pods.")
+        if has_filters:
+            console.print("[yellow]No pods match the specified filters.[/yellow]")
+        else:
+            console.print("No pods found. Use `lep pod create` to create pods.")
         return 0
 
     pods_count = len(pods)

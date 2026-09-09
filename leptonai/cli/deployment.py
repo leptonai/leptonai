@@ -24,6 +24,12 @@ from .util import (
     format_timestamp_ms,
     resolve_save_path,
     PathResolutionError,
+    LooseChoice,
+    creator_matches,
+    keyword_matches,
+    node_group_matches,
+    normalize_keyword,
+    state_matches,
 )
 
 
@@ -1684,6 +1690,69 @@ def create(
     _print_generated_api_token(generated_token)
 
 
+# States offered by the dashboard's endpoint status filter, plus the remaining
+# lifecycle states the CLI can display (Migrating, Restarting, Error).
+ENDPOINT_STATE_FILTER_VALUES = tuple(
+    state.value
+    for state in LeptonDeploymentState
+    if state is not LeptonDeploymentState.Unknown
+)
+
+
+def _filter_endpoints(
+    deployments,
+    *,
+    names=(),
+    keyword=None,
+    states=(),
+    creators=(),
+    node_groups=(),
+):
+    """Apply the endpoint list filters; different filters are combined with AND."""
+    lowered_names = [str(n).lower() for n in names or ()]
+    normalized_keyword = normalize_keyword(keyword)
+
+    def matches(d):
+        metadata = getattr(d, "metadata", None)
+        spec = getattr(d, "spec", None)
+        status = getattr(d, "status", None)
+        name = getattr(metadata, "name", None) if metadata else None
+
+        if lowered_names and not (
+            name and any(n in name.lower() for n in lowered_names)
+        ):
+            return False
+
+        if not keyword_matches(
+            normalized_keyword,
+            name,
+            getattr(metadata, "id_", None) if metadata else None,
+        ):
+            return False
+
+        # The legacy API folds Stopping/Stopped into state="Not Ready" and keeps
+        # the real lifecycle state in `phase`; accept a match on either so that
+        # both `--state "Not Ready"` and `--state Stopped` find a stopped endpoint.
+        if not state_matches(
+            states,
+            getattr(status, "state", None) if status else None,
+            getattr(status, "phase", None) if status else None,
+        ):
+            return False
+
+        if not creator_matches(metadata, creators):
+            return False
+
+        rr = getattr(spec, "resource_requirement", None) if spec else None
+        affinity = getattr(rr, "affinity", None) if rr else None
+        if not node_group_matches(affinity, node_groups):
+            return False
+
+        return True
+
+    return [d for d in deployments if matches(d)]
+
+
 @deployment.command(name="list")
 @click.option(
     "--name",
@@ -1696,22 +1765,79 @@ def create(
     required=False,
     multiple=True,
 )
-def list_command(name):
+@click.option(
+    "--search",
+    "--keyword",
+    "-q",
+    "keyword",
+    type=str,
+    help="Case-insensitive substring search across endpoint name and ID.",
+)
+@click.option(
+    "--state",
+    "--status",
+    "-s",
+    "states",
+    type=LooseChoice(ENDPOINT_STATE_FILTER_VALUES),
+    multiple=True,
+    help=(
+        "Filter by endpoint state (case-insensitive; 'not-ready' and 'NotReady' are"
+        " accepted for 'Not Ready'). Matches the displayed state or the underlying"
+        " lifecycle phase. Repeat for OR."
+    ),
+)
+@click.option(
+    "--created-by",
+    "--user",
+    "-u",
+    "creators",
+    type=str,
+    multiple=True,
+    help=(
+        "Filter by creator (case-insensitive prefix of the user ID or email)."
+        " Repeat for OR."
+    ),
+)
+@click.option(
+    "--node-group",
+    "-ng",
+    "node_groups",
+    type=str,
+    multiple=True,
+    help=(
+        "Filter by node group (case-insensitive substring of the node group"
+        " name/ID). Repeat for OR."
+    ),
+)
+def list_command(name, keyword=None, states=(), creators=(), node_groups=()):
     """
     Lists all endpoints in the current workspace.
+
+    Filters mirror the dashboard's endpoint list: --search matches the name or
+    ID, --state filters by lifecycle state and --created-by by creator.
+    Repeated values within one option are ORed together; different options
+    are combined with AND. Example:
+    lep endpoint list -s ready -s starting -u alice -ng h100
     """
 
     client = APIClient()
     deployments = client.deployment.list_all()
-    if name:
-        lowered = [x.lower() for x in name]
-        deployments = [
-            d
-            for d in deployments
-            if d.metadata
-            and d.metadata.name
-            and any(n in d.metadata.name.lower() for n in lowered)
-        ]
+    # The legacy /deployments API also returns pods; they are never endpoints.
+    deployments = [
+        d for d in deployments if not (d.spec and getattr(d.spec, "is_pod", False))
+    ]
+    has_filters = any([name, keyword, states, creators, node_groups])
+    deployments = _filter_endpoints(
+        deployments,
+        names=name,
+        keyword=keyword,
+        states=states,
+        creators=creators,
+        node_groups=node_groups,
+    )
+    if has_filters and not deployments:
+        console.print("[yellow]No endpoints match the specified filters.[/yellow]")
+        return
     _print_deployments_table(
         deployments, dashboard_base_url=client.get_dashboard_base_url()
     )

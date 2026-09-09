@@ -4,14 +4,61 @@ import sys
 import click
 from datetime import datetime
 from rich.table import Table
-from .util import console, click_group
+from .util import (
+    console,
+    click_group,
+    LooseChoice,
+    keyword_matches,
+    normalize_keyword,
+)
 from leptonai.api.v2.client import APIClient
 from ..api.v2.types.common import Metadata
 from ..api.v2.types.ingress import (
+    CustomDomainValidationStatus,
     LeptonIngress,
     LeptonIngressUserSpec,
     LeptonIngressEndpoint,
 )
+
+# Domain validation statuses offered by the dashboard's domain list filter.
+INGRESS_STATUS_FILTER_VALUES = tuple(
+    status.value
+    for status in CustomDomainValidationStatus
+    if status is not CustomDomainValidationStatus.Unknown
+)
+
+
+def _ingress_validation_status(ingress) -> str:
+    """Canonical lower-case validation status; missing counts as pending (as in the dashboard)."""
+    status = getattr(ingress, "status", None)
+    value = getattr(status, "validation_status", None) if status else None
+    text = getattr(value, "value", value)
+    return str(text).lower() if text else CustomDomainValidationStatus.Pending.value
+
+
+def _filter_ingresses(ingress_list, *, keyword=None, statuses=()):
+    """Apply the ingress list filters; different filters are combined with AND."""
+    normalized_keyword = normalize_keyword(keyword)
+    wanted_statuses = {str(status).lower() for status in statuses or ()}
+
+    def matches(ingress):
+        metadata = getattr(ingress, "metadata", None)
+        spec = getattr(ingress, "spec", None)
+        if not keyword_matches(
+            normalized_keyword,
+            getattr(spec, "domain_name", None) if spec else None,
+            getattr(metadata, "name", None) if metadata else None,
+            getattr(metadata, "id_", None) if metadata else None,
+        ):
+            return False
+        if (
+            wanted_statuses
+            and _ingress_validation_status(ingress) not in wanted_statuses
+        ):
+            return False
+        return True
+
+    return [ingress for ingress in ingress_list if matches(ingress)]
 
 
 @click_group()
@@ -23,12 +70,42 @@ def ingress():
 
 
 @ingress.command(name="list")
-def list_all():
+@click.option(
+    "--search",
+    "--keyword",
+    "-q",
+    "keyword",
+    type=str,
+    help="Case-insensitive substring search across domain name, ingress name and ID.",
+)
+@click.option(
+    "--status",
+    "-s",
+    "statuses",
+    type=LooseChoice(INGRESS_STATUS_FILTER_VALUES),
+    multiple=True,
+    help=(
+        "Filter by domain validation status (case-insensitive; a missing status"
+        " counts as pending). Repeat for OR."
+    ),
+)
+def list_all(keyword=None, statuses=()):
     """
     List all ingress
+
+    --search matches the domain name, ingress name or ID and --status filters by
+    domain validation status (as in the dashboard). Repeated statuses are ORed
+    together; the two options are combined with AND.
     """
     client = APIClient()
     ingress_list = client.ingress.list_all()
+    has_filters = any([keyword, statuses])
+    ingress_list = _filter_ingresses(ingress_list, keyword=keyword, statuses=statuses)
+    if has_filters and not ingress_list:
+        console.print(
+            "[yellow]No ingress entries match the specified filters.[/yellow]"
+        )
+        return
     table = Table(show_header=True, header_style="bold magenta")
     table.add_column("Name")
     table.add_column("Created At")
