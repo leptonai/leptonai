@@ -329,6 +329,7 @@ def connect_job_teleport(
             if any(c.isspace() for c in proxy) or "\0" in proxy:
                 raise ValueError
             url = urlsplit(f"https://{proxy}")
+            # An explicit proxy uses its hostname as the cluster name.
             cluster = url.hostname
         else:
             active = _status(tsh)
@@ -349,7 +350,6 @@ def connect_job_teleport(
             or url.fragment
         ):
             raise ValueError
-        # Explicit Lepton proxies use LEPTON_TELEPORT_CLUSTER as their cluster.
         target = TeleportTarget(
             name=f"{workspace}-{replica}",
             proxy=url.hostname,
