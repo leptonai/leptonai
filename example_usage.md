@@ -298,7 +298,7 @@ lep dynamo create -n qwen-agg --framework vllm \
     --command "python3 -m dynamo.vllm --model Qwen/Qwen3-8B"
 
 lep dynamo status -n qwen-agg          # summary, services, health, replicas
-lep dynamo log -n qwen-agg -s worker   # last 100 lines of the first ready worker replica
+lep dynamo replica log -n qwen-agg -s worker  # last 100 lines of the first ready worker replica
 ```
 
 ### 2. Disaggregated serving (frontend + prefill + decode, SGLang, multinode)
@@ -309,8 +309,8 @@ lep dynamo create -n qwen-disagg --framework sglang --serving-mode disaggregated
   -svc prefill-worker --resource-shape gpu.h100-80gb:8 --node-count 2 \
   -svc decode-worker --resource-shape gpu.h100-80gb:8 --replicas 2
 
-lep dynamo services -n qwen-disagg
-lep dynamo service -n qwen-disagg -s prefill-worker
+lep dynamo service list -n qwen-disagg
+lep dynamo service get -n qwen-disagg -s prefill-worker
 ```
 
 ### 3. Preview, export and re-create from a spec file
@@ -345,10 +345,11 @@ lep dynamo update -n qwen-agg -f ./patch.json
 ### 5. Operate replicas
 
 ```bash
-lep dynamo replicas -n qwen-agg --state ready
-lep dynamo restart -n qwen-agg -s worker
-lep dynamo remove-replica -n qwen-agg -r <replica-id> -s worker
+lep dynamo replica list -n qwen-agg --state ready
+lep dynamo service restart -n qwen-agg -s worker
+lep dynamo replica remove -n qwen-agg -r <replica-id> -s worker
 lep dynamo metrics -n qwen-agg --window 6
+lep dynamo replica metrics -n qwen-agg -r <replica-id>
 lep log get --dynamo qwen-agg --dynamo-service worker --start "today 09:00" --end now
 lep dynamo remove -n qwen-agg
 ```

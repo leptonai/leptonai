@@ -30,13 +30,13 @@ Source material used to derive the scope:
 | Edit overlay, JSON Merge Patch (`deployment-edit-dynamo.md`) | `PATCH /dynamographdeployments/:id[?dryrun=true]` | `lep dynamo update` |
 | Detail summary card (`deployment-dynamo-detail.md`, `dynamo-deployment-card.md`) | `GET /:id`, `GET /:id/services`, `GET /:id/monitoring/status` | `lep dynamo status -n X`, `lep dynamo get -n X [-p PATH]` |
 | Delete with confirm | `DELETE /:id` | `lep dynamo remove -n X` |
-| Services tab, per-service card + run command (`deployment-dynamo-detail-services.md`, `dynamo-service-item.md`) | `GET /:id/services`, `GET /:id/services/:svc` | `lep dynamo services -n X` (table), `lep dynamo service -n X -s SVC` (detail) |
-| Restart service with confirm | `PUT /:id/services/:svc/restart` | `lep dynamo restart -n X -s SVC` |
-| Replicas tab, status filter, node column (`deployment-dynamo-detail-replicas.md`) | `GET /:id/services/:svc/replicas`, `GET /:id/replicas[?service=]` | `lep dynamo replicas -n X [-s SVC] [--state R]...` |
-| Delete replica | `DELETE /:id/replicas/:rid` (or service-scoped) | `lep dynamo remove-replica -n X -r RID` |
-| Logs overlay, per-replica logs (`deployment-dynamo-detail-logs.md`, `...-replicas-detail-logs.md`) | `GET /:id/replicas/:rid/log?tail=&timestamps=`; shared `GET /logs?dynamo_graph_deployment=&dynamo_service=&replica=` | `lep dynamo log -n X [-s SVC] [-r RID] [--tail N] [--timestamps]`; `lep log get --dynamo X` for historical windows |
+| Services tab, per-service card + run command (`deployment-dynamo-detail-services.md`, `dynamo-service-item.md`) | `GET /:id/services`, `GET /:id/services/:svc` | `lep dynamo service list -n X` (table), `lep dynamo service get -n X -s SVC` (detail) |
+| Restart service with confirm | `PUT /:id/services/:svc/restart` | `lep dynamo service restart -n X -s SVC` |
+| Replicas tab, status filter, node column (`deployment-dynamo-detail-replicas.md`) | `GET /:id/services/:svc/replicas`, `GET /:id/replicas[?service=]` | `lep dynamo replica list -n X [-s SVC] [--state R]...` |
+| Delete replica | `DELETE /:id/replicas/:rid` (or service-scoped) | `lep dynamo replica remove -n X -r RID` |
+| Logs overlay, per-replica logs (`deployment-dynamo-detail-logs.md`, `...-replicas-detail-logs.md`) | `GET /:id/replicas/:rid/log?tail=&timestamps=`; shared `GET /logs?dynamo_graph_deployment=&dynamo_service=&replica=` | `lep dynamo replica log -n X [-s SVC] [-r RID] [--tail N] [--timestamps]`; `lep log get --dynamo X` for historical windows |
 | Deployment metrics (`deployment-dynamo-detail-metrics.md`) | `GET /:id/monitoring/{GPUUtilAvg,...}?window=H` | `lep dynamo metrics -n X [--window H]` (phase 4, optional) |
-| Replica metrics (`...-replicas-detail-metrics*.md`) | `GET /:id/replicas/:rid/monitoring/{metric}` | `lep dynamo metrics -n X -r RID` (phase 4, optional) |
+| Replica metrics (`...-replicas-detail-metrics*.md`) | `GET /:id/replicas/:rid/monitoring/{metric}` | `lep dynamo replica metrics -n X -r RID` (phase 4, optional) |
 | Not in GUI, cheap | `GET /:id/history` | `lep dynamo history -n X` (phase 4, optional) |
 
 Explicitly out of scope: the LLM-engine switcher, node-group preference
@@ -223,24 +223,25 @@ Commands, in the order to implement:
    pods, multinode node_count, shape, min_replicas), the monitoring
    `overall_health` line, and a replica table from `/replicas` (id, service,
    readiness reason colored, node, created at). `-d` dumps the full object.
-4. `services -n X` and `service -n X -s SVC` — table and single-service
+4. `service list -n X` and `service get -n X -s SVC` — table and single-service
    detail (spec, status phase/health/state/uptime, conditions, last replica
    error events, and the run command rendered as a shell line).
-5. `replicas -n X [-s SVC] [--state REASON]...` — per-service or flat list.
+5. `replica list -n X [-s SVC] [--state REASON]...` — per-service or flat list.
    Status filter uses the GUI's readiness-reason groups verbatim.
-6. `log -n X [-s SVC] [-r RID] [--tail N] [--timestamps] [-p PATH]` — one-shot
+6. `replica log -n X [-s SVC] [-r RID] [--tail N] [--timestamps] [-p PATH]` — one-shot
    pod log. Selection rule mirrors `lep endpoint log`: if `-r` is missing,
    choose the first replica of `-s` (default service `frontend`), print which
    one was chosen. Print a hint that this endpoint does not stream and that
    `lep log get --dynamo X` covers historical windows.
-7. `restart -n X -s SVC [-y]` — confirm prompt like the GUI dialog unless
+7. `service restart -n X -s SVC [-y]` — confirm prompt like the GUI dialog unless
    `-y`; print `deleted_pods`. Refuse client-side when the service is
    deleting or `min_replicas <= 0` (same disable rule as the GUI).
-8. `remove -n X [-y]` and `remove-replica -n X -r RID [-s SVC] [-y]` —
+8. `remove -n X [-y]` and `replica remove -n X -r RID [-s SVC] [-y]` —
    confirm prompts; surface the 400 "already being deleted" message plainly.
 9. `create` — see 4.4.
 10. `update` — see 4.5.
-11. Phase 4: `metrics`, `history`, `lep log get --dynamo`.
+11. Phase 4: deployment-level `metrics`, `replica metrics`, `history`, and
+    `lep log get --dynamo`.
 
 Every command takes `--name/-n` as the deployment identifier, matching the
 rest of the CLI. Destructive commands accept `-y/--yes` so the agent skill and
@@ -364,7 +365,7 @@ Follow the existing layout and fixtures.
   Cover: list rendering and filters, `create` payload assertions for the
   three GUI user stories (single frontend, aggregated worker, disaggregated
   prefill/decode), each create rejection, `update` patch assertions and
-  no-op exit, `log` replica auto-selection, confirm prompts and `-y`.
+  no-op exit, `replica log` auto-selection, confirm prompts and `-y`.
 - Run with `pytest -x leptonai` as CI does.
 
 ### 4.7 Docs and agent skill
@@ -373,7 +374,7 @@ Follow the existing layout and fixtures.
   bullet.
 - `plugins/lepton-cli/skills/lepton-cli/references/workloads.md` already
   describes Dynamo endpoints conceptually; add the command mapping and the
-  confirm-before-destroy note for `remove`, `remove-replica`, `restart`.
+  confirm-before-destroy note for `remove`, `replica remove`, `service restart`.
 - `example_usage.md`: one aggregated and one disaggregated create example.
 - The external e2e script (`lepton/sdk/release_scripts/e2e_sdk_cli_test.sh`)
   needs a Dynamo create/status/remove case; track it as a follow-up in that
@@ -386,7 +387,7 @@ Each phase is one reviewable PR in the style of the recent `feat(cli):` commits.
 | Phase | Content | Depends on |
 |---|---|---|
 | 1 | Types, defaults registry, API layer, client wiring, readiness enum extension, API and spec unit tests | none |
-| 2 | Read and lifecycle commands: `list`, `get`, `status`, `services`, `service`, `replicas`, `log`, `restart`, `remove`, `remove-replica`; CLI tests | 1 |
+| 2 | Read and lifecycle commands: `list`, `get`, `status`, `service list/get/restart`, `replica list/log/remove`, `remove`; CLI tests | 1 |
 | 3 | `create` and `update`, shared block parser extracted from raycluster, spec-file round trip, CLI tests | 1, 2 |
 | 4 | `metrics`, `history`, `lep log get --dynamo`, README and skill docs, e2e follow-up | 2 |
 
@@ -415,7 +416,7 @@ Questions to confirm before phase 3:
    official runtime image for the chosen framework and version? Proposed:
    allow with a warning, so future versions do not need a CLI release.
 2. Is the shared `/logs` route for Dynamo gated to enterprise workspaces the
-   way the GUI's Logs tab is? If yes, `lep dynamo log` (one-shot pod log)
+   way the GUI's Logs tab is? If yes, `lep dynamo replica log` (one-shot pod log)
    stays the default and `lep log get --dynamo` documents the tier
    requirement.
 3. Does `update` need to support `load_balance_config`, `routing_policy`, or
@@ -439,7 +440,8 @@ Answer to the open questions from user:
   of raycluster's `WorkerGroupCommand`. Raycluster is untouched; the two can be
   unified later.
 - `lep dynamo get` prints JSON only (no `-d`), because the raycluster-style
-  double print was redundant. `status -d` and `service -d` dump the full object.
+  double print was redundant. `status -d` and `service get -d` dump the full
+  object.
 - `lep dynamo create` gained `--dry-run` (prints the payload without a request)
   and `--visibility`. Node groups are accepted by name or id.
 - `lep dynamo update` re-syncs worker node groups to the frontend after
@@ -449,6 +451,6 @@ Answer to the open questions from user:
   `load_balance_config` / `routing_policy` / `auth_config` are reachable only via
   `update -f patch.json`; no hint was added to `lep endpoint list`; the e2e
   script case is tracked in the `lepton` repo.
-- The shared `/logs` route tier gating was not confirmed; `lep dynamo log` uses
-  the one-shot pod-log endpoint by default and `lep log get --dynamo`
+- The shared `/logs` route tier gating was not confirmed; `lep dynamo replica
+  log` uses the one-shot pod-log endpoint by default and `lep log get --dynamo`
   documents that historical logs may need an enterprise tier.
