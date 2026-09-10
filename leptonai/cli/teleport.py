@@ -14,6 +14,70 @@ from pydantic import ValidationError
 from leptonai.api.v2.types.teleport import TeleportConnection, TeleportTarget
 
 
+_TSH_INSTALL_URL = (
+    "https://goteleport.com/docs/connect-your-client/teleport-clients/tsh/"
+)
+_MIN_TSH_MAJOR = 18
+
+
+def _check_tsh_version(tsh: str) -> None:
+    """Check the executing client version, not the proxy or re-exec source."""
+    try:
+        result = subprocess.run(
+            [tsh, "version"],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except subprocess.TimeoutExpired:
+        raise click.ClickException(
+            "Timed out checking the Teleport client version. Run tsh version to "
+            "check your installation."
+        ) from None
+    if result.returncode:
+        raise click.ClickException(
+            "Could not check the Teleport client version (tsh version exited with "
+            f"status {result.returncode}). Run tsh version to check your installation."
+        )
+    match = re.search(
+        r"^Teleport(?: Enterprise)? v(\d+)\.(\d+)\.(\d+)"
+        r"(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?(?=\s|$)",
+        result.stdout,
+        re.MULTILINE,
+    )
+    if match is None:
+        raise click.ClickException(
+            "Could not determine the Teleport client version. "
+            f"SSH requires tsh v{_MIN_TSH_MAJOR} or newer. "
+            f"Run tsh version or reinstall from {_TSH_INSTALL_URL}"
+        )
+    if int(match.group(1)) < _MIN_TSH_MAJOR:
+        version = ".".join(match.group(1, 2, 3))
+        raise click.ClickException(
+            f"SSH requires tsh v{_MIN_TSH_MAJOR} or newer; found v{version}. "
+            f"Upgrade your Teleport CLI from {_TSH_INSTALL_URL}"
+        )
+
+
+def _require_tsh() -> str:
+    tsh = shutil.which("tsh")
+    if tsh is None:
+        raise click.ClickException(
+            "Teleport CLI (tsh) was not found in PATH. "
+            f"Install tsh v{_MIN_TSH_MAJOR} or newer from {_TSH_INSTALL_URL}"
+        )
+    try:
+        _check_tsh_version(tsh)
+    except OSError as error:
+        raise click.ClickException(
+            f"Could not run Teleport CLI (tsh): {error}"
+        ) from None
+    except KeyboardInterrupt:
+        raise click.exceptions.Exit(130) from None
+    return tsh
+
+
 def _status(tsh: str, proxy: Optional[str] = None) -> Optional[dict]:
     """Read the selected tsh profile, including expired profiles for discovery."""
     args = [tsh, "status"]
@@ -120,12 +184,24 @@ def connect_teleport(
             "The pod is not reporting a running Teleport connection. "
             "Check Teleport SSH Access in the dashboard and retry when it is ready."
         )
-    tsh = shutil.which("tsh")
-    if tsh is None:
-        raise click.ClickException(
-            "Teleport CLI (tsh) was not found in PATH. Install it from "
-            "https://goteleport.com/docs/connect-your-client/teleport-clients/tsh/"
-        )
+    _connect_teleport(
+        _require_tsh(),
+        connection,
+        auth,
+        workspace=workspace,
+        before_connect=before_connect,
+    )
+
+
+def _connect_teleport(
+    tsh: str,
+    connection: TeleportTarget,
+    auth: str,
+    *,
+    workspace: Optional[str] = None,
+    before_connect: Optional[Callable[[], None]] = None,
+) -> None:
+    """Start a session after client preflight, without checking the client twice."""
     proxy = f"--proxy={connection.proxy}:{connection.port}"
     try:
         profile = _profile(tsh, connection)
@@ -247,11 +323,7 @@ def connect_job_teleport(
     before_connect: Optional[Callable[[], None]] = None,
 ) -> None:
     """Job APIs omit Teleport metadata; use an explicit proxy or the tsh profile."""
-    tsh = shutil.which("tsh")
-    if tsh is None:
-        raise click.ClickException(
-            "Teleport CLI (tsh) was not found in PATH. Install tsh first."
-        )
+    tsh = _require_tsh()
     try:
         if proxy is not None:
             if any(c.isspace() for c in proxy) or "\0" in proxy:
@@ -299,4 +371,6 @@ def connect_job_teleport(
         f"Connecting to Job replica {replica} via Teleport"
         f" ({target.proxy}:{target.port})..."
     )
-    connect_teleport(target, auth, workspace=workspace, before_connect=before_connect)
+    _connect_teleport(
+        tsh, target, auth, workspace=workspace, before_connect=before_connect
+    )

@@ -83,6 +83,11 @@ lep pod create -n my-pod --resource-shape gpu.a10
 lep pod ssh -n my-pod --transport teleport
 ```
 
+Pod and Job Teleport SSH require `tsh` v18 or newer in your PATH. The CLI checks
+the client version before reading login profiles or starting SSO; missing, older,
+or unrecognized clients produce an actionable error. This minimum version check
+does not guarantee compatibility with every Teleport cluster version.
+
 Teleport SSH reuses your local Teleport login, or starts SSO login when needed.
 The default connector is `Starfleet`; use `--teleport-auth <connector>` to override
 it. Lepton API credentials and Teleport login are separate. Your workspace, node

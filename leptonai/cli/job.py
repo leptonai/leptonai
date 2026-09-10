@@ -1508,6 +1508,9 @@ def ssh(id, name, replica, teleport_proxy, teleport_auth):
             auth=teleport_auth,
             before_connect=revalidate,
         )
+    except click.exceptions.Exit:
+        # Click's Exit may inherit RuntimeError; preserve SSH/interrupt codes.
+        raise
     except (RuntimeError, RequestException) as error:
         raise click.ClickException(str(error)) from None
 

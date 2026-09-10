@@ -67,6 +67,8 @@ def session():
         responses.RequestsMock() as http,
         patch("leptonai.cli.job.APIClient", return_value=client),
         patch("leptonai.cli.teleport.shutil.which", return_value="/usr/bin/tsh"),
+        # Client preflight is exercised separately in test_teleport_preflight.py.
+        patch("leptonai.cli.teleport._check_tsh_version"),
         patch("leptonai.cli.teleport.subprocess.run") as run,
     ):
         yield http, run
@@ -152,6 +154,20 @@ def test_active_profile_with_distinct_cluster_is_preserved(session):
     output = invoke()
     assert output.exit_code == 0, output.output
     assert "--cluster=cluster.example.com" in run.call_args.args[0]
+
+
+@pytest.mark.parametrize("code", [7, 130, 255, -15])
+def test_ssh_exit_status_is_preserved(session, code):
+    http, run = session
+    register(http)
+    run.side_effect = [
+        profile(),
+        profile(),
+        result(stdout=json.dumps([node()])),
+        result(code=code),
+    ]
+    output = invoke()
+    assert output.exit_code == (code if code > 0 else 128 - code)
 
 
 def test_expired_active_profile_can_discover_proxy_then_login(session):

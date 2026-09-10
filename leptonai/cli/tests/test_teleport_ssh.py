@@ -64,6 +64,8 @@ def session():
         patch(
             "leptonai.cli.teleport.shutil.which", return_value="/usr/bin/tsh"
         ) as which,
+        # Client preflight is exercised separately in test_teleport_preflight.py.
+        patch("leptonai.cli.teleport._check_tsh_version"),
         patch("leptonai.cli.teleport.subprocess.run") as run,
     ):
         yield http, flag, which, run
