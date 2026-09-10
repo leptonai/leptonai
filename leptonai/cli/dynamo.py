@@ -704,13 +704,19 @@ def status(name, detail):
 
 
 # ---------------------------------------------------------------------------
-# services / service / restart
+# service commands
 # ---------------------------------------------------------------------------
 
 
-@dynamo.command()
+@dynamo.group(name="service")
+def service_group():
+    """Manage services in a Dynamo deployment."""
+    pass
+
+
+@service_group.command(name="list")
 @click.option("--name", "-n", help="The Dynamo deployment name.", required=True)
-def services(name):
+def list_services(name):
     """
     Lists the services of a Dynamo deployment with their replica counts.
     """
@@ -727,13 +733,13 @@ def services(name):
     console.print(_services_table(dep, infos))
 
 
-@dynamo.command()
+@service_group.command(name="get")
 @click.option("--name", "-n", help="The Dynamo deployment name.", required=True)
 @click.option("--service", "-s", help="The service name.", required=True)
 @click.option(
     "--detail", "-d", is_flag=True, default=False, help="Also dump the raw response."
 )
-def service(name, service, detail):
+def get_service(name, service, detail):
     """
     Shows one service of a Dynamo deployment: spec, runtime status, and run command.
     """
@@ -835,11 +841,11 @@ def service(name, service, detail):
         )
 
 
-@dynamo.command()
+@service_group.command(name="restart")
 @click.option("--name", "-n", help="The Dynamo deployment name.", required=True)
 @click.option("--service", "-s", help="The service to restart.", required=True)
 @click.option("--yes", "-y", is_flag=True, default=False, help="Skip the confirmation.")
-def restart(name, service, yes):
+def restart_service(name, service, yes):
     """
     Restarts a service by deleting all of its replicas (pods); the operator
     launches replacements.
@@ -875,11 +881,17 @@ def restart(name, service, yes):
 
 
 # ---------------------------------------------------------------------------
-# replicas / log / remove-replica / remove
+# replica commands / remove
 # ---------------------------------------------------------------------------
 
 
-@dynamo.command()
+@dynamo.group(name="replica")
+def replica_group():
+    """Manage replicas in a Dynamo deployment."""
+    pass
+
+
+@replica_group.command(name="list")
 @click.option("--name", "-n", help="The Dynamo deployment name.", required=True)
 @click.option(
     "--service",
@@ -895,7 +907,7 @@ def restart(name, service, yes):
         " Terminated. Case-insensitive; can be repeated."
     ),
 )
-def replicas(name, service, state):
+def list_replicas(name, service, state):
     """
     Lists the replicas (pods) of a Dynamo deployment, per service.
     """
@@ -954,7 +966,7 @@ def _pick_replica(
     return service, replica
 
 
-@dynamo.command()
+@replica_group.command(name="log")
 @click.option("--name", "-n", help="The Dynamo deployment name.", required=True)
 @click.option(
     "--service",
@@ -1000,7 +1012,7 @@ def _pick_replica(
         " filename accepted."
     ),
 )
-def log(name, service, replica, tail, timestamps, path):
+def replica_log(name, service, replica, tail, timestamps, path):
     """
     Gets the current log of one replica of a Dynamo deployment.
 
@@ -1040,7 +1052,7 @@ def log(name, service, replica, tail, timestamps, path):
     )
 
 
-@dynamo.command(name="remove-replica")
+@replica_group.command(name="remove")
 @click.option("--name", "-n", help="The Dynamo deployment name.", required=True)
 @click.option(
     "--replica", "-r", help="The replica (pod) name to delete.", required=True
@@ -1152,37 +1164,8 @@ def _summarize_series(series: Any) -> List[Tuple[str, str, str, str, str, int, s
     return rows
 
 
-@dynamo.command()
-@click.option("--name", "-n", help="The Dynamo deployment name.", required=True)
-@click.option(
-    "--replica",
-    "-r",
-    default=None,
-    help=(
-        "Show replica-level metrics for this replica instead of deployment-level ones."
-    ),
-)
-@click.option(
-    "--metric",
-    "-m",
-    multiple=True,
-    help=(
-        "Metric name(s) to fetch. Defaults to the dashboard set:"
-        f" {', '.join(DEPLOYMENT_METRICS)} at deployment level and"
-        f" {', '.join(REPLICA_METRICS)} at replica level."
-    ),
-)
-@click.option(
-    "--window",
-    type=click.Choice(METRIC_WINDOWS),
-    default="1",
-    show_default=True,
-    help="Time window in hours (deployment-level metrics only).",
-)
-def metrics(name, replica, metric, window):
-    """
-    Prints a summary (latest, min, avg, max) of GPU and resource metrics.
-    """
+def _print_metrics(name, replica, metric, window):
+    """Print deployment- or replica-level metrics using the shared table format."""
     client = APIClient()
     names = (
         list(metric)
@@ -1268,6 +1251,46 @@ def metrics(name, replica, metric, window):
         console.print(f"No metrics available for [yellow]{name}[/].")
         return
     console.print(table)
+
+
+@dynamo.command(name="metrics")
+@click.option("--name", "-n", help="The Dynamo deployment name.", required=True)
+@click.option(
+    "--metric",
+    "-m",
+    multiple=True,
+    help=(
+        "Metric name(s) to fetch. Defaults to the dashboard set:"
+        f" {', '.join(DEPLOYMENT_METRICS)}."
+    ),
+)
+@click.option(
+    "--window",
+    type=click.Choice(METRIC_WINDOWS),
+    default="1",
+    show_default=True,
+    help="Time window in hours.",
+)
+def deployment_metrics(name, metric, window):
+    """Prints deployment-level GPU and resource metrics."""
+    _print_metrics(name, replica=None, metric=metric, window=window)
+
+
+@replica_group.command(name="metrics")
+@click.option("--name", "-n", help="The Dynamo deployment name.", required=True)
+@click.option("--replica", "-r", help="The replica (pod) name.", required=True)
+@click.option(
+    "--metric",
+    "-m",
+    multiple=True,
+    help=(
+        "Metric name(s) to fetch. Defaults to the dashboard set:"
+        f" {', '.join(REPLICA_METRICS)}."
+    ),
+)
+def replica_metrics(name, replica, metric):
+    """Prints GPU and resource metrics for one replica."""
+    _print_metrics(name, replica=replica, metric=metric, window=None)
 
 
 # ---------------------------------------------------------------------------
@@ -1543,7 +1566,7 @@ def create(
     console.print(f"Dynamo deployment [green]{created_name}[/] created successfully.")
     console.print(
         f"Use `lep dynamo status -n {created_name}` to check its status, or"
-        f" `lep dynamo log -n {created_name}` to read replica logs."
+        f" `lep dynamo replica log -n {created_name}` to read replica logs."
     )
 
 

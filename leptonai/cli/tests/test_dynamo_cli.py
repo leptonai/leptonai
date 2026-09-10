@@ -436,13 +436,13 @@ def test_status_shows_summary_services_health_and_replicas(fake):
     assert "1 out of 2 replicas ready" in result.output
 
 
-def test_services_and_service_detail(fake):
-    result = run("services", "-n", "my-dynamo")
+def test_service_list_and_get(fake):
+    result = run("service", "list", "-n", "my-dynamo")
     assert result.exit_code == 0, result.output
     assert "frontend" in result.output and "worker" in result.output
     assert "2 nodes" in result.output
 
-    result = run("service", "-n", "my-dynamo", "-s", "worker")
+    result = run("service", "get", "-n", "my-dynamo", "-s", "worker")
     assert result.exit_code == 0, result.output
     assert "Shape:        gpu.a100-1" in result.output
     assert "Multinode:    2 nodes" in result.output
@@ -450,30 +450,30 @@ def test_services_and_service_detail(fake):
     assert "ready 1 / desired 2" in result.output
     assert "Available" in result.output and "warming up" in result.output
 
-    result = run("service", "-n", "my-dynamo", "-s", "nope")
+    result = run("service", "get", "-n", "my-dynamo", "-s", "nope")
     assert result.exit_code == 1
     assert "404" in result.output
 
 
 def test_replicas_filters(fake):
-    result = run("replicas", "-n", "my-dynamo")
+    result = run("replica", "list", "-n", "my-dynamo")
     assert result.exit_code == 0, result.output
     assert "frontend-abc" in result.output and "worker-xyz" in result.output
     assert "node-1" in result.output
 
-    result = run("replicas", "-n", "my-dynamo", "-s", "worker")
+    result = run("replica", "list", "-n", "my-dynamo", "-s", "worker")
     assert "worker-xyz" in result.output and "frontend-abc" not in result.output
 
-    result = run("replicas", "-n", "my-dynamo", "--state", "ready")
+    result = run("replica", "list", "-n", "my-dynamo", "--state", "ready")
     assert "frontend-abc" in result.output and "worker-xyz" not in result.output
 
-    result = run("replicas", "-n", "my-dynamo", "-s", "nope")
+    result = run("replica", "list", "-n", "my-dynamo", "-s", "nope")
     assert result.exit_code == 1
     assert "Available services: frontend, worker" in result.output
 
 
 def test_log_selects_first_ready_replica_and_passes_options(fake):
-    result = run("log", "-n", "my-dynamo")
+    result = run("replica", "log", "-n", "my-dynamo")
     assert result.exit_code == 0, result.output
     assert "selected replica frontend-abc of service frontend" in result.output
     assert "line1" in result.output and "line2" in result.output
@@ -487,41 +487,58 @@ def test_log_selects_first_ready_replica_and_passes_options(fake):
     )
 
     result = run(
-        "log", "-n", "my-dynamo", "-s", "worker", "--tail", "20", "--timestamps"
+        "replica",
+        "log",
+        "-n",
+        "my-dynamo",
+        "-s",
+        "worker",
+        "--tail",
+        "20",
+        "--timestamps",
     )
     assert result.exit_code == 0, result.output
     assert "worker log" in result.output
     assert fake.calls[-1] == ("log", "my-dynamo", "worker-xyz", "worker", 20, True)
 
-    result = run("log", "-n", "my-dynamo", "-r", "frontend-abc")
+    result = run("replica", "log", "-n", "my-dynamo", "-r", "frontend-abc")
     assert result.exit_code == 0, result.output
     assert fake.calls[-1] == ("log", "my-dynamo", "frontend-abc", None, None, False)
 
-    result = run("log", "-n", "my-dynamo", "-s", "nope")
+    result = run("replica", "log", "-n", "my-dynamo", "-s", "nope")
     assert result.exit_code == 1
     assert "Available services" in result.output
 
 
 def test_log_saves_to_path(fake, tmp_path):
-    result = run("log", "-n", "my-dynamo", "-r", "frontend-abc", "-p", str(tmp_path))
+    result = run(
+        "replica",
+        "log",
+        "-n",
+        "my-dynamo",
+        "-r",
+        "frontend-abc",
+        "-p",
+        str(tmp_path),
+    )
     assert result.exit_code == 0, result.output
     saved = tmp_path / "dynamo-log-my-dynamo-frontend-abc.txt"
     assert saved.read_text() == "line1\nline2\n"
 
 
 def test_restart_confirmation_and_guards(fake):
-    result = run("restart", "-n", "my-dynamo", "-s", "worker", input="n\n")
+    result = run("service", "restart", "-n", "my-dynamo", "-s", "worker", input="n\n")
     assert result.exit_code == 0, result.output
     assert "Aborted" in result.output
     assert not [c for c in fake.calls if c[0] == "restart"]
 
-    result = run("restart", "-n", "my-dynamo", "-s", "worker", "-y")
+    result = run("service", "restart", "-n", "my-dynamo", "-s", "worker", "-y")
     assert result.exit_code == 0, result.output
     assert "Restart request has been sent" in result.output
     assert "pod-1" in result.output
     assert ("restart", "my-dynamo", "worker") in fake.calls
 
-    result = run("restart", "-n", "my-dynamo", "-s", "idle", "-y")
+    result = run("service", "restart", "-n", "my-dynamo", "-s", "idle", "-y")
     assert result.exit_code == 1
     assert "nothing to restart" in result.output
 
@@ -537,7 +554,15 @@ def test_remove_and_remove_replica(fake):
     assert ("delete", "my-dynamo") in fake.calls
 
     result = run(
-        "remove-replica", "-n", "my-dynamo", "-r", "worker-xyz", "-s", "worker", "-y"
+        "replica",
+        "remove",
+        "-n",
+        "my-dynamo",
+        "-r",
+        "worker-xyz",
+        "-s",
+        "worker",
+        "-y",
     )
     assert result.exit_code == 0, result.output
     assert ("delete_replica", "my-dynamo", "worker-xyz", "worker") in fake.calls
@@ -557,7 +582,16 @@ def test_history_and_metrics(fake):
     assert "no data" in result.output  # metrics without series
     assert ("metric", "my-dynamo", "GPUUtilAvg", 6) in fake.calls
 
-    result = run("metrics", "-n", "my-dynamo", "-r", "worker-xyz", "-m", "GPUUtil")
+    result = run(
+        "replica",
+        "metrics",
+        "-n",
+        "my-dynamo",
+        "-r",
+        "worker-xyz",
+        "-m",
+        "GPUUtil",
+    )
     assert result.exit_code == 0, result.output
     assert ("replica_metric", "my-dynamo", "worker-xyz", "GPUUtil") in fake.calls
     assert "0.5" in result.output
@@ -1066,13 +1100,24 @@ def test_group_help_lists_commands():
     assert result.exit_code == 0
     for command in (
         "create",
+        "get",
+        "history",
+        "metrics",
+        "remove",
+        "replica",
+        "service",
+        "status",
         "update",
         "list",
-        "status",
-        "services",
-        "replicas",
-        "log",
-        "restart",
-        "remove",
     ):
+        assert command in result.output
+
+    result = CliRunner().invoke(cli, ["dynamo", "service", "--help"])
+    assert result.exit_code == 0
+    for command in ("get", "list", "restart"):
+        assert command in result.output
+
+    result = CliRunner().invoke(cli, ["dynamo", "replica", "--help"])
+    assert result.exit_code == 0
+    for command in ("list", "log", "metrics", "remove"):
         assert command in result.output

@@ -89,7 +89,7 @@ lep dynamo create -n my-dynamo --framework vllm \
   -svc frontend --resource-shape cpu.small --node-group my-node-group \
   -svc worker --resource-shape gpu.h100-80gb --replicas 2 -e MODEL=Qwen/Qwen3-0.6B
 lep dynamo status -n my-dynamo
-lep dynamo log -n my-dynamo -s worker --tail 200
+lep dynamo replica log -n my-dynamo -s worker --tail 200
 lep dynamo update -n my-dynamo -svc worker --replicas 4
 ```
 
