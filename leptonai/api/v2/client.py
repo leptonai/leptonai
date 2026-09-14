@@ -299,11 +299,16 @@ class APIClient(object):
             # print(f"workspace_origin_url: {workspace_origin_url}")
             self._header["origin"] = workspace_origin_url
 
+        masked_auth_token = (
+            f"{self.auth_token[:2]}****{self.auth_token[-2:]}"
+            if self.auth_token
+            else None
+        )
         logger.trace(
             "Current workspace info:\n"
             f"  id: {self.workspace_id}\n"
             f"  url: {self.url}\n"
-            f"  auth_token: {self.auth_token[:2]}****{self.auth_token[-2:]}\n"
+            f"  auth_token: {masked_auth_token}\n"
             f"  workspace_origin_url: {self.workspace_origin_url}"
         )
 
