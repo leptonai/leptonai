@@ -591,6 +591,7 @@ def _fetch_log_unit(
     limit: int = _ADAPTIVE_PAGE_LIMIT,
     cancelled: Optional[threading.Event] = None,
     rate_limit_signal: Optional[_RateLimitSignal] = None,
+    log_options: Optional[dict] = None,
 ) -> FetchUnitResult:
     """Fetch exactly one page for `[start, end)`, forward-direction, with retry.
 
@@ -609,6 +610,9 @@ def _fetch_log_unit(
     """
     _validate_positive_int_limit(limit)
 
+    options = dict(log_options or {})
+    options["direction"] = "forward"  # Required by adaptive watermark ordering.
+    options.setdefault("timeout", _ADAPTIVE_FETCH_TIMEOUT_SEC)
     client = APIClient()
     max_retries = _ADAPTIVE_RETRY_MAX_ATTEMPTS
     base_delay = _ADAPTIVE_RETRY_BASE_DELAY_SEC
@@ -633,8 +637,7 @@ def _fetch_log_unit(
                 end=end,
                 limit=limit,
                 q=query,
-                direction="forward",
-                timeout=_ADAPTIVE_FETCH_TIMEOUT_SEC,
+                **options,
             )
             entries, examined_count = _parse_log_entries(log_dict, limit, start, end)
 
@@ -826,6 +829,7 @@ class _AdaptiveLogScheduler:
         workers: Optional[int],
         without_timestamp: bool,
         path: Optional[str],
+        log_options: Optional[dict] = None,
     ):
         """
         Args:
@@ -841,16 +845,26 @@ class _AdaptiveLogScheduler:
         self.replica = replica
         self.job_history_name = job_history_name
         self.query = query
+        self.log_options = log_options
         self.unix_start = unix_start
         self.unix_end = unix_end
         self.effective_workers = workers if workers is not None else 32
         self.without_timestamp = without_timestamp
 
         self.bookkeeping = _EmitBookkeeping()
-        # Same default-filename precedence `fetch_log` used before path
-        # resolution was made lazy: deployment/job/replica/job_history_name,
-        # in that order, first truthy one wins.
-        name_hint = job or deployment or replica or job_history_name or ""
+        # Prefer the workload identifier when naming the output file.
+        options = log_options or {}
+        name_hint = (
+            job
+            or deployment
+            or options.get("name_or_dynamo")
+            or options.get("name_or_dev_pod")
+            or options.get("name_or_ray_cluster")
+            or options.get("slurm_cluster")
+            or replica
+            or job_history_name
+            or ""
+        )
         self.sink = (
             _LazyFileSink(path, name_hint, without_timestamp, self.bookkeeping)
             if path
@@ -945,6 +959,7 @@ class _AdaptiveLogScheduler:
                 _ADAPTIVE_PAGE_LIMIT,
                 self.cancelled,
                 self.rate_limit_signal,
+                **({"log_options": self.log_options} if self.log_options else {}),
             )
             self.active[future] = unit
             logger.trace(
@@ -1321,6 +1336,7 @@ def fetch_logs_adaptive_parallel(
     workers: Optional[int],
     without_timestamp: bool,
     path: Optional[str],
+    log_options: Optional[dict] = None,
 ) -> NoReturn:
     """Construct and run an `_AdaptiveLogScheduler` for one fetch.
 
@@ -1341,6 +1357,7 @@ def fetch_logs_adaptive_parallel(
         workers,
         without_timestamp,
         path,
+        log_options=log_options,
     ).run()
 
 
@@ -1372,7 +1389,7 @@ def log():
 
 
 @log.command(
-    name="get", help="Retrieve and display logs from endpoints, jobs, or replicas"
+    name="get", help="Query historical logs or stream a live replica with --follow"
 )
 @click.option(
     "--endpoint",
@@ -1407,10 +1424,30 @@ def log():
     ),
 )
 @click.option(
+    "--dynamo",
+    "-dn",
+    type=str,
+    default=None,
+    help=(
+        "The name of a Dynamo deployment. Combine with --replica to narrow the"
+        " scope. Historical Dynamo logs may require an"
+        " enterprise workspace tier."
+    ),
+)
+@click.option(
+    "--dynamo-service",
+    type=str,
+    default=None,
+    help=(
+        "Legacy parameter; currently ignored by the backend shared logs route (requires"
+        " --dynamo)."
+    ),
+)
+@click.option(
     "--replica",
     type=str,
     default=None,
-    help="The name of the replica or a Replica object.",
+    help="Replica ID; add --follow for live logs.",
 )
 @click.option(
     "--job-history-name",
@@ -1423,13 +1460,13 @@ def log():
     "--start",
     type=str,
     default=None,
-    help="The start time in ISO format. " + _supported_formats_log,
+    help='Start time in UTC, e.g. "2026-09-17 00:00:00" or today.',
 )
 @click.option(
     "--end",
     type=str,
     default=None,
-    help="The end time in ISO format. " + _supported_formats_log,
+    help='End time in UTC, e.g. "2026-09-17 01:00:00" or now.',
 )
 @click.option(
     "--limit",
@@ -1456,7 +1493,10 @@ def log():
     "--query",
     type=str,
     default="",
-    help="Specify the query string",
+    help=(
+        "Literal text filter for historical logs (default: empty); ignored with"
+        " --follow."
+    ),
 )
 @click.option(
     "--without-timestamp",
@@ -1471,15 +1511,65 @@ def log():
     default=None,
     show_default=False,
     help=(
-        "Set the number of concurrent worker threads for fetching logs. "
-        "Effective only when --limit is not used. Defaults to 32 when unspecified. "
-        "Note: --limit is deprecated and not recommended."
+        "Set the number of concurrent worker threads for fetching logs. Effective only"
+        " when --limit is not used. Defaults to 32 when unspecified. Note: --limit is"
+        " deprecated and not recommended."
     ),
 )
+@click.option(
+    "--follow",
+    "-f",
+    is_flag=True,
+    help="Stream live replica logs until Ctrl-C; requires --replica and omits --query.",
+)
+@click.option(
+    "--timestamps/--no-timestamps",
+    default=None,
+    help="Include timestamps in output (enabled by default).",
+)
+@click.option(
+    "--direction",
+    type=click.Choice(["forward", "backward"]),
+    default="backward",
+    help=(
+        "With --limit, selects earliest/latest entries. Bulk retrieval always"
+        " scans forward; output is chronological."
+    ),
+)
+@click.option(
+    "--timeout",
+    type=click.FloatRange(min=0, min_open=True),
+    help="HTTP connect/read timeout in seconds; not a total stream duration.",
+)
+@click.option(
+    "--level", help="Historical log levels, comma-separated (for example error,warn)."
+)
+@click.option(
+    "--job-query-mode",
+    type=click.Choice(["alive_only", "archive_only", "alive_and_archive"]),
+    default="alive_and_archive",
+    show_default=True,
+)
+@click.option("--component", help="Endpoint component filter.")
+@click.option("--dev-pod", "name_or_dev_pod", help="DevPod ID (new deployment API).")
+@click.option("--ray-cluster", "name_or_ray_cluster", help="Ray cluster ID.")
+@click.option("--ray-job-id", help="Ray job ID.")
+@click.option("--ray-component", help="Ray component.")
+@click.option("--ray-node-id", help="Ray node ID.")
+@click.option("--slurm-namespace", help="Slurm namespace.")
+@click.option("--slurm-cluster", help="Slurm cluster.")
+@click.option("--slurm-host", help="Slurm host.")
+@click.option("--slurm-node", help="Slurm node.")
+@click.option("--slurm-job", help="Slurm job.")
+@click.option("--slurm-step", help="Slurm step.")
+@click.option("--slurm-attempt", help="Slurm attempt.")
+@click.option("--slurm-log-type", help="Slurm log type.")
 def log_command(
     deployment,
     job,
     job_name,
+    dynamo,
+    dynamo_service,
     replica,
     job_history_name,
     start,
@@ -1489,19 +1579,30 @@ def log_command(
     query,
     without_timestamp,
     workers,
+    follow,
+    timestamps,
+    **log_options,
 ):
     """
-    Retrieve and display logs from deployments, jobs, or replicas.
+    Query historical logs or stream live replica logs with --follow.
+
+    Live logs require --replica; --follow omits the query parameter entirely.
+    Without --follow, --query is always sent (an empty string by default).
+    Slurm logs always use historical queries. Live streams include a tail of up
+    to 10,000 lines (fixed by the server).
+
+    Examples:
+      lep log get --endpoint my-endpoint --replica my-replica --follow
+      lep log get --job my-job --replica my-replica -f --no-timestamps
+      lep log get --ray-cluster my-ray --start today --level error,warn
+
 
     IMPORTANT:
     - 'lep log get' and 'lep log get --path' are intended is for quick, time-scoped viewing.
     - They are NOT recommended for downloading logs.
     - Prefer using Workspace Dashboard -> Settings -> Logs Export for downloading
       large-volume logs (jobs/endpoints long-running or with many replicas).
-    - When --limit is NOT used, retrieval adapts to the requested range: workers
-      fetch it in parallel and only split further when a fetch saturates the
-      per-request page limit, so the number of requests made depends on how
-      dense the logs are, not on a fixed number of windows.
+    - Bulk queries scan forward and split ranges only when a page is full.
     - Concurrency (workers) is applied only when --limit is NOT used.
     - --limit is deprecated and not recommended. When set, logs will be fetched
       sequentially without parallelism. It will be removed in a future release.
@@ -1526,7 +1627,7 @@ def log_command(
 
     EXAMPLES:
     # Get logs from a deployment for the last hour
-    lep log get -d my-deployment --start "today 13:00" --end "today 14:00"
+    lep log get -e my-deployment --start "today 13:00" --end "today 14:00"
 
     # Get logs from a job by name for today
     lep log get -jn my-job-name --start today --end now
@@ -1535,30 +1636,75 @@ def log_command(
     lep log get -j job-abc123 --start yesterday --end today --query "error"
 
     # Save logs to file
-    lep log get -d my-deployment --start "today 09:00" --end now --path ./logs/
+    lep log get -e my-deployment --start "today 09:00" --end now --path ./logs/
+
+    # Get historical logs of a Dynamo deployment
+    lep log get --dynamo my-dynamo --start "today 09:00" --end now
     """
 
-    if (
-        not deployment
-        and not job
-        and not job_name
-        and not replica
-        and not job_history_name
-    ):
-        console.print(
-            "[red]No deployment name, job id, job name or replica id provided.[/red]"
-        )
-        sys.exit(1)
-
-    if sum(bool(var) for var in [deployment, job, job_name, job_history_name]) > 1:
+    log_options = {
+        key: value for key, value in log_options.items() if value is not None
+    }
+    dev_pod = log_options.get("name_or_dev_pod")
+    ray_cluster = log_options.get("name_or_ray_cluster")
+    slurm_cluster = log_options.get("slurm_cluster")
+    direction = log_options.get("direction", "backward")
+    owners = [deployment, job, job_name, dynamo, dev_pod, ray_cluster, slurm_cluster]
+    if not any(owners) and not replica:
         raise ValueError(
-            "Only one of 'deployment', 'job', or 'job_history_name' can be specified."
+            "No deployment name, job, Dynamo, DevPod, Ray cluster, Slurm cluster or"
+            " replica provided."
         )
+    if sum(bool(owner) for owner in owners) > 1:
+        raise ValueError(
+            "Only one of endpoint, job, job-name, dynamo, dev-pod, ray-cluster or"
+            " slurm-cluster can be specified."
+        )
+    if job_history_name and not (job or job_name):
+        raise ValueError("--job-history-name requires --job or --job-name.")
+    if dynamo_service and not dynamo:
+        raise ValueError("--dynamo-service requires --dynamo.")
+    if log_options.get("component") and not deployment:
+        raise ValueError("--component requires --endpoint.")
+    if (
+        any(
+            log_options.get(key)
+            for key in ("ray_job_id", "ray_component", "ray_node_id")
+        )
+        and not ray_cluster
+    ):
+        raise ValueError("Ray filters require --ray-cluster.")
+    if any(
+        value for key, value in log_options.items() if key.startswith("slurm_")
+    ) and not (slurm_cluster and log_options.get("slurm_namespace")):
+        raise ValueError("Slurm logs require --slurm-namespace and --slurm-cluster.")
+    if timestamps is not None:
+        if timestamps and without_timestamp:
+            raise ValueError("--timestamps conflicts with --without-timestamp.")
+        without_timestamp = not timestamps
+    if follow:
+        if not replica or slurm_cluster:
+            raise ValueError("--follow requires --replica and a non-Slurm workload.")
+        if (
+            start is not None
+            or end is not None
+            or limit is not None
+            or workers is not None
+            or log_options.get("level")
+            or job_history_name
+            or direction != "backward"
+        ):
+            raise ValueError(
+                "--follow does not support --start/--end, --limit, --workers, --level,"
+                " --direction or --job-history-name."
+            )
 
     client = APIClient()
 
     if job_name is not None:
-        job = _get_newest_job_by_name(job_name)
+        job = _get_newest_job_by_name(
+            job_name, job_query_mode=log_options["job_query_mode"]
+        )
         if job is None:
             console.print(
                 f"[bold red]Warning:[/bold red] No job named '{job_name}' found."
@@ -1566,26 +1712,39 @@ def log_command(
             sys.exit(1)
         job = job.metadata.id_
 
-    if deployment:
-        client.deployment.get(deployment)
-    if job and not job_name:
-        client.job.get(job)
-
-    if (job or deployment) and replica:
-        replicas = (
-            client.job.get_replicas(job)
-            if job
-            else client.deployment.get_replicas(deployment)
+    if follow:
+        stream = client.log.get_log(
+            name_or_deployment=deployment,
+            name_or_job=job,
+            name_or_dynamo=dynamo,
+            dynamo_service=dynamo_service,
+            replica=replica,
+            stream=True,
+            timestamps=not without_timestamp,
+            **log_options,
         )
-        if replica not in [replica.metadata.id_ for replica in replicas]:
-            console.print(
-                f"[bold red]Warning:[/bold red] No replica named '{replica}' found for"
-                f" {job if job else deployment}."
-            )
-            sys.exit(1)
+        try:
+            with contextlib.closing(stream):
+                if path:
+                    filename = (
+                        f"log-{job or deployment or dynamo or dev_pod or ray_cluster or replica}-{datetime.now().strftime('%Y%m%d-%H%M%S')}.txt"
+                    )
+                    resolved_path = resolve_save_path(path, filename)
+                    with open(resolved_path, "w", encoding="utf-8") as output:
+                        for chunk in stream:
+                            output.write(chunk)
+                            output.flush()
+                else:
+                    for chunk in stream:
+                        click.echo(chunk, nl=False)
+        except KeyboardInterrupt:
+            click.echo("Disconnected.", err=True)
+        except Exception as exc:
+            raise click.ClickException(str(exc)) from exc
+        return
 
     if (not start or not end) and job:
-        job_obj = client.job.get(job)
+        job_obj = client.job.get(job, job_query_mode=log_options["job_query_mode"])
         logger.trace(json.dumps(job_obj.model_dump(), indent=4))
         if job_obj.status is not None:
             start = start or job_obj.status.creation_time
@@ -1600,6 +1759,8 @@ def log_command(
             " 00:00:00)"
         )
         start = "today"
+
+    log_options.update(name_or_dynamo=dynamo, dynamo_service=dynamo_service)
 
     def fetch_log(start, end, limit, path=None):
         unix_start = _preprocess_time(start, epoch=True)
@@ -1644,6 +1805,7 @@ def log_command(
                 workers,
                 without_timestamp,
                 path,
+                log_options=log_options,
             )
 
         # ======================================================================
@@ -1654,6 +1816,7 @@ def log_command(
         # ======================================================================
         log_list = []
         cur_unix_end = unix_end
+        cur_unix_start = unix_start
         cur_limit = limit
         time_total_ns = max(1, unix_end - unix_start)
         with Progress() as progress:
@@ -1664,10 +1827,11 @@ def log_command(
                     name_or_job=job,
                     replica=replica,
                     job_history_name=job_history_name,
-                    start=unix_start,
+                    start=cur_unix_start,
                     end=cur_unix_end,
                     limit=cur_limit if cur_limit < 10000 else 10000,
                     q=query,
+                    **log_options,
                 )
                 lines = log_dict["data"]["result"]
 
@@ -1677,22 +1841,33 @@ def log_command(
                     for value in values:
                         cur_log_list.append((int(value[0]), value[1]))
 
+                # Break out of the loop if no logs exist in the specified time range
                 if len(cur_log_list) == 0:
                     progress.update(task, completed=True)
                     break
-                # By setting reverse=True, the resulting list will be ordered from newest to oldest.
-                # The subsequent while loop also produces a list from newest to oldest, allowing us
-                # to easily extend them and, if desired, reverse the final combined list just once.
+                # Use the oldest/newest timestamps to advance the chosen cursor.
                 cur_log_list.sort(key=lambda x: x[0], reverse=True)
 
                 cur_limit -= len(cur_log_list)
-                prev_unix_end = cur_unix_end
-                cur_unix_end = cur_log_list[-1][0]
-                progress.update(task, advance=prev_unix_end - cur_unix_end)
+                if direction == "forward":
+                    next_start = cur_log_list[0][0] + 1
+                    if next_start <= cur_unix_start:
+                        raise RuntimeError("Log pagination did not advance.")
+                    progress.update(task, advance=next_start - cur_unix_start)
+                    cur_unix_start = next_start
+                else:
+                    next_end = cur_log_list[-1][0]
+                    if next_end >= cur_unix_end:
+                        raise RuntimeError("Log pagination did not advance.")
+                    progress.update(task, advance=cur_unix_end - next_end)
+                    cur_unix_end = next_end
+                if cur_unix_start >= cur_unix_end:
+                    log_list.extend(cur_log_list)
+                    break
 
                 log_list.extend(cur_log_list)
 
-        return log_list
+        return sorted(log_list, key=lambda item: item[0], reverse=True)
 
     def fetch_and_print_logs(start, end, limit, path=None):
         if path and limit is not None:
@@ -1768,6 +1943,8 @@ def log_command(
         try:
             unix_start_probe = _preprocess_time(start, epoch=True)
             unix_end_probe = _preprocess_time(end, epoch=True)
+            if unix_end_probe <= unix_start_probe:
+                raise ValueError("End time must be greater than start time.")
             probe = client.log.get_log(
                 name_or_deployment=deployment,
                 name_or_job=job,
@@ -1777,6 +1954,7 @@ def log_command(
                 end=unix_end_probe,
                 limit=1,
                 q=query,
+                **log_options,
             )
             if not probe or not probe.get("data", {}).get("result"):
                 console.print("[yellow]No logs found in the specified time range.[/]")
