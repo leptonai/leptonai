@@ -81,6 +81,9 @@ class FakeHTTPResponse:
         self.text = text
         self.headers = {}
 
+    def close(self):
+        pass
+
     def json(self):
         return self._payload
 
