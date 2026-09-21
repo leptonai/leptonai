@@ -1,4 +1,5 @@
 from typing import Union, List, Iterator, Optional
+from urllib.parse import quote
 
 from .api_resource import APIResourse
 from .job_validation import validate_job_create
@@ -129,6 +130,58 @@ class JobAPI(APIResourse):
             params={"job_query_mode": job_query_mode},
         )
         return self.ensure_list(response, Replica)
+
+    def get_ssh_replica(
+        self, id_or_job: Union[str, LeptonJob], replica: Optional[str] = None
+    ) -> str:
+        """Select one live Job replica without guessing among workers or history."""
+        job = self.get(id_or_job, job_query_mode=LeptonJobQueryMode.AliveOnly.value)
+        if job.status is None or job.status.state != "Running":
+            raise RuntimeError("SSH requires a running job.")
+        job_id = self._to_id(job)
+        if not job_id:
+            raise RuntimeError("The job response is missing its ID.")
+        replicas = self.ensure_json(
+            self._get(
+                f"/jobs/{quote(job_id, safe='')}/replicas",
+                params={"job_query_mode": LeptonJobQueryMode.AliveOnly.value},
+            )
+        )
+        if not isinstance(replicas, list):
+            raise RuntimeError("The server returned an invalid job replica list.")
+        ids = []
+        ready_ids = []
+        for item in replicas:
+            metadata = item.get("metadata") if isinstance(item, dict) else None
+            rid = metadata.get("id") if isinstance(metadata, dict) else None
+            if not isinstance(rid, str) or not rid.strip() or rid in ids:
+                raise RuntimeError(
+                    "The server returned invalid or duplicate job replica IDs."
+                )
+            ids.append(rid)
+            status = item.get("status")
+            readiness = (
+                status.get("readiness_issue") if isinstance(status, dict) else None
+            )
+            if isinstance(readiness, dict) and readiness.get("reason") == "Ready":
+                ready_ids.append(rid)
+        if replica is not None:
+            if replica not in ids:
+                raise RuntimeError(
+                    "The requested replica does not belong to the current job run. "
+                    f"List current replicas with: lep job replicas --id {job_id}"
+                )
+            if replica not in ready_ids:
+                raise RuntimeError("The selected Job replica is not ready for SSH.")
+            return replica
+        if not ready_ids:
+            raise RuntimeError("The job has no ready replicas available for SSH.")
+        if len(ready_ids) != 1:
+            raise RuntimeError(
+                "The job has multiple replicas. Select one with --replica. "
+                f"List current replicas with: lep job replicas --id {job_id}"
+            )
+        return ready_ids[0]
 
     def get_log(
         self,

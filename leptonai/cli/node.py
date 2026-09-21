@@ -4,7 +4,9 @@ from copy import deepcopy
 import click
 
 from rich.table import Table
+from requests import RequestException
 
+from .teleport import connect_node_teleport
 from .util import (
     console,
     click_group,
@@ -83,6 +85,48 @@ def node():
     Manage nodes on the DGX Cloud Lepton.
     """
     pass
+
+
+@node.command()
+@click.option(
+    "--id", "-i", required=True, help="Exact node ID from lep node list-nodes."
+)
+@click.option("--node-group", "-ng", required=True, help="Exact node group name or ID.")
+@click.option(
+    "--teleport-auth",
+    default="Starfleet",
+    show_default=True,
+    help="Teleport SSO connector.",
+)
+def ssh(id, node_group, teleport_auth):
+    """SSH into a Slurm compute container through Teleport.
+
+    Requires a personal workspace user/admin token and local tsh v18 or newer.
+    The compute group must enable Teleport and use host networking. Slurm account
+    access can depend on running jobs and node maintenance status.
+    """
+    client = get_client()
+    try:
+        groups = resolve_node_groups([node_group], is_exact_match=True)
+        if len(groups) != 1:
+            raise click.ClickException(
+                "Select exactly one node group by name or ID with --node-group."
+            )
+        group_id = groups[0].metadata.id_
+        target = client.node_ssh.resolve(group_id, id)
+
+        def revalidate():
+            if client.node_ssh.resolve(group_id, id) != target:
+                raise click.ClickException(
+                    "Node SSH identity or target changed during sign-in. Retry the"
+                    " command."
+                )
+
+        connect_node_teleport(target, auth=teleport_auth, before_connect=revalidate)
+    except click.exceptions.Exit:
+        raise
+    except (RuntimeError, RequestException) as error:
+        raise click.ClickException(str(error)) from None
 
 
 def _is_node_usable(node):

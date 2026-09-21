@@ -17,6 +17,7 @@ import click
 from loguru import logger
 from rich.console import Console
 from rich.table import Table
+from requests import RequestException
 
 from leptonai.config import (
     VALID_SHAPES,
@@ -57,6 +58,7 @@ from ..api.v2.types.deployment import (
     LeptonContainer,
 )
 from ..api.v2.types.common import LeptonUserSecurityContext
+from .teleport import connect_teleport
 
 
 console = Console(highlight=False)
@@ -876,9 +878,34 @@ def remove(name):
 
 @pod.command()
 @click.option("--name", "-n", help="The pod name to ssh.", required=True)
-def ssh(name):
+@click.option(
+    "--transport",
+    type=click.Choice(["ssh", "teleport"]),
+    default="ssh",
+    show_default=True,
+    help="Connect using direct SSH or Teleport (requires local tsh).",
+)
+@click.option(
+    "--teleport-auth",
+    default=None,
+    help=(
+        "Teleport SSO connector for login (default: Starfleet). Requires --transport"
+        " teleport."
+    ),
+)
+def ssh(name, transport, teleport_auth):
     """SSH into a running pod."""
+    if teleport_auth is not None and transport != "teleport":
+        raise click.UsageError("--teleport-auth requires --transport teleport.")
     client = APIClient()
+
+    if transport == "teleport":
+        try:
+            connection = client.pod.get_teleport_connection(name)
+        except (RuntimeError, RequestException) as error:
+            raise click.ClickException(str(error)) from None
+        connect_teleport(connection, auth=teleport_auth or "Starfleet")
+        return
 
     pod = client.pod.get(name)
     logger.trace(json.dumps(pod.model_dump(), indent=2))

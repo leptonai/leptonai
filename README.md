@@ -78,7 +78,57 @@ lep job create -n my-job --container-image my-registry/my-trainer:latest --comma
 
 # Launch an interactive dev pod
 lep pod create -n my-pod --resource-shape gpu.a10
+
+# Connect to a pod with Teleport SSH enabled (requires local tsh)
+lep pod ssh -n my-pod --transport teleport
 ```
+
+Pod, Job, and Node Teleport SSH require `tsh` v18 or newer in your PATH. The CLI checks
+the client version before reading login profiles or starting SSO; missing, older,
+or unrecognized clients produce an actionable error. This minimum version check
+does not guarantee compatibility with every Teleport cluster version.
+
+Teleport SSH reuses your local Teleport login, or starts SSO login when needed.
+The default connector is `Starfleet`; use `--teleport-auth <connector>` to override
+it. Lepton API credentials and Teleport login are separate. Your workspace, node
+group, and pod must have Teleport enabled. This currently supports legacy Pods;
+the new DevPod API does not yet publish Teleport connection details. Without
+`--transport teleport`, `lep pod ssh` continues to use direct SSH.
+
+Jobs can also be accessed through Teleport when their workspace has `job_teleport`
+enabled and their image/entrypoint starts a Teleport agent:
+
+```shell
+lep job replicas --id <job-id>
+lep job ssh --id <job-id> --replica <replica-id>
+# Or select a uniquely named job (a single ready replica is selected automatically)
+lep job ssh --name <job-name>
+# Specify the proxy when you have not logged in, or to switch from another proxy
+lep job ssh --id <job-id> --replica <replica-id> --teleport-proxy <host>:443
+```
+
+Job SSH defaults to the active `tsh` profile because the Job API does not publish
+Teleport connection details. It uses the standard Lepton agent's
+`<workspace-id>-<replica-id>` hostname and workspace label to find one node, then
+connects to its Teleport node ID as `root`. Historical and unready replicas are
+excluded; multiple ready replicas require `--replica`. Job SSH does not install
+the agent or change the workload's startup command. Use `--teleport-auth` to
+override the default `Starfleet` SSO connector.
+
+Slurm compute nodes also support Teleport SSH:
+
+```shell
+lep node list-nodes --node-group <node-group>
+lep node ssh --node-group <node-group-name-or-id> --id <node-id>
+```
+
+Node SSH discovers the Slurm cluster, Teleport proxy, Machine hostname, and Linux
+account automatically. Use a personal API token with workspace user or admin
+access; Teleport sign-in must match that token's owner. The compute group must
+enable Teleport and use host networking. For clusters using Pod Networking, open
+a running Slurm Job you own in the TUI and select an allocated node instead.
+The session opens in the compute container; Slurm account permissions and job
+allocation policies still apply. Use `--teleport-auth` to override the SSO connector.
 
 Run `lep --help`, or `lep <command> --help` for any subcommand, to explore everything. See the [CLI references](https://docs.nvidia.com/dgx-cloud/lepton/reference/cli/get-started/) for the full guide.
 
