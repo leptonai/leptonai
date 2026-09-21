@@ -11,6 +11,7 @@ from urllib.parse import urlsplit
 import click
 from pydantic import ValidationError
 
+from leptonai.api.v2.node_ssh import NodeSSHTarget
 from leptonai.api.v2.types.teleport import TeleportConnection, TeleportTarget
 
 
@@ -121,7 +122,13 @@ def _status(tsh: str, proxy: Optional[str] = None) -> Optional[dict]:
         ) from None
 
 
-def _profile(tsh: str, connection: TeleportTarget) -> Optional[dict]:
+def _profile(
+    tsh: str,
+    connection: TeleportTarget,
+    *,
+    discover_cluster: bool = False,
+    expected_user: Optional[str] = None,
+) -> Optional[dict]:
     """Return a current profile for the exact proxy and cluster, if present."""
     active = _status(tsh, f"{connection.proxy}:{connection.port}")
     if active is None:
@@ -137,7 +144,11 @@ def _profile(tsh: str, connection: TeleportTarget) -> Optional[dict]:
             or proxy.path not in ("", "/")
             or proxy.query
             or proxy.fragment
-            or active.get("cluster") != connection.cluster_domain
+            or (
+                not discover_cluster
+                and active.get("cluster") != connection.cluster_domain
+            )
+            or (expected_user is not None and active.get("username") != expected_user)
         ):
             return None
         expiry = datetime.fromisoformat(active["valid_until"].replace("Z", "+00:00"))
@@ -149,6 +160,10 @@ def _profile(tsh: str, connection: TeleportTarget) -> Optional[dict]:
             not isinstance(active.get("username"), str)
             or not active["username"]
             or any(c in active["username"] for c in "\0\r\n")
+        ):
+            raise ValueError
+        if not isinstance(active.get("cluster"), str) or not re.fullmatch(
+            r"[a-zA-Z0-9][a-zA-Z0-9._-]*", active["cluster"]
         ):
             raise ValueError
         logins = active.get("logins")
@@ -200,22 +215,32 @@ def _connect_teleport(
     *,
     workspace: Optional[str] = None,
     before_connect: Optional[Callable[[], None]] = None,
+    slurm_cluster: Optional[str] = None,
+    expected_user: Optional[str] = None,
 ) -> None:
     """Start a session after client preflight, without checking the client twice."""
     proxy = f"--proxy={connection.proxy}:{connection.port}"
     try:
-        profile = _profile(tsh, connection)
+        profile_options = dict(
+            discover_cluster=slurm_cluster is not None, expected_user=expected_user
+        )
+        profile = _profile(tsh, connection, **profile_options)
         if profile is None:
             click.echo("Signing in to Teleport...")
+            login_args = [tsh, "login", proxy, f"--auth={auth}"]
+            if expected_user is not None:
+                login_args.append(f"--user={expected_user}")
+            if slurm_cluster is None:
+                login_args.append(connection.cluster_domain)
             _run_interactive(
-                [tsh, "login", proxy, f"--auth={auth}", connection.cluster_domain],
+                login_args,
                 "login",
             )
-            profile = _profile(tsh, connection)
+            profile = _profile(tsh, connection, **profile_options)
             if profile is None:
                 raise click.ClickException(
                     "Teleport login did not produce a valid profile for the target's "
-                    "proxy and cluster."
+                    "proxy, cluster, and user."
                 )
         if connection.username not in profile["logins"]:
             raise click.ClickException(
@@ -223,11 +248,19 @@ def _connect_teleport(
                 f" {connection.username}. Check your Teleport access or sign in with"
                 " the correct account."
             )
-        if before_connect is not None:
+        if before_connect is not None and slurm_cluster is None:
             before_connect()
         node = connection.name
         if workspace is not None:
             node = _job_node(tsh, connection, profile["username"], workspace)
+        if slurm_cluster is not None:
+            connection = TeleportTarget(**{
+                **connection.model_dump(by_alias=True),
+                "clusterDomain": profile["cluster"],
+            })
+            node = _slurm_node(tsh, connection, profile["username"], slurm_cluster)
+            if before_connect is not None:
+                before_connect()
         _run_interactive(
             [
                 tsh,
@@ -245,6 +278,104 @@ def _connect_teleport(
         raise click.ClickException(
             f"Could not run Teleport CLI (tsh): {error}"
         ) from None
+
+
+def _slurm_node(tsh: str, target: TeleportTarget, user: str, cluster: str) -> str:
+    labels = {"teleport.lepton.ai/slurm-cluster": cluster, "cluster": cluster}
+    try:
+        result = subprocess.run(
+            [
+                tsh,
+                "ls",
+                f"--proxy={target.proxy}:{target.port}",
+                f"--cluster={target.cluster_domain}",
+                f"--user={user}",
+                "--format=json",
+                ",".join(f"{key}={value}" for key, value in labels.items()),
+            ],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+    except subprocess.TimeoutExpired:
+        raise click.ClickException(
+            "Timed out discovering the Slurm compute node in Teleport."
+        ) from None
+    if result.returncode:
+        raise click.ClickException(
+            "Could not list Slurm Teleport nodes. Check your Teleport login and"
+            " permissions."
+        )
+    try:
+        nodes = json.loads(result.stdout)
+        if not isinstance(nodes, list):
+            raise ValueError
+        matches = []
+        for node in nodes:
+            if not isinstance(node, dict):
+                raise ValueError
+            metadata, spec = node.get("metadata"), node.get("spec")
+            if not isinstance(metadata, dict) or not isinstance(spec, dict):
+                raise ValueError
+            actual_labels = metadata.get("labels")
+            if (
+                node.get("kind") != "node"
+                or not isinstance(actual_labels, dict)
+                or any(actual_labels.get(key) != value for key, value in labels.items())
+                or actual_labels.get("hostname") != target.name
+            ):
+                continue
+            host_id = metadata.get("name")
+            hostname = spec.get("hostname")
+            if any(
+                not isinstance(value, str)
+                or not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9._-]*", value)
+                for value in (host_id, hostname)
+            ):
+                raise ValueError
+            matches.append(host_id)
+    except (ValueError, TypeError):
+        raise click.ClickException("Teleport returned an invalid node list.") from None
+    if not matches:
+        raise click.ClickException(
+            "No Teleport node is visible for this Slurm compute node. Check agent"
+            " registration and permissions."
+        )
+    if len(matches) != 1:
+        raise click.ClickException(
+            "Multiple Teleport nodes match this Slurm compute node. Resolve stale"
+            " registrations before retrying."
+        )
+    return matches[0]
+
+
+def connect_node_teleport(
+    target: NodeSSHTarget,
+    auth: str = "Starfleet",
+    *,
+    before_connect: Optional[Callable[[], None]] = None,
+) -> None:
+    """Discover the Teleport cluster from the verified personal user's profile."""
+    connection = TeleportTarget(
+        name=target.hostname,
+        proxy=target.proxy,
+        port=443,
+        clusterDomain=target.proxy,
+        username=target.username,
+    )
+    click.echo(
+        f"Connecting to Slurm compute container {target.hostname} as"
+        f" {target.username} via Teleport..."
+    )
+    _connect_teleport(
+        _require_tsh(),
+        connection,
+        auth,
+        slurm_cluster=target.cluster_name,
+        expected_user=target.actor_email,
+        before_connect=before_connect,
+    )
 
 
 def _job_node(tsh: str, target: TeleportTarget, user: str, workspace: str) -> str:

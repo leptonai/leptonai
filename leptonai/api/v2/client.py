@@ -20,6 +20,7 @@ from .types.workspace import WorkspaceInfo
 # not import workspace to avoid circular imports.
 from .api_resource import APIResourse
 from .dedicated_node_groups import DedicatedNodeGroupAPI
+from .node_ssh import NodeSSHAPI
 from .deployment import DeploymentAPI
 from .endpoint import EndpointAPI
 from .devpod import DevPodAPI
@@ -327,6 +328,7 @@ class APIClient(object):
 
         # Add individual APIs
         self.nodegroup = DedicatedNodeGroupAPI(self)
+        self.node_ssh = NodeSSHAPI(self)
         self.job = JobAPI(self)
         self.secret = SecretAPI(self)
         self.ingress = IngressAPI(self)

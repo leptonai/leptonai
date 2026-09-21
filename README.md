@@ -83,7 +83,7 @@ lep pod create -n my-pod --resource-shape gpu.a10
 lep pod ssh -n my-pod --transport teleport
 ```
 
-Pod and Job Teleport SSH require `tsh` v18 or newer in your PATH. The CLI checks
+Pod, Job, and Node Teleport SSH require `tsh` v18 or newer in your PATH. The CLI checks
 the client version before reading login profiles or starting SSO; missing, older,
 or unrecognized clients produce an actionable error. This minimum version check
 does not guarantee compatibility with every Teleport cluster version.
@@ -114,6 +114,21 @@ connects to its Teleport node ID as `root`. Historical and unready replicas are
 excluded; multiple ready replicas require `--replica`. Job SSH does not install
 the agent or change the workload's startup command. Use `--teleport-auth` to
 override the default `Starfleet` SSO connector.
+
+Slurm compute nodes also support Teleport SSH:
+
+```shell
+lep node list-nodes --node-group <node-group>
+lep node ssh --node-group <node-group-name-or-id> --id <node-id>
+```
+
+Node SSH discovers the Slurm cluster, Teleport proxy, Machine hostname, and Linux
+account automatically. Use a personal API token with workspace user or admin
+access; Teleport sign-in must match that token's owner. The compute group must
+enable Teleport and use host networking. For clusters using Pod Networking, open
+a running Slurm Job you own in the TUI and select an allocated node instead.
+The session opens in the compute container; Slurm account permissions and job
+allocation policies still apply. Use `--teleport-auth` to override the SSO connector.
 
 Run `lep --help`, or `lep <command> --help` for any subcommand, to explore everything. See the [CLI references](https://docs.nvidia.com/dgx-cloud/lepton/reference/cli/get-started/) for the full guide.
 
