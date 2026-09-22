@@ -50,6 +50,8 @@ jobs:
             python_version: "3.12"
           - runner: ubuntu-latest
             python_version: "3.13"
+          - runner: ubuntu-latest
+            python_version: "3.14"
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4

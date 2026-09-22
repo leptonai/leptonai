@@ -4,7 +4,7 @@ description = "NVIDIA DGX Cloud Lepton AI Platform, SDK and CLI"
 authors = [{name = "Lepton Contributors"}]
 dynamic = ["version"]
 readme = "README.md"
-requires-python = ">=3.9,<3.14"
+requires-python = ">=3.9,<3.15"
 dependencies = [
     "anyio>=3.7.0,<=4.9.0", # we use exceptiongroup
     "click",
