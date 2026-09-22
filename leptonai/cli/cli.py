@@ -50,7 +50,8 @@ LOGIN_LOGO = """
 
 @click.version_option(leptonai.__version__, "-v", "--version")
 @click_group(context_settings=CONTEXT_SETTINGS)
-def lep():
+@click.pass_context
+def lep(ctx):
     """
     Lep is the main entry point for the DGX Cloud Lepton commandline interface. It provides
     a set of commands to create and manage deployments, jobs, and pods on the
@@ -59,6 +60,9 @@ def lep():
 
     `pip install -U leptonai`
     """
+    if ctx.invoked_subcommand == "version":
+        return
+
     try:
         check_lepton_version()
     except Exception:
@@ -78,6 +82,12 @@ log.add_command(lep)
 raycluster.add_command(lep)
 template.add_command(lep)
 finetune.add_command(lep)
+
+
+@lep.command()
+def version():
+    """Show the version and exit."""
+    click.echo(f"lep, version {leptonai.__version__}")
 
 
 @lep.command()

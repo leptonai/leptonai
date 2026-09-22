@@ -262,7 +262,7 @@ class TestSinkFailureOutputMessages(unittest.TestCase):
 class TestProgressBarAndSummaryFormat(unittest.TestCase):
     """`Progress()` is instantiated inside `_AdaptiveLogScheduler.run()`
     itself (gated on whether `path` is set), not CLI/Click glue, so these
-    tests don't need the CLI layer. The one full end-to-end `--path` output
+    tests don't need the CLI layer. The CLI `--path` output
     case (file content/format) lives in test_log_cli.py's
     TestPathOutputAndProgressBar per the compact CLI-integration matrix.
     """

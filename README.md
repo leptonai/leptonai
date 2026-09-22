@@ -147,6 +147,15 @@ Restart the agent afterward.
 
 ## Contributing
 
+This repository uses [uv](https://docs.astral.sh/uv/) to manage its Python environment and dependencies. After installing uv, run these commands from the repository root:
+
+```shell
+uv sync --locked
+uv run lep --help
+```
+
+This installs the local source and development tools into `.venv`, using the Python version in `.python-version` and the dependencies in `uv.lock`. Use `uv run lep` to run the CLI without activating the environment.
+
 Contributions and collaborations are welcome and highly appreciated. Please check out the [contributor guide](https://github.com/leptonai/leptonai/blob/main/CONTRIBUTING.md) for how to get involved.
 
 ## License

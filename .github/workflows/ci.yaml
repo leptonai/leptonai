@@ -1,8 +1,13 @@
-name: Publish to PyPI
-run-name: Publish leptonai from ${{ github.ref_name }}
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+name: CI
 
 on:
-  workflow_dispatch:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["**"]
 
 permissions:
   contents: read
@@ -22,16 +27,19 @@ jobs:
           python-version: "3.10"
           enable-cache: true
           cache-dependency-glob: uv.lock
-      - name: Install locked build tools
-        run: uv sync --locked --only-group build
+      - name: Install locked development and build tools
+        run: uv sync --locked --group build
+      - name: Lint
+        run: |
+          uv run --no-sync ruff check . .github/scripts
+          uv run --no-sync black --check . .github/scripts
       - name: Test release validation
         run: uv run --no-sync python -m unittest discover -s .github/scripts -p 'test_*.py'
       - name: Build package
         run: |
           uv build --wheel --no-build-isolation --python .venv/bin/python
           uv run --no-sync twine check dist/*.whl
-      - name: Check publishing requirements
-        run: uv run --no-sync python .github/scripts/check_release.py dist --publish
+          uv run --no-sync python .github/scripts/check_release.py dist
       - name: Upload wheel artifact
         uses: actions/upload-artifact@v4
         with:
@@ -78,28 +86,3 @@ jobs:
           uv run --no-sync python -I -c 'import leptonai, sys; from pathlib import Path; location = Path(leptonai.__file__).resolve(); assert location.is_relative_to(Path(sys.prefix).resolve()), location; print(location)'
       - name: Run tests
         run: uv run --no-sync python -I -m pytest -x leptonai
-
-  publish-pypi:
-    needs: test-package
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.sha }}
-          fetch-depth: 0
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v9
-        with:
-          version: "0.12.5"
-          python-version: "3.10"
-      - uses: actions/download-artifact@v4
-        with:
-          name: whl-package
-          path: dist
-      - name: Check publishing requirements
-        run: uv run --no-project python .github/scripts/check_release.py dist --publish
-      - name: Upload package to PyPI
-        env:
-          UV_PUBLISH_USERNAME: ${{ secrets.PYPI_UPLOAD_USERNAME }}
-          UV_PUBLISH_PASSWORD: ${{ secrets.PYPI_UPLOAD_PASSWORD }}
-        run: uv publish dist/*.whl

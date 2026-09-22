@@ -32,13 +32,23 @@ lep = "leptonai.cli:lep"
 lint = [
     "black==23.12.0",
     "ruff==0.5.7",
-    "pre-commit==4.6.0",
+    "pre-commit==4.6.0; python_version >= '3.10'",
 ]
 test = [
     "pytest",
     "pytest-cov",
     "responses",
     "respx",
+]
+
+[dependency-groups]
+# Reuse the published extras so local development and package tests stay aligned.
+dev = ["leptonai[lint,test]"]
+build = [
+    "setuptools>=45",
+    "setuptools-scm[toml]>=6.2,<=7.1.0",
+    "wheel",
+    "twine",
 ]
 
 [build-system]
@@ -62,7 +72,7 @@ exclude = ["*tests*", "leptoninternal*", "release_scripts*", "*dockerfiles*"]
 
 [tool.black]
 preview = true
-exclude = "_version.py"
+extend-exclude = "_version.py"
 
 [tool.ruff]
 # Enable pycodestyle (`E`) and Pyflakes (`F`) codes by default.

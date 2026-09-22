@@ -1,6 +1,6 @@
 """Independent scenario/CLI-level tests for adaptive parallel log retrieval.
 
-These tests drive `lep log get` end-to-end through `click.testing.CliRunner`,
+These tests drive `lep log get` through `click.testing.CliRunner`,
 exactly as a user would invoke it, with only `APIClient` replaced by a fake
 that records every `client.log.get_log(...)` call and serves scripted Loki
 `query_range`-shaped responses. They are not written from reading
@@ -536,7 +536,7 @@ class TestLegacyLimitPathRegression(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# LogAPI.get_log rejects start=0/end=0 (end-to-end)
+# CLI validation rejects start=0/end=0
 # ---------------------------------------------------------------------------
 
 
@@ -573,9 +573,9 @@ class TestInvalidAdaptiveBoundsRejectedFastCli(unittest.TestCase):
                 self.assertNotIn("Traceback", result.output)
 
 
-class TestEndAfterStartAndNegativeTimestampEndToEndCli(unittest.TestCase):
+class TestTimeRangeValidationCli(unittest.TestCase):
     """Drives `lep log get` through the full CLI, proving `end <= start` is
-    rejected end-to-end and not an unhandled traceback. The negative/zero
+    rejected with a clear error. The negative/zero
     `start`/`end` cases (previously here too) now have their own dedicated
     fast-fail coverage in `TestInvalidAdaptiveBoundsRejectedFastCli` above.
     """

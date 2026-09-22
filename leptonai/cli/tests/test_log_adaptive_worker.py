@@ -416,7 +416,7 @@ class TestFetchLogUnit429Backoff(unittest.TestCase):
         the negative case. Drives a real `LogAPI` against a fake HTTP
         transport (not a synthetic, already-constructed `LogAPIError`), so
         this exercises the actual `_parse_retry_after` parsing path
-        end-to-end for both header values.
+        for both header values.
         """
         # start=0 is rejected by the real LogAPI's own epoch-zero
         # precondition (a different regression, covered elsewhere) -- use a
@@ -1014,7 +1014,7 @@ class TestFetchLogUnitRejectsEpochZeroBoundary(unittest.TestCase):
     """A literal `start=0`/`end=0` unit boundary can never actually reach
     `_fetch_log_unit` in production -- `fetch_log`'s probe call rejects an
     epoch-0 `--start`/`--end` before the adaptive scheduler ever starts (see
-    test_log_cli.py's `TestEpochZeroStartEndToEndCli`), and bisection never
+    test_log_cli.py's `TestInvalidAdaptiveBoundsRejectedFastCli`), and bisection never
     produces a unit boundary below the original start. This exercises the
     defense-in-depth case anyway: if `_fetch_log_unit` were ever given such a
     boundary, `LogAPI.get_log` rejects it with a plain `RuntimeError`, which

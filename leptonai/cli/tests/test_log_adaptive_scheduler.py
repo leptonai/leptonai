@@ -714,7 +714,7 @@ class TestMalformedResponseNeverMisreportedAsSinkFailure(unittest.TestCase):
     non-string line) would make the resulting `LogEntry` unhashable and only
     fail later at the scheduler's flush-time dedup (`seen.add(entry)`),
     misreported to the user as a sink failure ("Failed to write logs")
-    instead of the actual malformed-response root cause. This end-to-end
+    instead of the actual malformed-response root cause. This
     message-classification distinction is the actual regression -- rejected
     at parse time, retried like any other malformed response, and reported
     as a normal fetch-retry failure, never a sink failure.
@@ -775,9 +775,8 @@ class TestMalformedResponseNeverMisreportedAsSinkFailure(unittest.TestCase):
 
 
 class TestOversizedPageCappingIntegration(unittest.TestCase):
-    """End-to-end (not just the capping mechanic tested at the
-    `_fetch_log_unit` layer by TestFetchLogUnitOversizedPageCapping above):
-    with the real `_ADAPTIVE_PAGE_LIMIT` (10000, no monkeypatching), a
+    """Scheduler integration with the real `_ADAPTIVE_PAGE_LIMIT`
+    (10000, no monkeypatching): a
     14000-entry oversized root page must be capped, its child re-fetched,
     the trace diagnostic must name both the original count and the cap, and
     the final total must still count all 14000 distinct entries once the
@@ -955,11 +954,11 @@ class TestSameTimestampCaseBContinuation(unittest.TestCase):
         self.assertTrue(progress_advance)
         self.assertEqual(sched.pending, [])
 
-    def test_case_a_duplicated_entries_survive_dedup_end_to_end(self):
+    def test_case_a_duplicated_entries_survive_scheduler_dedup(self):
         """Case A (terminal, 1ns remainder): unlike
         `test_case_a_terminal_enqueues_no_children_even_when_min_ts_equals_t`
         above (which only checks the branching decision via a direct
-        `_handle_result` call), this drives the real end-to-end path with
+        `_handle_result` call), this drives the scheduler with
         every line duplicated in the raw response -- proving flush-time
         dedup, not just the child-count decision, on the terminal Case A
         path: each *distinct* line still survives exactly once despite
@@ -1014,8 +1013,8 @@ class TestSameTimestampCaseBContinuation(unittest.TestCase):
             same_ts_records,
         )
 
-    def test_case_b_duplicated_entries_survive_dedup_end_to_end(self):
-        """Case B, end-to-end, with every same-timestamp line duplicated in
+    def test_case_b_duplicated_entries_survive_scheduler_dedup(self):
+        """Case B, with every same-timestamp line duplicated in
         the raw response: flush-time dedup survives alongside the later,
         genuinely distinct record fetched by the `[T+1, E)` child, and the
         Case B trace diagnostic is emitted.
