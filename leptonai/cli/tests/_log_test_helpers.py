@@ -88,7 +88,7 @@ class FakeHTTPResponse:
 class RealLogAPIHTTPClient:
     """Fake HTTP transport for a real `LogAPI` instance -- lets a test drive
     `LogAPI`'s own request/response parsing (e.g. `Retry-After` header
-    handling, precondition rejection) end to end, instead of constructing an
+    handling, precondition rejection), instead of constructing an
     already-parsed `LogAPIError` by hand."""
 
     def __init__(self):

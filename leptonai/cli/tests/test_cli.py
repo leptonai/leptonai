@@ -23,13 +23,13 @@ class TestLepCli(unittest.TestCase):
     def test_version(self):
         runner = CliRunner()
 
-        v = runner.invoke(cli, ["-v"])
-        version = runner.invoke(cli, ["--version"])
-
-        self.assertEqual(v.exit_code, 0)
-        self.assertEqual(version.exit_code, 0)
-        self.assertEqual(v.output.strip(), f"lep, version {__version__}")
-        self.assertEqual(version.output.strip(), f"lep, version {__version__}")
+        with patch("leptonai.cli.cli.check_lepton_version") as check_version:
+            for arg in ("-v", "--version", "version"):
+                with self.subTest(arg=arg):
+                    result = runner.invoke(cli, [arg])
+                    self.assertEqual(result.exit_code, 0, result.output)
+                    self.assertEqual(result.output, f"lep, version {__version__}\n")
+                    check_version.assert_not_called()
 
     def test_reject_empty_string_option(self):
         runner = CliRunner()

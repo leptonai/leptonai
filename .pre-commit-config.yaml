@@ -1,11 +1,11 @@
 # Auto-format and lint changed files before each commit.
 #
-# One-time setup per clone (after installing the dev deps):
-#   uv pip install -e ".[lint]"   # or: pip install -e ".[lint]"
-#   pre-commit install
+# One-time setup per clone:
+#   uv sync --locked
+#   uv run pre-commit install
 #
 # Run manually on the whole repo:
-#   pre-commit run --all-files
+#   uv run pre-commit run --all-files
 #
 # Hook tool versions are kept in sync with the `lint` extra in pyproject.toml
 # so manual runs and the hook format identically.
