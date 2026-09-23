@@ -40,6 +40,7 @@ from .utils import (
     WorkspaceUnauthorizedError,
     WorkspaceNotFoundError,
     _get_workspace_origin_url,
+    _normalize_workspace_origin_url,
     WorkspaceConfigurationError,
 )
 from .workspace_record import WorkspaceRecord
@@ -257,6 +258,9 @@ class APIClient(object):
             )
             or _get_workspace_origin_url(url)
         )
+        if workspace_origin_url:
+            # Also normalize explicit settings and records saved by older SDKs.
+            workspace_origin_url = _normalize_workspace_origin_url(workspace_origin_url)
 
         token_expires_at = (
             getattr(WorkspaceRecord.get(workspace_id), "token_expires_at", None)
@@ -296,8 +300,7 @@ class APIClient(object):
             self._header["Authorization"] = "Bearer " + self.auth_token
 
         if self.workspace_origin_url:
-            # print(f"workspace_origin_url: {workspace_origin_url}")
-            self._header["origin"] = workspace_origin_url
+            self._header["origin"] = self.workspace_origin_url
 
         logger.trace(
             "Current workspace info:\n"

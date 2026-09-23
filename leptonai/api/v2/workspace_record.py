@@ -20,6 +20,7 @@ from .utils import (
     _get_token_expires_at,
     WorkspaceNotCreatedYet,
     _get_workspace_origin_url,
+    _normalize_workspace_origin_url,
     _print_workspace_not_created_yet_message,
     WorkspaceConfigurationError,
 )
@@ -160,7 +161,9 @@ class WorkspaceRecord(object):
                 token_expires_at = None
         if url is None:
             url = _get_full_workspace_api_url(workspace_id)
-        if not workspace_origin_url:
+        if workspace_origin_url:
+            workspace_origin_url = _normalize_workspace_origin_url(workspace_origin_url)
+        else:
             workspace_origin_url = _get_workspace_origin_url(url)
         # Create workspace info with optional workspace_origin_url
         cls._singleton_record.workspaces[workspace_id] = LocalWorkspaceInfo(
