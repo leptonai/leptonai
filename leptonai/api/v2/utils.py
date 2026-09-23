@@ -4,6 +4,7 @@ Utility functions for the Lepton AI API.
 
 import requests
 from typing import Optional
+from urllib.parse import urlsplit, urlunsplit
 
 from leptonai.config import (
     DGXC_WORKSPACE_API_PATH,
@@ -181,12 +182,18 @@ def _get_full_workspace_api_url(workspace_id) -> str:
     return API_URL_BASE + DGXC_WORKSPACE_API_PATH + workspace_id
 
 
-def _get_workspace_origin_url(url: str) -> str:
+def _normalize_workspace_origin_url(url: str) -> str:
+    """Keep only the scheme, host, and optional port for the Origin header."""
+    parsed = urlsplit(url)
+    return urlunsplit((parsed.scheme, parsed.netloc.rsplit("@", 1)[-1], "", "", ""))
+
+
+def _get_workspace_origin_url(url: str) -> Optional[str]:
     """
     Get the origin url of a workspace.
     """
-    # For DGXC workspaces, the origin url is the url.
+    # For DGXC workspaces, derive the origin without the workspace API path.
     if "dgxc" in url:
-        return url
+        return _normalize_workspace_origin_url(url)
     # For classic workspaces, origin url is not required.
     return None
