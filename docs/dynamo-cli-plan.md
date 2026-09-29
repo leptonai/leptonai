@@ -35,14 +35,17 @@ Source material used to derive the scope:
 | Replicas tab, status filter, node column (`deployment-dynamo-detail-replicas.md`) | `GET /:id/services/:svc/replicas`, `GET /:id/replicas[?service=]` | `lep dynamo replica list -n X [-s SVC] [--state R]...` |
 | Delete replica | `DELETE /:id/replicas/:rid` (or service-scoped) | `lep dynamo replica remove -n X -r RID` |
 | Logs overlay, per-replica logs (`deployment-dynamo-detail-logs.md`, `...-replicas-detail-logs.md`) | `GET /:id/replicas/:rid/log?tail=&timestamps=`; shared `GET /logs?dynamo_graph_deployment=&dynamo_service=&replica=` | `lep dynamo replica log -n X [-s SVC] [-r RID] [--tail N] [--timestamps]`; `lep log get --dynamo X` for historical windows |
-| Deployment metrics (`deployment-dynamo-detail-metrics.md`) | `GET /:id/monitoring/{GPUUtilAvg,...}?window=H` | `lep dynamo metrics -n X [--window H]` (phase 4, optional) |
-| Replica metrics (`...-replicas-detail-metrics*.md`) | `GET /:id/replicas/:rid/monitoring/{metric}` | `lep dynamo replica metrics -n X -r RID` (phase 4, optional) |
+| Deployment metrics (`deployment-dynamo-detail-metrics.md`) | `GET /:id/monitoring/{GPUUtilAvg,...}?window=H` | Dashboard / SDK only |
+| Replica metrics (`...-replicas-detail-metrics*.md`) | `GET /:id/replicas/:rid/monitoring/{metric}` | Dashboard / SDK only |
 | Not in GUI, cheap | `GET /:id/history` | `lep dynamo history -n X` (phase 4, optional) |
 
 Explicitly out of scope: the LLM-engine switcher, node-group preference
 storage, permission-based button disabling, and every layout/skeleton rule.
 Those are browser concerns. The server remains the authority for RBAC; the CLI
 just surfaces 403 via the existing `click_group` error handler.
+
+Deployment and replica metrics are available through the dashboard and SDK;
+metrics commands are outside the CLI scope.
 
 ## 2. Backend facts that shape the CLI design
 
@@ -177,8 +180,8 @@ get_replica_log(name, replica, service=None, tail=None, timestamps=False) -> Dyn
 delete_replica(name, replica, service=None) -> DynamoReplicaDeleteResponse
 get_monitoring_status(name) -> DynamoMonitoringStatusResponse
 get_history(name) -> List[DynamoHistoryItem]
-get_metric(name, metric, window=None) -> list                     # phase 4
-get_replica_metric(name, replica, metric) -> list                 # phase 4
+get_metric(name, metric, window=None) -> list                     # SDK only
+get_replica_metric(name, replica, metric) -> list                 # SDK only
 ```
 
 Notes:
@@ -240,8 +243,7 @@ Commands, in the order to implement:
    confirm prompts; surface the 400 "already being deleted" message plainly.
 9. `create` — see 4.4.
 10. `update` — see 4.5.
-11. Phase 4: deployment-level `metrics`, `replica metrics`, `history`, and
-    `lep log get --dynamo`.
+11. Phase 4: `history` and `lep log get --dynamo`.
 
 Every command takes `--name/-n` as the deployment identifier, matching the
 rest of the CLI. Destructive commands accept `-y/--yes` so the agent skill and
@@ -389,12 +391,11 @@ Each phase is one reviewable PR in the style of the recent `feat(cli):` commits.
 | 1 | Types, defaults registry, API layer, client wiring, readiness enum extension, API and spec unit tests | none |
 | 2 | Read and lifecycle commands: `list`, `get`, `status`, `service list/get/restart`, `replica list/log/remove`, `remove`; CLI tests | 1 |
 | 3 | `create` and `update`, shared block parser extracted from raycluster, spec-file round trip, CLI tests | 1, 2 |
-| 4 | `metrics`, `history`, `lep log get --dynamo`, README and skill docs, e2e follow-up | 2 |
+| 4 | `history`, `lep log get --dynamo`, README and skill docs, e2e follow-up | 2 |
 
-Phase 1 plus 2 already gives operators everything the GUI detail pages offer.
-Phase 3 is the largest and is where the GUI rules matter most. Phase 4 is
-optional polish; the CLI has no metrics commands for endpoints today either,
-so `metrics` can be dropped if it does not earn its keep.
+Phases 1 and 2 cover deployment inspection and lifecycle operations.
+Phase 3 is the largest and is where the GUI rules matter most. Phase 4 adds
+history, historical logs, and documentation.
 
 ## 6. Decisions taken and open questions
 

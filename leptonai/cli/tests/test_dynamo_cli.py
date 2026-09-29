@@ -135,8 +135,6 @@ class FakeDynamoAPI:
         self.service_details = {}
         self.replicas = {}
         self.logs = {}
-        self.metrics = {}
-        self.metrics_404 = set()
         self.history_items = []
         self.monitoring = {
             "overall_health": "degraded",
@@ -235,18 +233,6 @@ class FakeDynamoAPI:
 
     def get_history(self, name):
         return [DynamoHistoryItem(**item) for item in self.history_items]
-
-    def get_metric(self, name, metric, window=None):
-        self.calls.append(("metric", name, metric, window))
-        if metric in self.metrics_404:
-            raise _not_found(metric)
-        return self.metrics.get(metric, [])
-
-    def get_replica_metric(self, name, replica, metric):
-        self.calls.append(("replica_metric", name, replica, metric))
-        if metric in self.metrics_404:
-            raise _not_found(metric)
-        return self.metrics.get(metric, [])
 
 
 class FakeNodeGroupAPI:
@@ -355,17 +341,6 @@ def fake(monkeypatch):
     api.history_items = [
         {"timestamp": 1717000000000, "operation": "create", "description": "created"}
     ]
-    api.metrics = {
-        "GPUUtilAvg": [{
-            "metric": {"name": "GPUUtilAvg", "device": "0"},
-            "values": [[1717000000, "0.25"], [1717000060, "0.75"]],
-        }],
-        "GPUUtil": [{
-            "metric": {"name": "GPUUtil"},
-            "values": [[1717000000, "0.5"], [1717000060, None]],
-        }],
-    }
-    api.metrics_404 = {"GPUTempAvg", "GPUPowerConsumption"}
 
     FakeAPIClient.dynamo_api = api
     monkeypatch.setattr("leptonai.cli.dynamo.APIClient", FakeAPIClient)
@@ -569,32 +544,10 @@ def test_remove_and_remove_replica(fake):
     assert "worker-xyz" in result.output
 
 
-def test_history_and_metrics(fake):
+def test_history(fake):
     result = run("history", "-n", "my-dynamo")
     assert result.exit_code == 0, result.output
     assert "create" in result.output and "created" in result.output
-
-    result = run("metrics", "-n", "my-dynamo", "--window", "6")
-    assert result.exit_code == 0, result.output
-    assert "GPUUtilAvg" in result.output
-    assert "0.75" in result.output  # latest
-    assert "GPUTempAvg" not in result.output  # 404 panels are hidden
-    assert "no data" in result.output  # metrics without series
-    assert ("metric", "my-dynamo", "GPUUtilAvg", 6) in fake.calls
-
-    result = run(
-        "replica",
-        "metrics",
-        "-n",
-        "my-dynamo",
-        "-r",
-        "worker-xyz",
-        "-m",
-        "GPUUtil",
-    )
-    assert result.exit_code == 0, result.output
-    assert ("replica_metric", "my-dynamo", "worker-xyz", "GPUUtil") in fake.calls
-    assert "0.5" in result.output
 
 
 # ---------------------------------------------------------------------------
@@ -1102,7 +1055,6 @@ def test_group_help_lists_commands():
         "create",
         "get",
         "history",
-        "metrics",
         "remove",
         "replica",
         "service",
@@ -1119,5 +1071,5 @@ def test_group_help_lists_commands():
 
     result = CliRunner().invoke(cli, ["dynamo", "replica", "--help"])
     assert result.exit_code == 0
-    for command in ("list", "log", "metrics", "remove"):
+    for command in ("list", "log", "remove"):
         assert command in result.output

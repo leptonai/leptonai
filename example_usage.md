@@ -348,8 +348,6 @@ lep dynamo update -n qwen-agg -f ./patch.json
 lep dynamo replica list -n qwen-agg --state ready
 lep dynamo service restart -n qwen-agg -s worker
 lep dynamo replica remove -n qwen-agg -r <replica-id> -s worker
-lep dynamo metrics -n qwen-agg --window 6
-lep dynamo replica metrics -n qwen-agg -r <replica-id>
 lep log get --dynamo qwen-agg --dynamo-service worker --start "today 09:00" --end now
 lep dynamo remove -n qwen-agg
 ```

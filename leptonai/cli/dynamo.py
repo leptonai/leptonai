@@ -4,7 +4,7 @@ graphs served by NVIDIA Dynamo with a vLLM, SGLang, or TensorRT-LLM backend).
 
 The command surface mirrors the dashboard's Dynamo pages: list, create, edit
 (merge patch), detail/status, per-service detail and restart, per-service
-replicas, replica logs, replica deletion, metrics, and history.
+replicas, replica logs, replica deletion, and history.
 """
 
 import json
@@ -61,29 +61,6 @@ from .util import (
     make_name_id_cell,
     resolve_save_path,
 )
-
-# Deployment-level metrics shown by the dashboard's Metrics tab.
-DEPLOYMENT_METRICS = (
-    "GPUUtilAvg",
-    "GPUMemoryUtilAvg",
-    "GPUMemoryUsageMax",
-    "GPUMemoryTotal",
-    "GPUTempAvg",
-)
-# Replica-level metrics shown by the dashboard's per-replica metrics view.
-REPLICA_METRICS = (
-    "CPUUtil",
-    "memoryUtil",
-    "memoryUsage",
-    "memoryTotal",
-    "GPUUtil",
-    "GPUMemoryUtil",
-    "GPUMemoryUsage",
-    "GPUMemoryTotal",
-    "GPUPowerConsumption",
-)
-METRIC_WINDOWS = ("1", "2", "3", "6", "12", "24")
-
 
 # ---------------------------------------------------------------------------
 # Small helpers
@@ -1100,7 +1077,7 @@ def remove(name, yes):
 
 
 # ---------------------------------------------------------------------------
-# history / metrics
+# history
 # ---------------------------------------------------------------------------
 
 
@@ -1124,173 +1101,6 @@ def history(name):
             _fmt_ts(item.timestamp), item.operation or "-", item.description or "-"
         )
     console.print(table)
-
-
-def _summarize_series(series: Any) -> List[Tuple[str, str, str, str, str, int, str]]:
-    """Reduce ``[{metric, values}]`` to per-series latest/min/avg/max rows."""
-    rows = []
-    if not isinstance(series, list):
-        return rows
-    for entry in series:
-        if not isinstance(entry, dict):
-            continue
-        metric = entry.get("metric") or {}
-        values = []
-        last_ts = None
-        for point in entry.get("values") or []:
-            if not isinstance(point, (list, tuple)) or len(point) != 2:
-                continue
-            ts, raw = point
-            if raw is None:
-                continue
-            try:
-                values.append(float(raw))
-                last_ts = ts
-            except (TypeError, ValueError):
-                continue
-        if not values:
-            continue
-        latest = values[-1]
-        rows.append((
-            str(metric.get("name") or "-"),
-            str(metric.get("device") or "-"),
-            f"{latest:.4g}",
-            f"{min(values):.4g}",
-            f"{sum(values) / len(values):.4g}",
-            f"{max(values):.4g}",
-            len(values),
-            _fmt_ts(int(float(last_ts) * 1000)) if last_ts is not None else "-",
-        ))
-    return rows
-
-
-def _print_metrics(name, replica, metric, window):
-    """Print deployment- or replica-level metrics using the shared table format."""
-    client = APIClient()
-    names = (
-        list(metric)
-        if metric
-        else list(REPLICA_METRICS if replica else DEPLOYMENT_METRICS)
-    )
-    table = Table(
-        title=f"Metrics for {name}"
-        + (f" / {replica}" if replica else f" (last {window}h)"),
-        show_lines=False,
-    )
-    for column in (
-        "Metric",
-        "Series",
-        "Device",
-        "Latest",
-        "Min",
-        "Avg",
-        "Max",
-        "Samples",
-        "Last Seen",
-    ):
-        table.add_column(column)
-    row_count = 0
-    for metric_name in names:
-        try:
-            if replica:
-                series = client.dynamo.get_replica_metric(name, replica, metric_name)
-            else:
-                series = client.dynamo.get_metric(name, metric_name, window=int(window))
-        except ClientError as e:
-            status_code = getattr(getattr(e, "response", None), "status_code", None)
-            if status_code == 404:
-                continue  # the dashboard hides panels whose metric is unavailable
-            table.add_row(
-                metric_name,
-                "-",
-                "-",
-                f"[red]error {status_code}[/]",
-                "-",
-                "-",
-                "-",
-                "-",
-                "-",
-            )
-            row_count += 1
-            continue
-        except ServerError:
-            table.add_row(
-                metric_name, "-", "-", "[yellow]unavailable[/]", "-", "-", "-", "-", "-"
-            )
-            row_count += 1
-            continue
-        rows = _summarize_series(series)
-        if not rows:
-            table.add_row(
-                metric_name,
-                "-",
-                "-",
-                "[bright_black]no data[/]",
-                "-",
-                "-",
-                "-",
-                "0",
-                "-",
-            )
-            row_count += 1
-            continue
-        for series_name, device, latest, min_, avg, max_, samples, last_seen in rows:
-            table.add_row(
-                metric_name,
-                series_name,
-                device,
-                latest,
-                min_,
-                avg,
-                max_,
-                str(samples),
-                last_seen,
-            )
-            row_count += 1
-    if not row_count:
-        console.print(f"No metrics available for [yellow]{name}[/].")
-        return
-    console.print(table)
-
-
-@dynamo.command(name="metrics")
-@click.option("--name", "-n", help="The Dynamo deployment name.", required=True)
-@click.option(
-    "--metric",
-    "-m",
-    multiple=True,
-    help=(
-        "Metric name(s) to fetch. Defaults to the dashboard set:"
-        f" {', '.join(DEPLOYMENT_METRICS)}."
-    ),
-)
-@click.option(
-    "--window",
-    type=click.Choice(METRIC_WINDOWS),
-    default="1",
-    show_default=True,
-    help="Time window in hours.",
-)
-def deployment_metrics(name, metric, window):
-    """Prints deployment-level GPU and resource metrics."""
-    _print_metrics(name, replica=None, metric=metric, window=window)
-
-
-@replica_group.command(name="metrics")
-@click.option("--name", "-n", help="The Dynamo deployment name.", required=True)
-@click.option("--replica", "-r", help="The replica (pod) name.", required=True)
-@click.option(
-    "--metric",
-    "-m",
-    multiple=True,
-    help=(
-        "Metric name(s) to fetch. Defaults to the dashboard set:"
-        f" {', '.join(REPLICA_METRICS)}."
-    ),
-)
-def replica_metrics(name, replica, metric):
-    """Prints GPU and resource metrics for one replica."""
-    _print_metrics(name, replica=replica, metric=metric, window=None)
 
 
 # ---------------------------------------------------------------------------

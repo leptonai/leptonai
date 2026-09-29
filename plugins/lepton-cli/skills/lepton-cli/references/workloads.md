@@ -29,8 +29,7 @@ CLI: the `lep dynamo` group. Read-only: `lep dynamo list`, `lep dynamo status -n
 <name>`, `lep dynamo service get -n <name> -s <service>`, `lep dynamo replica
 list -n <name> [-s <service>]`, `lep dynamo replica log -n <name> [-s <service>]
 [-r <replica>] [--tail N]` (snapshot of the last lines; `lep log get --dynamo
-<name>` for historical windows), `lep dynamo metrics -n <name>`, `lep dynamo
-replica metrics -n <name> -r <replica>`, `lep dynamo history -n <name>`.
+<name>` for historical windows), `lep dynamo history -n <name>`.
 Mutating: `lep dynamo create` (repeatable `-svc <frontend|worker|prefill-worker|
 decode-worker>` blocks, `--dry-run` prints the payload), `lep dynamo update`
 (merge patch; `--dryrun` validates server side), `lep dynamo service restart -n
