@@ -143,24 +143,34 @@ class TestFetchLogUnit(unittest.TestCase):
 
 
 class TestRateLimitSignal(unittest.TestCase):
-    """Shared 429 signal semantics."""
+    """Shared 429 signal semantics without real-time waits."""
 
     def test_inactive_by_default(self):
         self.assertFalse(_RateLimitSignal().active())
 
     def test_active_until_cooldown_elapses(self):
-        signal = _RateLimitSignal()
-        signal.signal(0.05)
-        self.assertTrue(signal.active())
-        time.sleep(0.08)
-        self.assertFalse(signal.active())
+        with patch.object(log_mod.time, "monotonic", return_value=100.0) as clock:
+            signal = _RateLimitSignal()
+            signal.signal(5.0)
+            self.assertTrue(signal.active())
+            clock.return_value = 104.0
+            self.assertTrue(signal.active())
+            clock.return_value = 105.0
+            self.assertFalse(signal.active())
 
     def test_signal_only_extends_deadline_forward_never_backward(self):
-        signal = _RateLimitSignal()
-        signal.signal(0.2)
-        signal.signal(0.05)  # shorter cooldown must not shorten the longer one
-        time.sleep(0.1)
-        self.assertTrue(signal.active())
+        with patch.object(log_mod.time, "monotonic", return_value=100.0) as clock:
+            signal = _RateLimitSignal()
+            signal.signal(20.0)
+            clock.return_value = 101.0
+            signal.signal(5.0)  # shorter cooldown must not shorten the longer one
+            clock.return_value = 110.0
+            self.assertTrue(signal.active())
+            signal.signal(20.0)  # a later deadline must extend the cooldown
+            clock.return_value = 120.0
+            self.assertTrue(signal.active())
+            clock.return_value = 130.0
+            self.assertFalse(signal.active())
 
 
 class TestSharedCooldownMatchesWorkersOwnDelay(unittest.TestCase):
