@@ -1,10 +1,18 @@
 from typing import Union, List, Iterator, Optional
 import warnings
+from urllib.parse import quote
+
+from pydantic import ValidationError
 
 from .api_resource import APIResourse
 from .types.deployment import LeptonDeployment, LeptonDeploymentUserSpec
 from .types.readiness import ReadinessIssue
 from .types.termination import DeploymentTerminations
+from .types.teleport import TeleportConnection
+
+
+class TeleportUnavailable(RuntimeError):
+    """The Pod API could not provide a usable Teleport connection."""
 
 
 class PodAPI(APIResourse):
@@ -75,6 +83,49 @@ class PodAPI(APIResourse):
     # of this class entirely.
     def get(self, name_or_pod: Union[str, LeptonDeployment]) -> LeptonDeployment:
         return self._client._deployment_api_for_legacy_pod().get(name_or_pod)
+
+    def get_teleport_connection(
+        self, name_or_pod: Union[str, LeptonDeployment]
+    ) -> TeleportConnection:
+        """Resolve the single Pod replica to Teleport connection metadata.
+
+        A Running status means the backend found a registered Teleport node;
+        the caller still needs a Teleport login authorized to access it.
+        """
+        name = quote(self._to_name(name_or_pod), safe="")
+        replicas = self.ensure_json(self._get(f"/deployments/{name}/replicas"))
+        # Do not use ensure_list: it skips malformed replicas, which could hide
+        # an ambiguous target while choosing the remaining replica.
+        if not isinstance(replicas, list) or len(replicas) != 1:
+            raise TeleportUnavailable(
+                "Teleport SSH requires exactly one pod replica. "
+                "Wait for the pod to finish starting or restarting and retry."
+            )
+        replica = replicas[0]
+        metadata = replica.get("metadata") if isinstance(replica, dict) else None
+        rid = metadata.get("id") if isinstance(metadata, dict) else None
+        if not isinstance(rid, str) or not rid.strip():
+            raise TeleportUnavailable("The pod replica is missing its ID.")
+        response = self.ensure_json(
+            self._get(
+                f"/deployments/{name}/replicas/{quote(rid, safe='')}/teleport-connectivity"
+            )
+        )
+        if (
+            isinstance(response, dict)
+            and "status" not in response
+            and "code" in response
+        ):
+            raise TeleportUnavailable(
+                "Teleport SSH is not enabled for this workspace or pod. "
+                "Check the pod's Teleport SSH Access settings in the dashboard."
+            )
+        try:
+            return TeleportConnection.model_validate(response)
+        except ValidationError:
+            raise TeleportUnavailable(
+                "The server returned incomplete or invalid Teleport connection details."
+            ) from None
 
     def update(
         self, name_or_deployment: Union[str, LeptonDeployment], spec: LeptonDeployment

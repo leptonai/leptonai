@@ -6,6 +6,9 @@ import sys
 
 from loguru import logger
 from rich.table import Table
+from requests import RequestException
+
+from .teleport import connect_job_teleport
 
 from leptonai.cli.log import _epoch_to_time_str, _preprocess_time
 
@@ -1447,6 +1450,69 @@ def log(id, replica):
         console.print(
             "End of log. It seems that the job has not started, or already finished."
         )
+
+
+@job.command()
+@click.option("--id", "-i", help="Job ID to connect to.")
+@click.option("--name", "-n", help="Exact Job name; must identify one live job.")
+@click.option(
+    "--replica", "-r", help="Replica ID; required when the job has multiple replicas."
+)
+@click.option(
+    "--teleport-proxy",
+    help="Teleport proxy host[:port]; defaults to the active tsh profile.",
+)
+@click.option(
+    "--teleport-auth",
+    default="Starfleet",
+    show_default=True,
+    help="Teleport SSO connector.",
+)
+def ssh(id, name, replica, teleport_proxy, teleport_auth):
+    """SSH into a running Job replica through Teleport.
+
+    Requires an enabled Teleport agent in the Job image. Use `lep job replicas`
+    to list worker IDs. The Job API does not expose its Teleport proxy, so sign
+    in to the appropriate proxy first or specify --teleport-proxy.
+    """
+    if bool(id) == bool(name):
+        raise click.UsageError("Specify exactly one of --id or --name.")
+    client = APIClient()
+    try:
+        if name:
+            matches = [
+                item
+                for item in client.job.list_all(
+                    q=name, job_query_mode=LeptonJobQueryMode.AliveOnly.value
+                )
+                if item.metadata.name == name
+            ]
+            if not matches:
+                raise click.ClickException("No live job matches that name.")
+            if len(matches) != 1:
+                raise click.ClickException(
+                    "Multiple jobs match that name. Select one with --id."
+                )
+            id = matches[0].metadata.id_
+            if not id:
+                raise click.ClickException("The job response is missing its ID.")
+        selected = client.job.get_ssh_replica(id, replica)
+
+        def revalidate():
+            client.job.get_ssh_replica(id, selected)
+
+        connect_job_teleport(
+            client.workspace_id,
+            selected,
+            proxy=teleport_proxy,
+            auth=teleport_auth,
+            before_connect=revalidate,
+        )
+    except click.exceptions.Exit:
+        # Click's Exit may inherit RuntimeError; preserve SSH/interrupt codes.
+        raise
+    except (RuntimeError, RequestException) as error:
+        raise click.ClickException(str(error)) from None
 
 
 @job.command()

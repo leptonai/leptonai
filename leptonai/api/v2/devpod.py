@@ -27,6 +27,7 @@ from .api_resource import APIResourse
 from .types.deployment import LeptonDeployment, LeptonDeploymentUserSpec
 from .types.readiness import ReadinessIssue
 from .types.termination import DeploymentTerminations
+from .types.teleport import TeleportConnection
 from . import translation
 
 
@@ -37,6 +38,14 @@ class NewDevPodAPIUnsupported(RuntimeError):
 
 
 class DevPodAPI(APIResourse):
+    def get_teleport_connection(
+        self, name_or_pod: Union[str, LeptonDeployment]
+    ) -> TeleportConnection:
+        raise NewDevPodAPIUnsupported(
+            "Teleport SSH is not yet supported by the new DevPod API: "
+            "the backend does not expose a Teleport connection-details endpoint."
+        )
+
     def _to_name(self, name_or_pod: Union[str, LeptonDeployment]) -> str:
         return (  # type: ignore
             name_or_pod if isinstance(name_or_pod, str) else name_or_pod.metadata.id_
