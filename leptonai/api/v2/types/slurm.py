@@ -6,7 +6,8 @@ does not make an older CLI unusable while retaining typed access to the fields
 the CLI presents.
 """
 
-from typing import Dict, List, Optional, Union
+import json
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field
 
@@ -264,6 +265,55 @@ class SlurmJobEventList(SlurmBaseModel):
     id_: Optional[int] = Field(default=None, alias="id")
     name: Optional[str] = None
     jobs: List[SlurmJobAttempt] = Field(default_factory=list)
+
+
+class SlurmLogEntry(SlurmBaseModel):
+    """One log line; ``timestamp`` is epoch nanoseconds when the server sent one."""
+
+    timestamp: Optional[int] = None
+    line: str
+    labels: Dict[str, Any] = Field(default_factory=dict)
+
+
+class SlurmLogStream(SlurmBaseModel):
+    """Log lines sharing one label set, as ``[timestamp, line]`` pairs."""
+
+    stream: Dict[str, Any] = Field(default_factory=dict)
+    values: List[List[Any]] = Field(default_factory=list)
+
+
+class SlurmLogData(SlurmBaseModel):
+    result_type: Optional[str] = Field(default=None, alias="resultType")
+    result: List[SlurmLogStream] = Field(default_factory=list)
+
+
+class SlurmLogs(SlurmBaseModel):
+    """A Slurm log query result in the Loki ``query_range`` layout."""
+
+    status: Optional[str] = None
+    data: SlurmLogData = Field(default_factory=SlurmLogData)
+
+    def entries(self) -> List[SlurmLogEntry]:
+        """Flatten every stream into log entries ordered oldest first."""
+        entries: List[SlurmLogEntry] = []
+        for stream in self.data.result:
+            for value in stream.values:
+                if len(value) < 2:
+                    continue
+                try:
+                    timestamp: Optional[int] = int(value[0])
+                except (TypeError, ValueError):
+                    timestamp = None
+                line = value[1]
+                if not isinstance(line, str):
+                    line = json.dumps(line, sort_keys=True, default=str)
+                entries.append(
+                    SlurmLogEntry(timestamp=timestamp, line=line, labels=stream.stream)
+                )
+        entries.sort(
+            key=lambda entry: -1 if entry.timestamp is None else entry.timestamp
+        )
+        return entries
 
 
 class SlurmDevPodSpec(SlurmBaseModel):

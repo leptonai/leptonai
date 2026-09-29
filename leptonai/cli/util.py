@@ -224,7 +224,8 @@ def click_group(*args, **kwargs):
                 text = getattr(resp, "text", str(e))
                 console.print(f"[red]{status} Error[/]: {text}")
                 sys.exit(1)
-            except (click.ClickException, click.exceptions.Exit):
+            except (click.ClickException, click.exceptions.Exit, click.Abort):
+                # Abort (Ctrl-C or EOF at a prompt) gets click's "Aborted!".
                 raise
             except ValueError as e:
                 console.print(f"[red]Error[/]: {e}")

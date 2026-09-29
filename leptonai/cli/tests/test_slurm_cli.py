@@ -7,8 +7,11 @@ from click.testing import CliRunner
 from leptonai.api.v2.types.slurm import (
     LeptonSlurmCluster,
     LeptonSlurmDevPod,
+    SlurmDevPodStatus,
     SlurmJob,
     SlurmJobEventList,
+    SlurmJobStatus,
+    SlurmLogs,
     WorkspaceSlurmJobList,
 )
 from leptonai.api.v2.slurm import SlurmAPI
@@ -102,6 +105,14 @@ EVENTS = SlurmJobEventList(
 )
 
 
+def _wide_console():
+    # Patch rich's private width rather than the `width` property: restoring
+    # the property would pin the shared console to whatever width it had
+    # computed, which is how other test modules already leak an 80-column
+    # console into later tests.
+    return patch("leptonai.cli.slurm.console._width", 200)
+
+
 def _fake_client():
     api = Mock()
     # Cluster resolution runs the real SDK logic over list_clusters' return value.
@@ -113,14 +124,14 @@ def _fake_client():
     api.list_cluster_jobs.return_value = []
     api.get_job.return_value = JOBS.jobs[0]
     api.get_job_events.return_value = EVENTS
-    api.get_logs.return_value = {
-        "data": {
+    api.get_logs.return_value = SlurmLogs(
+        data={
             "result": [
                 {"values": [["1700000001000000000", "second"]]},
                 {"values": [["1700000000000000000", "first"]]},
             ]
         }
-    }
+    )
     api.list_devpods.return_value = [DEVPOD]
     api.resolve_devpod.return_value = DEVPOD
     api.create_devpod.return_value = DEVPOD
@@ -266,9 +277,30 @@ def test_state_cells_are_normalized_and_colorized():
     assert _state_cell("NODE_FAIL") == "[red]NodeFail[/]"
     assert _state_cell("Unrecoverable") == "[red]Unrecoverable[/]"
     assert _state_cell("PENDING") == "[yellow]Pending[/]"
-    # The first non-empty candidate wins (job_state preferred over state).
-    assert _state_cell(None, "Running") == "[green]Running[/]"
-    assert _state_cell(None, None) == "-"
+    assert _state_cell(None) == "-"
+
+
+def test_job_state_cell_leads_with_the_filterable_lepton_state():
+    from leptonai.cli.slurm import _job_reason, _job_state_cell
+
+    # A Slurm state that only restates the Lepton state is dropped.
+    running = SlurmJobStatus(state="Running", job_state="RUNNING")
+    assert _job_state_cell(running) == "[green]Running[/]"
+    # A distinct Slurm state follows on a second line.
+    node_fail = SlurmJobStatus(state="Failed", job_state="NODE_FAIL")
+    assert _job_state_cell(node_fail) == "[red]Failed[/]\n[red]NodeFail[/]"
+    pending = SlurmJobStatus(state="Awaiting", job_state="PENDING")
+    assert _job_state_cell(pending) == "[yellow]Awaiting[/]\n[yellow]Pending[/]"
+    assert _job_state_cell(SlurmJobStatus()) == "[yellow]Unknown[/]"
+
+    # The reason must say more than either state; "None" is Slurm's blank.
+    assert _job_reason(SlurmJobStatus(state_reason="Resources")) == "Resources"
+    assert (
+        _job_reason(SlurmJobStatus(job_state="COMPLETED", state_reason="COMPLETED"))
+        == "-"
+    )
+    assert _job_reason(SlurmJobStatus(state_reason="None", message="Held")) == "Held"
+    assert _job_reason(SlurmJobStatus()) == "-"
 
 
 def test_job_list_table_links_to_dashboard_and_normalizes_state():
@@ -314,7 +346,7 @@ def test_job_list_passes_workspace_filters_and_archive_mode():
                 "--status",
                 "RUNNING",
                 "--status",
-                "FAILED",
+                "pending-retry",
                 "--include-archived",
                 "--output",
                 "json",
@@ -323,13 +355,54 @@ def test_job_list_passes_workspace_filters_and_archive_mode():
 
     assert result.exit_code == 0, result.output
     assert '"job_id": 42' in result.output
+    # Loose spellings reach the API as the canonical Lepton state names.
     api.list_jobs.assert_called_once_with(
         cluster_names=["ns/cluster-a"],
         job_query_mode="alive_and_archive",
         q=None,
-        status=["RUNNING", "FAILED"],
+        status=["Running", "PendingRetry"],
         created_by=None,
     )
+
+
+def test_job_list_rejects_native_slurm_state_names():
+    client, api = _fake_client()
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        result = CliRunner().invoke(lep, ["slurm", "job", "list", "-s", "Pending"])
+
+    # The server filters on the Lepton state, so PENDING would silently match
+    # nothing; fail fast and list the accepted names instead.
+    assert result.exit_code == 2, result.output
+    assert "'Awaiting'" in result.output
+    api.list_jobs.assert_not_called()
+
+
+def test_job_list_table_shows_slurm_state_and_reason():
+    client, api = _fake_client()
+    api.list_jobs.return_value = WorkspaceSlurmJobList(
+        total=1,
+        jobs=[{
+            "slurm_cluster": {"id": "ns/cluster-a", "name": "cluster-a"},
+            "metadata": {"id": "43", "name": "eval"},
+            "spec": {"job_id": 43},
+            "status": {
+                "state": "Failed",
+                "job_state": "NODE_FAIL",
+                "state_reason": "NodeDown",
+            },
+        }],
+    )
+    with (
+        patch("leptonai.cli.slurm.APIClient", return_value=client),
+        # Wide enough that rich does not truncate the eight columns.
+        _wide_console(),
+    ):
+        result = CliRunner().invoke(lep, ["slurm", "job", "list"])
+
+    assert result.exit_code == 0, result.output
+    assert "Failed" in result.output
+    assert "NodeFail" in result.output
+    assert "NodeDown" in result.output
 
 
 def test_job_logs_maps_scope_and_prints_in_timestamp_order():
@@ -432,6 +505,22 @@ def test_job_commands_error_on_unknown_cluster():
     assert "ns/cluster-a" in attempts.output
     api.get_job_events.assert_not_called()
     assert listing.exit_code == 1, listing.output
+    api.list_jobs.assert_not_called()
+
+
+def test_job_commands_list_candidates_for_ambiguous_cluster_name():
+    client, api = _fake_client()
+    twin = LeptonSlurmCluster(metadata={"id": "other/cluster-a", "name": "cluster-a"})
+    api.list_clusters.return_value = [CLUSTER, twin]
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        result = CliRunner().invoke(
+            lep, ["slurm", "job", "list", "--cluster", "cluster-a"]
+        )
+
+    assert result.exit_code == 1, result.output
+    assert "matches several clusters" in result.output
+    assert "ns/cluster-a" in result.output
+    assert "other/cluster-a" in result.output
     api.list_jobs.assert_not_called()
 
 
@@ -565,6 +654,24 @@ def test_devpod_create_remove_and_safe_ssh_print():
     api.resolve_devpod.assert_any_call("cluster-a-alice")
 
 
+def test_devpod_remove_keeps_the_pod_when_the_prompt_is_declined_or_aborted():
+    client, api = _fake_client()
+    args = ["slurm", "devpod", "remove", "-n", "cluster-a-alice"]
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        declined = CliRunner().invoke(lep, args, input="n\n")
+        # EOF at the prompt takes the same path as Ctrl-C.
+        aborted = CliRunner().invoke(lep, args, input="")
+
+    assert declined.exit_code == 0, declined.output
+    assert "Dev Pod removal cancelled." in declined.output
+    assert aborted.exit_code == 1, aborted.output
+    assert "Aborted!" in aborted.output
+    for result in (declined, aborted):
+        assert "Unexpected error" not in result.output
+        assert "Traceback" not in result.output
+    api.delete_devpod.assert_not_called()
+
+
 def test_devpod_get_shows_configuration_identity_and_connect_details():
     client, api = _fake_client()
     with patch("leptonai.cli.slurm.APIClient", return_value=client):
@@ -648,6 +755,38 @@ def test_devpod_list_links_name_id_cell_to_web_ui():
         "ns/cluster-a-alice",
         link=api.dashboard_url.return_value,
     )
+
+
+def test_devpod_list_diagnosis_follows_the_devpod_state():
+    from leptonai.cli.slurm import _devpod_diagnosis
+
+    assert (
+        _devpod_diagnosis(SlurmDevPodStatus(state="NotReady", reason="Pulling"))
+        == "Pulling"
+    )
+    assert _devpod_diagnosis(SlurmDevPodStatus(state="NotReady")) == "-"
+    assert (
+        _devpod_diagnosis(SlurmDevPodStatus(state="Error", error="OOMKilled"))
+        == "OOMKilled"
+    )
+    # A stale reason or error on a Ready pod is not a diagnosis.
+    ready = SlurmDevPodStatus(state="Ready", reason="Pulling", error="OOMKilled")
+    assert _devpod_diagnosis(ready) == "-"
+    assert _devpod_diagnosis(None) == "-"
+
+    client, api = _fake_client()
+    api.list_devpods.return_value = [
+        LeptonSlurmDevPod(
+            metadata={"id": "ns/cluster-a-bob", "name": "cluster-a-bob"},
+            spec={"slurmClusterName": "cluster-a"},
+            status={"state": "NotReady", "reason": "Pulling"},
+        )
+    ]
+    with patch("leptonai.cli.slurm.APIClient", return_value=client), _wide_console():
+        result = CliRunner().invoke(lep, ["slurm", "devpod", "list"])
+
+    assert result.exit_code == 0, result.output
+    assert "Pulling" in result.output
 
 
 def test_devpod_ssh_runs_bastion_command_with_extra_options_before_destination():
@@ -894,7 +1033,7 @@ def test_job_logs_follow_seeds_newest_page_then_drains_full_pages():
 
     def page(first, count):
         values = [[str(first + i), f"line-{first + i}"] for i in range(count)]
-        return {"data": {"result": [{"values": values}]}}
+        return SlurmLogs(data={"result": [{"values": values}]})
 
     api.get_logs.side_effect = [
         page(1_000, 2),  # backward seed: the newest lines in the window

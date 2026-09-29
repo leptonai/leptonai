@@ -216,6 +216,36 @@ def test_job_events_and_logs_use_cluster_scoped_parameters():
     )
 
 
+def test_get_logs_returns_typed_entries_in_timestamp_order():
+    api, _ = _api({
+        "status": "success",
+        "data": {
+            "resultType": "streams",
+            "result": [
+                {
+                    "stream": {"slurm_job_log_type": "stderr.log"},
+                    "values": [["300", "late error"], ["bad", "no timestamp"]],
+                },
+                {
+                    "stream": {"slurm_job_log_type": "stdout.log"},
+                    "values": [["100", "first"], ["200", {"k": "v"}], ["400"]],
+                },
+            ],
+        },
+    })
+
+    logs = api.get_logs("ns/cluster-a", job_id=42)
+
+    assert logs.data.result_type == "streams"
+    assert [(e.timestamp, e.line) for e in logs.entries()] == [
+        (None, "no timestamp"),
+        (100, "first"),
+        (200, '{"k": "v"}'),
+        (300, "late error"),
+    ]
+    assert logs.entries()[-1].labels == {"slurm_job_log_type": "stderr.log"}
+
+
 def test_devpod_create_resolve_and_delete():
     created = {
         "metadata": {

@@ -16,12 +16,17 @@ from ..api.v2.slurm import SlurmClusterLookupError
 from ..api.v2.types.slurm import (
     LeptonSlurmCluster,
     LeptonSlurmDevPod,
+    SlurmDevPodStatus,
     SlurmJobAttempt,
+    SlurmJobStatus,
+    SlurmLogEntry,
+    SlurmLogs,
     WorkspaceSlurmJob,
     WorkspaceSlurmJobList,
 )
 from .log import _preprocess_time
 from .util import (
+    LooseChoice,
     click_group,
     colorize_state,
     console,
@@ -32,6 +37,24 @@ from .util import (
 
 
 OUTPUT_FORMAT = click.Choice(("table", "json"), case_sensitive=False)
+
+# The Lepton states the server maps Slurm job states onto, in dashboard order.
+# The job list's status filter matches these rather than the native Slurm
+# state (PENDING is Awaiting; NODE_FAIL and CANCELLED are Failed; ...).
+_SLURM_JOB_STATES = (
+    "Starting",
+    "Running",
+    "Stopped",
+    "Stopping",
+    "Failed",
+    "Completed",
+    "Deleted",
+    "Restarting",
+    "Queueing",
+    "Awaiting",
+    "PendingRetry",
+    "Terminating",
+)
 
 
 def _model_dump(value: Any) -> Any:
@@ -91,13 +114,55 @@ def _normalize_state(value: Any) -> str:
     return text
 
 
-def _state_cell(*candidates: Any) -> str:
-    """Colorize the first non-empty state, consistent with `lep job list`."""
-    state = next((value for value in candidates if value), None)
+def _state_cell(state: Any) -> str:
+    """Colorize a normalized state, consistent with `lep job list`."""
     text = _normalize_state(state)
     if text in _SLURM_FAILURE_STATES:
         return f"[red]{text}[/]"
     return colorize_state(text)
+
+
+def _job_state_cell(status: SlurmJobStatus) -> str:
+    """Show the Lepton state `--status` filters on, then any distinct Slurm state.
+
+    Mirrors the dashboard: RUNNING under Running adds nothing, while NODE_FAIL
+    under Failed goes on a second line.
+    """
+    lepton = _normalize_state(status.state)
+    lepton = "Unknown" if lepton == "-" else lepton
+    slurm = _normalize_state(status.job_state)
+    cell = _state_cell(lepton)
+    if slurm != "-" and slurm.casefold() != lepton.casefold():
+        cell += "\n" + _state_cell(slurm)
+    return cell
+
+
+def _job_reason(status: SlurmJobStatus) -> str:
+    """Return the first scheduler explanation that says more than either state.
+
+    Same rule as the dashboard's state-reason tooltip.
+    """
+    repeated = {
+        "",
+        "none",
+        (status.state or "").strip().casefold(),
+        (status.job_state or "").strip().casefold(),
+    }
+    for candidate in (status.state_reason, status.message):
+        reason = (candidate or "").strip()
+        if reason.casefold() not in repeated:
+            return reason
+    return "-"
+
+
+def _devpod_diagnosis(status: Optional[SlurmDevPodStatus]) -> str:
+    """Surface the reason while NotReady and the error once failed, as `get` does."""
+    state = _normalize_state(status.state if status else None)
+    if state == "NotReady":
+        return status.reason or "-"
+    if state in ("Error", "Unrecoverable"):
+        return status.error or "-"
+    return "-"
 
 
 def _safe_dashboard_url(api: Any, view: str, **kwargs: Any) -> Optional[str]:
@@ -275,6 +340,7 @@ def _print_jobs_table(result: WorkspaceSlurmJobList, *, api: Any = None) -> None
     table.add_column("Partition / QoS")
     table.add_column("CPU / GPU / Memory", justify="right")
     table.add_column("Submitted")
+    table.add_column("Reason")
     for item in result.jobs:
         job_id = str(item.spec.job_id) if item.spec.job_id is not None else None
         link = (
@@ -290,11 +356,12 @@ def _print_jobs_table(result: WorkspaceSlurmJobList, *, api: Any = None) -> None
         table.add_row(
             _job_cluster_cell(item, api),
             make_name_id_cell(item.metadata.name, job_id, link=link),
-            _state_cell(item.status.job_state, item.status.state),
+            _job_state_cell(item.status),
             item.metadata.created_by or item.metadata.owner or "-",
             f"{item.status.partition or '-'} / {item.status.qos or '-'}",
             _format_resources(item.spec.cpus, item.spec.gpus, item.spec.memory_mb),
             format_epoch_cell(item.metadata.created_at),
+            _job_reason(item.status),
         )
     console.print(table)
     _print_failed_clusters(result.failed_clusters)
@@ -351,6 +418,7 @@ def _print_devpods_table(
     table.add_column("Mem Req/Limit")
     table.add_column("Image")
     table.add_column("SSH")
+    table.add_column("Diagnosis")
     for item in devpods:
         status = item.status
         resources = status.container_resources if status else None
@@ -369,6 +437,7 @@ def _print_devpods_table(
             f"{(limits.memory if limits else None) or '-'}",
             (status.image_version if status else None) or "-",
             "[green]Ready[/]" if _reported_devpod_ssh_command(item) else "-",
+            _devpod_diagnosis(status),
         )
     console.print(table)
 
@@ -565,44 +634,12 @@ def _print_devpod_detail(
     )
 
 
-def _extract_log_entries(payload: Any) -> List[Tuple[Optional[int], str]]:
-    """Flatten a Loki query-range response into timestamp/message tuples."""
-    if isinstance(payload, str):
-        try:
-            payload = json.loads(payload)
-        except json.JSONDecodeError:
-            return [(None, payload)]
-    data = payload.get("data", payload) if isinstance(payload, dict) else payload
-    streams = data.get("result", []) if isinstance(data, dict) else data
-    if not isinstance(streams, list):
-        return []
-
-    entries: List[Tuple[Optional[int], str]] = []
-    for stream in streams:
-        values = stream.get("values", []) if isinstance(stream, dict) else []
-        for value in values:
-            if not isinstance(value, (list, tuple)) or len(value) < 2:
-                continue
-            try:
-                timestamp = int(value[0])
-            except (TypeError, ValueError):
-                timestamp = None
-            message = value[1]
-            if not isinstance(message, str):
-                message = json.dumps(message, sort_keys=True, default=str)
-            entries.append((timestamp, message))
-    entries.sort(key=lambda entry: entry[0] if entry[0] is not None else -1)
-    return entries
-
-
-def _print_log_entries(
-    entries: Iterable[Tuple[Optional[int], str]], *, timestamps: bool
-) -> None:
-    for timestamp, message in entries:
-        if timestamps and timestamp is not None:
-            click.echo(f"{_format_time(timestamp)} {message}")
+def _print_log_entries(entries: Iterable[SlurmLogEntry], *, timestamps: bool) -> None:
+    for entry in entries:
+        if timestamps and entry.timestamp is not None:
+            click.echo(f"{_format_time(entry.timestamp)} {entry.line}")
         else:
-            click.echo(message)
+            click.echo(entry.line)
 
 
 _FOLLOW_LOOKBACK_NS = 5 * 60 * 1_000_000_000
@@ -627,10 +664,10 @@ def _follow_logs(
     """
     limit = common["limit"]
 
-    def emit(payload: Any) -> Tuple[int, Optional[int]]:
-        entries = _extract_log_entries(payload)
+    def emit(logs: SlurmLogs) -> Tuple[int, Optional[int]]:
+        entries = logs.entries()
         _print_log_entries(entries, timestamps=timestamps)
-        seen = [stamp for stamp, _ in entries if stamp is not None]
+        seen = [entry.timestamp for entry in entries if entry.timestamp is not None]
         return len(entries), (max(seen) + 1 if seen else None)
 
     cursor = start_ns
@@ -796,7 +833,7 @@ def _resolve_single_job(
             owner,
             _job_identifier(item),
             item.metadata.name or "-",
-            _state_cell(item.status.job_state, item.status.state),
+            _job_state_cell(item.status),
         )
     console.print(table)
     sys.exit(1)
@@ -999,8 +1036,12 @@ def job():
     "--status",
     "statuses",
     "-s",
+    type=LooseChoice(_SLURM_JOB_STATES),
     multiple=True,
-    help="Filter by job status; repeatable.",
+    help=(
+        "Filter by job state; repeatable. Native Slurm states map onto these,"
+        " e.g. PENDING is Awaiting."
+    ),
 )
 @click.option(
     "--include-archived",
@@ -1205,14 +1246,14 @@ def job_logs(
         limit=limit,
     )
     if not follow:
-        payload = api.get_logs(
+        logs = api.get_logs(
             cluster_id,
             start=start_ns,
             end=end_ns,
             direction="backward",
             **common,
         )
-        _print_log_entries(_extract_log_entries(payload), timestamps=timestamps)
+        _print_log_entries(logs.entries(), timestamps=timestamps)
         return
     _follow_logs(
         api,
@@ -1321,8 +1362,9 @@ def remove_devpod(
     devpod_id = item.metadata.id_
     if not devpod_id:
         raise ValueError("The Slurm Dev Pod response did not contain an ID.")
-    if not assume_yes:
-        click.confirm(f"Remove Slurm Dev Pod {devpod_id}?", abort=True)
+    if not assume_yes and not click.confirm(f"Remove Slurm Dev Pod {devpod_id}?"):
+        console.print("Dev Pod removal cancelled.")
+        return
     api.delete_devpod(devpod_id)
     console.print(f"[green]Removed Slurm Dev Pod {devpod_id}.[/green]")
 

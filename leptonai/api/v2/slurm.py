@@ -17,6 +17,7 @@ from .types.slurm import (
     SlurmDevPodSpec,
     SlurmJob,
     SlurmJobEventList,
+    SlurmLogs,
     SlurmResourceList,
     WorkspaceSlurmJobList,
 )
@@ -284,7 +285,11 @@ class SlurmAPI(APIResourse):
         end: Optional[int] = None,
         limit: int = 100,
         direction: str = "backward",
-    ) -> Any:
+    ) -> SlurmLogs:
+        """Query job log lines; ``start`` and ``end`` are epoch nanoseconds.
+
+        Use :meth:`SlurmLogs.entries` for the lines in timestamp order.
+        """
         namespace, name = self.split_cluster_id(cluster_id)
         if direction not in ("forward", "backward"):
             raise ValueError("Log direction must be 'forward' or 'backward'.")
@@ -308,7 +313,7 @@ class SlurmAPI(APIResourse):
             {key: value for key, value in optional.items() if value is not None}
         )
         response = self._get("/logs", params=params)
-        return self.ensure_json(response)
+        return self.ensure_type(response, SlurmLogs)
 
     @staticmethod
     def _websocket_url(url: str) -> str:
