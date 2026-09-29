@@ -33,6 +33,7 @@ from .template import TemplateAPI
 from .finetune import FineTuneAPI
 from .raycluster import RayClusterAPI
 from .slurm import SlurmAPI
+from .dynamo import DynamoGraphDeploymentAPI
 
 
 from .utils import (
@@ -342,6 +343,9 @@ class APIClient(object):
         self.shapes = ResourceShapeAPI(self)
         self.raycluster = RayClusterAPI(self)
         self.slurm = SlurmAPI(self)
+        # Dynamo graph deployments live under /dynamographdeployments and are
+        # independent of the enable_new_deployment_api switch below.
+        self.dynamo = DynamoGraphDeploymentAPI(self)
 
         # Deployment ("endpoint") and pod ("devpod") each have two backing
         # implementations: the legacy /deployments-based API and the new
