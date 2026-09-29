@@ -26,6 +26,9 @@ class _FakeResponse:
         self.text = text
         self.headers = headers or {}
 
+    def close(self):
+        pass
+
     def json(self):
         return self._payload
 
@@ -116,6 +119,24 @@ class TestLogAPITimeout(unittest.TestCase):
 
         _, kwargs = self.client._get.call_args
         self.assertNotIn("timeout", kwargs["params"])
+
+    def test_existing_positional_direction_and_timeout_are_preserved(self):
+        self.log_api.get_log(
+            "dep-1",
+            None,
+            None,
+            None,
+            100,
+            200,
+            5000,
+            "",
+            "alive_and_archive",
+            "forward",
+            30,
+        )
+        kwargs = self.client._get.call_args.kwargs
+        self.assertEqual(kwargs["params"]["direction"], "forward")
+        self.assertEqual(kwargs["timeout"], 30)
 
 
 class TestLogAPITimeoutReachesTransport(unittest.TestCase):
@@ -293,24 +314,17 @@ class TestLogAPIEpochZeroRejected(unittest.TestCase):
         self.assertIn("omitted", message)
         self.client._get.assert_not_called()
 
-    def test_only_start_provided_raises(self):
-        # Companion regression guard: the exactly-one-provided branch must
-        # raise its own distinct message, not be conflated with the
-        # epoch-zero rejection above.
-        with self.assertRaises(RuntimeError) as cm:
-            self.log_api.get_log(name_or_deployment="dep-1", start=5, end=None)
-        message = str(cm.exception)
-        self.assertIn("both start or end must be specified", message)
-        self.assertNotIn("cannot be distinguished", message)
-        self.client._get.assert_not_called()
+    def test_only_start_provided_is_forwarded(self):
+        self.log_api.get_log(name_or_deployment="dep-1", start=5)
+        params = self.client._get.call_args.kwargs["params"]
+        self.assertEqual(params["start"], 5)
+        self.assertNotIn("end", params)
 
-    def test_only_end_provided_raises(self):
-        with self.assertRaises(RuntimeError) as cm:
-            self.log_api.get_log(name_or_deployment="dep-1", start=None, end=5)
-        message = str(cm.exception)
-        self.assertIn("both start or end must be specified", message)
-        self.assertNotIn("cannot be distinguished", message)
-        self.client._get.assert_not_called()
+    def test_only_end_provided_is_forwarded(self):
+        self.log_api.get_log(name_or_deployment="dep-1", end=5)
+        params = self.client._get.call_args.kwargs["params"]
+        self.assertEqual(params["end"], 5)
+        self.assertNotIn("start", params)
 
     def test_non_zero_start_and_end_are_not_rejected(self):
         """Control case: the `start == 0 or end == 0` guard must only fire
