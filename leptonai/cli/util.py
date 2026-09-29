@@ -224,7 +224,8 @@ def click_group(*args, **kwargs):
                 text = getattr(resp, "text", str(e))
                 console.print(f"[red]{status} Error[/]: {text}")
                 sys.exit(1)
-            except (click.ClickException, click.exceptions.Exit):
+            except (click.ClickException, click.exceptions.Exit, click.Abort):
+                # Abort (Ctrl-C or EOF at a prompt) gets click's "Aborted!".
                 raise
             except ValueError as e:
                 console.print(f"[red]Error[/]: {e}")
@@ -747,6 +748,49 @@ def format_timestamp_ms(ms: Optional[int]) -> str:
         return datetime.fromtimestamp(ms / 1000).strftime("%Y-%m-%d\n%H:%M:%S")
     except Exception:
         return "N/A"
+
+
+def epoch_scale(value: Union[int, float]) -> int:
+    """Return the divisor that brings an epoch of unknown precision to seconds.
+
+    Magnitude picks the unit: below 1e11 is seconds, below 1e14 milliseconds,
+    below 1e17 microseconds, and anything larger nanoseconds.
+    """
+    magnitude = abs(value)
+    if magnitude >= 100_000_000_000_000_000:
+        return 1_000_000_000
+    if magnitude >= 100_000_000_000_000:
+        return 1_000_000
+    if magnitude >= 100_000_000_000:
+        return 1_000
+    return 1
+
+
+def epoch_to_seconds(value: Any) -> Optional[float]:
+    """Normalize an epoch of any precision to seconds; None when empty or invalid."""
+    if value in (None, "", 0, "0"):
+        return None
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return None
+    return numeric / epoch_scale(numeric)
+
+
+def format_epoch_cell(value: Any) -> str:
+    """Format an epoch of any precision as the two-line local-time list cell.
+
+    Same layout as :func:`format_timestamp_ms`, which is fixed to milliseconds.
+    """
+    seconds = epoch_to_seconds(value)
+    if seconds is None:
+        return "-"
+    from datetime import datetime
+
+    try:
+        return datetime.fromtimestamp(seconds).strftime("%Y-%m-%d\n%H:%M:%S")
+    except (OSError, OverflowError, ValueError):
+        return str(value)
 
 
 def _stringify_state(state: Optional[Union[str, Any]]) -> str:

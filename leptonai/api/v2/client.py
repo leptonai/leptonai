@@ -32,6 +32,7 @@ from .resource_shape import ResourceShapeAPI
 from .template import TemplateAPI
 from .finetune import FineTuneAPI
 from .raycluster import RayClusterAPI
+from .slurm import SlurmAPI
 
 
 from .utils import (
@@ -340,6 +341,7 @@ class APIClient(object):
         self.finetune = FineTuneAPI(self)
         self.shapes = ResourceShapeAPI(self)
         self.raycluster = RayClusterAPI(self)
+        self.slurm = SlurmAPI(self)
 
         # Deployment ("endpoint") and pod ("devpod") each have two backing
         # implementations: the legacy /deployments-based API and the new
