@@ -477,7 +477,10 @@ class Client(object):
         # use context to ensure that the response is properly closed.
         with ctx as res:  # type: ignore
             self._raise_for_detailed_status(res)
-            if res.headers.get("content-type", None) == "application/json":
+            content_type = (
+                res.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+            )
+            if content_type == "application/json":
                 # For a json response, we will return the json object directly,
                 # as it does not make sense to stream a json object.
                 res.read()
@@ -486,6 +489,9 @@ class Client(object):
                 yield True, None
                 yield from res.iter_bytes(chunk_size=self.chunk_size)
             else:
+                if self.stream:
+                    # Streamed HTTPX responses do not expose ``content`` until read.
+                    res.read()
                 yield False, res.content
 
     def _get_proper_res_content(self, res: httpx.Response):
