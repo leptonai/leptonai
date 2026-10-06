@@ -330,10 +330,13 @@ class SlurmAPI(APIResourse):
         # Reuse the bearer header the HTTP client already built instead of
         # formatting the token a second time here.
         headers = {
-            key: value
+            "User-Agent" if key.lower() == "user-agent" else key: value
             for key, value in getattr(self._client, "_header", {}).items()
-            if key.lower() == "authorization"
+            if key.lower() in ("authorization", "user-agent")
         }
+        # websocket-client has no default User-Agent; the gateway WAF requires one.
+        if not headers.get("User-Agent"):
+            headers["User-Agent"] = "leptonai"
         connection = websocket.create_connection(
             self._websocket_url(self._client.url + path),
             header=headers,
