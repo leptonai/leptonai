@@ -31,6 +31,42 @@ def _api(response_payload: Any = None):
     return SlurmAPI(client), client
 
 
+@pytest.mark.parametrize("method", ["shell_connection", "devpod_shell_connection"])
+@pytest.mark.parametrize("user_agent", [None, "", "custom-client/1.0"])
+@pytest.mark.parametrize("header_name", ["User-Agent", "user-agent"])
+def test_shell_handshake_has_user_agent(method, user_agent, header_name, monkeypatch):
+    api, client = _api()
+    client.url = "https://gateway.example.com/api/v2/workspaces/ws"
+    client._header = {"Authorization": "Bearer test-token", "X-Unrelated": "omit"}
+    if user_agent is not None:
+        client._header[header_name] = user_agent
+    original_headers = client._header.copy()
+    connection = Mock()
+    connect = Mock(return_value=connection)
+    monkeypatch.setattr("websocket.create_connection", connect)
+
+    assert getattr(api, method)("ns/resource") is connection
+
+    args, kwargs = connect.call_args
+    path = (
+        "/slurmclusters/ns/resource/shell"
+        if method == "shell_connection"
+        else "/slurm/devpods/ns/resource/shell"
+    )
+    assert args == ("wss://gateway.example.com/api/v2/workspaces/ws" + path,)
+    assert kwargs == {
+        "header": {
+            "Authorization": "Bearer test-token",
+            "User-Agent": user_agent or "leptonai",
+        },
+        "subprotocols": ["v4.channel.k8s.io"],
+        "enable_multithread": True,
+        "timeout": 30,
+    }
+    connection.settimeout.assert_called_once_with(None)
+    assert client._header == original_headers
+
+
 def test_composite_cluster_id_and_dashboard_routes():
     api, _ = _api()
 
