@@ -280,6 +280,7 @@ class DynamoServiceStatus(BaseModel):
     conditions: Optional[List[DynamoServiceCondition]] = None
     last_replica_error_events: Optional[List[DynamoReplicaErrorEvent]] = None
     last_updated: Optional[int] = None
+    # Elapsed time in milliseconds (last_updated - created_at on the wire).
     uptime: Optional[int] = None
 
 

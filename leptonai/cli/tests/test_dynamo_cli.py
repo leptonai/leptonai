@@ -345,6 +345,7 @@ def fake(monkeypatch):
                 "reason": "Pending",
                 "message": "warming up",
             }],
+            "uptime": 14649,
         },
     }
     api.service_details[("my-dynamo", "idle")] = {
@@ -445,6 +446,7 @@ def test_service_list_and_get(fake):
     assert "python3 -m dynamo.vllm --model Qwen/Qwen3-0.6B" in result.output
     assert "ready 1 / desired 2" in result.output
     assert "Available" in result.output and "warming up" in result.output
+    assert "Uptime:       14s" in result.output
 
     result = run("service", "get", "-n", "my-dynamo", "-s", "nope")
     assert result.exit_code == 1
@@ -504,6 +506,34 @@ def test_log_selects_first_ready_replica_and_passes_options(fake):
     result = run("replica", "log", "-n", "my-dynamo", "-s", "nope")
     assert result.exit_code == 1
     assert "Available services" in result.output
+
+
+def test_log_skips_deleting_replica(fake):
+    old = _replica("worker-old", "Deleting")
+    new = _replica("worker-new", "InProgress")
+    new["metadata"]["created_at"] = old["metadata"]["created_at"] + 1000
+    fake.replicas[("my-dynamo", "worker")] = [old, new]
+    fake.logs["worker-new"] = "new log\n"
+
+    result = run("replica", "log", "-n", "my-dynamo", "-s", "worker")
+    assert result.exit_code == 0, result.output
+    assert "selected replica worker-new of service worker" in result.output
+    assert fake.calls[-1][2] == "worker-new"
+
+    only_deleting = _replica("worker-gone", "Deleting")
+    fake.replicas[("my-dynamo", "worker")] = [only_deleting]
+    result = run("replica", "log", "-n", "my-dynamo", "-s", "worker")
+    assert result.exit_code == 0, result.output
+    assert "selected replica worker-gone of service worker" in result.output
+
+
+def test_format_uptime_from_milliseconds():
+    from leptonai.cli.dynamo import _format_uptime
+
+    assert _format_uptime(14649) == "14s"
+    assert _format_uptime(500) == "0s"
+    assert _format_uptime(90_000) == "1m 30s"
+    assert _format_uptime(1_819_320_358) == "21d 1h 22m"
 
 
 def test_log_saves_to_path(fake, tmp_path):

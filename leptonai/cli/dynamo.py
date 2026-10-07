@@ -78,6 +78,24 @@ def _fmt_ts(ms: Optional[int]) -> str:
         return "-"
 
 
+def _format_uptime(uptime_ms: int) -> str:
+    """Format a service uptime. The API reports this duration in milliseconds."""
+    seconds = max(uptime_ms, 0) // 1000
+    days, rem = divmod(seconds, 86400)
+    hours, rem = divmod(rem, 3600)
+    minutes, secs = divmod(rem, 60)
+    parts = []
+    if days:
+        parts.append(f"{days}d")
+    if hours:
+        parts.append(f"{hours}h")
+    if minutes:
+        parts.append(f"{minutes}m")
+    if secs or not parts:
+        parts.append(f"{secs}s")
+    return " ".join(parts)
+
+
 def _state_text(state) -> str:
     if state is None:
         return "-"
@@ -115,6 +133,9 @@ _READINESS_RED = {
     "ConfigError",
     "Failed",
 }
+# Replicas in these states are going away or already gone. Prefer a live pod
+# when choosing a default log target.
+_INACTIVE_REPLICA_REASONS = {"Deleting", "Deleted", "Terminated", "Completed"}
 
 
 def _replica_reason(replica: DynamoReplica) -> str:
@@ -844,7 +865,7 @@ def get_service(name, service, detail):
             )
             console.print(f"Annotations:  {annotations}")
     if st and st.uptime:
-        console.print(f"Uptime:       {st.uptime}s")
+        console.print(f"Uptime:       {_format_uptime(st.uptime)}")
 
     if st and st.conditions:
         table = Table(title="Conditions", show_lines=False)
@@ -1000,11 +1021,15 @@ def _pick_replica(
         len(resp.replicas) > 0,
         f"No replicas found for service [red]{service}[/] of [red]{name}[/].",
     )
-    ordered = sorted(
-        resp.replicas,
-        key=lambda r: (_replica_reason(r) != "Ready", r.metadata.created_at or 0),
-    )
-    replica = ordered[0].metadata.id_ or ordered[0].id_ or ""
+    ready = [r for r in resp.replicas if _replica_reason(r) == "Ready"]
+    active = [
+        r for r in resp.replicas if _replica_reason(r) not in _INACTIVE_REPLICA_REASONS
+    ]
+    # Oldest ready replica when one exists; otherwise the oldest replica that
+    # is still present. A deleting pod is used only when nothing else remains.
+    pool = ready or active or list(resp.replicas)
+    chosen = min(pool, key=lambda r: r.metadata.created_at or 0)
+    replica = chosen.metadata.id_ or chosen.id_ or ""
     return service, replica
 
 
@@ -1023,7 +1048,11 @@ def _pick_replica(
     "--replica",
     "-r",
     default=None,
-    help="The replica (pod) name. Defaults to the first ready replica of the service.",
+    help=(
+        "The replica (pod) name. Defaults to the oldest ready replica of the"
+        " service. When none are ready, uses the oldest replica that is not"
+        " deleting or terminated."
+    ),
 )
 @click.option(
     "--tail",
