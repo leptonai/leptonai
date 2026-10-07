@@ -41,6 +41,7 @@ from leptonai.api.v2.spec_utils import (
 from leptonai.config import VALID_SHAPES
 from leptonai.config import JOB_BASE_IMAGE as BASE_IMAGE
 
+from leptonai.api.v2.types.affinity import LeptonResourceAffinity
 from leptonai.api.v2.types.common import Metadata, LeptonVisibility
 from leptonai.api.v2.types.job import (
     LeptonJob,
@@ -278,6 +279,45 @@ _supported_time_formats_job_schedule = """
         """
 
 
+def _resolve_node_label_selector(
+    job_spec, node_label_selector, node_ids, *, replace_affinity
+):
+    """Return the selector to send, or None when the job has no label constraint.
+
+    ``--node-group`` replaces the whole affinity, so a node allowlist already on
+    a spec file is dropped and does not conflict. ``--node-id`` always conflicts
+    because the API rejects a label selector together with an explicit node list.
+    """
+    if node_label_selector is not None:
+        node_label_selector = node_label_selector.strip()
+        if not node_label_selector:
+            raise ValueError("--node-label-selector cannot be empty.")
+
+    affinity = job_spec.affinity
+    existing = None
+    if affinity is not None:
+        existing = (affinity.node_label_selector or "").strip() or None
+
+    selector = node_label_selector if node_label_selector is not None else existing
+    if not selector:
+        return None
+    if node_ids:
+        raise ValueError(
+            "--node-label-selector cannot be combined with --node-id. Use one way to"
+            " choose nodes."
+        )
+    if (
+        not replace_affinity
+        and affinity is not None
+        and affinity.allowed_nodes_in_node_group
+    ):
+        raise ValueError(
+            "node_label_selector and allowed_nodes_in_node_group are mutually"
+            " exclusive."
+        )
+    return selector
+
+
 @click_group()
 def job():
     """
@@ -497,10 +537,22 @@ def job():
     "node_ids",
     help=(
         "Node for the job. You can repeat this flag multiple times to choose multiple"
-        " nodes. Please specify the node group when you are using this option"
+        " nodes. Please specify the node group when you are using this option. Cannot"
+        " be combined with --node-label-selector."
     ),
     type=str,
     multiple=True,
+)
+@click.option(
+    "--node-label-selector",
+    type=str,
+    default=None,
+    help=(
+        "Constrain the job to nodes whose user labels match this Kubernetes label"
+        " selector, for example 'vmss=1,fabric,!maintenance'. Use the label keys shown"
+        " in the node API or UI, without a Kubernetes prefix such as"
+        " 'user.node.lepton.ai/'. Cannot be combined with --node-id."
+    ),
 )
 @click.option(
     "--queue-priority",
@@ -601,6 +653,7 @@ def create(
     ttl_seconds_after_finished,
     log_collection,
     node_ids,
+    node_label_selector,
     queue_priority,
     can_be_preempted,
     can_preempt,
@@ -649,6 +702,17 @@ def create(
     else:
         job_spec = LeptonJobUserSpec()
 
+    try:
+        selector = _resolve_node_label_selector(
+            job_spec,
+            node_label_selector,
+            node_ids,
+            replace_affinity=bool(node_groups),
+        )
+    except ValueError as e:
+        console.print(f"[red]Error[/]: {e}")
+        sys.exit(1)
+
     # Apply shared node group / queue / reservation config
     try:
         apply_nodegroup_and_queue_config(
@@ -664,6 +728,12 @@ def create(
     except ValueError as e:
         console.print(f"[red]{e}[/]")
         sys.exit(1)
+
+    # Re-apply after node-group handling, which replaces affinity.
+    if job_spec.affinity is not None:
+        job_spec.affinity.node_label_selector = selector
+    elif selector:
+        job_spec.affinity = LeptonResourceAffinity(node_label_selector=selector)
 
     # Set resource shape
     if resource_shape:

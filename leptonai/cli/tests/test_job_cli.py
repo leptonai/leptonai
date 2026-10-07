@@ -1,3 +1,4 @@
+import json
 import os
 import tempfile
 
@@ -156,3 +157,129 @@ class TestJobListFilters(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         self.assertIn("Terminating", result.output)
         self.assertIn("-l, --label", result.output)
+
+
+class TestJobCreateNodeLabelSelector(unittest.TestCase):
+    def _invoke(self, extra, spec_file=None):
+        _FakeAPIClient.last_instance = None
+        args = _create_args(*extra)
+        if spec_file is not None:
+            args.extend(["--file", spec_file])
+        with patch("leptonai.cli.job.APIClient", _FakeAPIClient):
+            result = CliRunner().invoke(cli, args)
+        return result
+
+    def _write_spec(self, affinity):
+        handle = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False)
+        json.dump(
+            {
+                "resource_shape": config.DEFAULT_RESOURCE_SHAPE,
+                "container": {"image": "nginx:latest"},
+                "affinity": affinity,
+            },
+            handle,
+        )
+        handle.close()
+        self.addCleanup(os.remove, handle.name)
+        return handle.name
+
+    def test_job_create_sets_node_label_selector(self):
+        result = self._invoke(
+            ["--node-label-selector", "  vmss=1,fabric,!maintenance  "]
+        )
+        self.assertEqual(result.exit_code, 0, result.output)
+        created = _FakeAPIClient.last_instance.job.created_job
+        self.assertEqual(
+            created.spec.affinity.node_label_selector, "vmss=1,fabric,!maintenance"
+        )
+        payload = created.model_dump(exclude_none=True)
+        self.assertEqual(
+            payload["spec"]["affinity"]["node_label_selector"],
+            "vmss=1,fabric,!maintenance",
+        )
+
+    def test_job_create_without_selector_omits_affinity(self):
+        result = self._invoke([])
+        self.assertEqual(result.exit_code, 0, result.output)
+        created = _FakeAPIClient.last_instance.job.created_job
+        self.assertIsNone(created.spec.affinity)
+        self.assertNotIn("affinity", created.model_dump(exclude_none=True)["spec"])
+
+    def test_job_create_rejects_selector_with_node_id(self):
+        result = self._invoke(
+            ["--node-id", "node-1", "--node-label-selector", "vmss=1"]
+        )
+        self.assertEqual(result.exit_code, 1, result.output)
+        self.assertIn("cannot be combined with --node-id", result.output)
+        self.assertIsNone(_FakeAPIClient.last_instance.job.created_job)
+
+    def test_job_create_rejects_empty_selector(self):
+        result = self._invoke(["--node-label-selector", "   "])
+        self.assertEqual(result.exit_code, 2, result.output)
+        output = " ".join(result.output.split())
+        self.assertIn("must not be empty or only whitespace", output)
+        self.assertIsNone(_FakeAPIClient.last_instance)
+
+    def test_file_selector_is_sent_and_cli_value_overrides_it(self):
+        path = self._write_spec({"node_label_selector": "vmss=1"})
+        kept = self._invoke([], spec_file=path)
+        self.assertEqual(kept.exit_code, 0, kept.output)
+        self.assertEqual(
+            _FakeAPIClient.last_instance.job.created_job.spec.affinity.node_label_selector,
+            "vmss=1",
+        )
+
+        overridden = self._invoke(
+            ["--node-label-selector", "fabric=rdma"], spec_file=path
+        )
+        self.assertEqual(overridden.exit_code, 0, overridden.output)
+        self.assertEqual(
+            _FakeAPIClient.last_instance.job.created_job.spec.affinity.node_label_selector,
+            "fabric=rdma",
+        )
+
+    def test_file_selector_conflicts_with_allowed_nodes(self):
+        path = self._write_spec({
+            "node_label_selector": "vmss=1",
+            "allowed_nodes_in_node_group": ["node-1"],
+        })
+        result = self._invoke([], spec_file=path)
+        self.assertEqual(result.exit_code, 1, result.output)
+        self.assertIn("mutually exclusive", " ".join(result.output.split()))
+        self.assertIsNone(_FakeAPIClient.last_instance.job.created_job)
+
+    def test_blank_file_selector_is_dropped(self):
+        path = self._write_spec({
+            "node_label_selector": "   ",
+            "allowed_nodes_in_node_group": ["node-1"],
+        })
+        result = self._invoke([], spec_file=path)
+        self.assertEqual(result.exit_code, 0, result.output)
+        created = _FakeAPIClient.last_instance.job.created_job
+        self.assertEqual(
+            created.model_dump(exclude_none=True)["spec"]["affinity"],
+            {"allowed_nodes_in_node_group": ["node-1"]},
+        )
+
+    def test_node_group_keeps_file_selector(self):
+        path = self._write_spec({"node_label_selector": "vmss=1"})
+        _FakeAPIClient.last_instance = None
+        with (
+            patch("leptonai.cli.job.APIClient", _FakeAPIClient),
+            patch("leptonai.cli.util._get_valid_nodegroup_ids", return_value=["ng-1"]),
+        ):
+            result = CliRunner().invoke(
+                cli, _create_args("--file", path, "--node-group", "my-group")
+            )
+        self.assertEqual(result.exit_code, 0, result.output)
+        affinity = _FakeAPIClient.last_instance.job.created_job.spec.affinity
+        self.assertEqual(affinity.allowed_dedicated_node_groups, ["ng-1"])
+        self.assertEqual(affinity.node_label_selector, "vmss=1")
+        self.assertIsNone(affinity.allowed_nodes_in_node_group)
+
+    def test_job_create_help_documents_node_label_selector(self):
+        result = CliRunner().invoke(cli, ["job", "create", "--help"])
+        self.assertEqual(result.exit_code, 0, result.output)
+        help_text = " ".join(result.output.split())
+        self.assertIn("--node-label-selector", help_text)
+        self.assertIn("Cannot be combined with --node-id", help_text)
