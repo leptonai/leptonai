@@ -162,6 +162,29 @@ lep dynamo replica log -n my-dynamo -s worker --tail 200
 lep dynamo update -n my-dynamo -svc worker --replicas 4
 ```
 
+Dynamo 1.3.1 multi-node workers are configured with `--node-count`; `--replicas`
+counts independent worker groups. vLLM, SGLang and TensorRT-LLM accept aggregated
+and disaggregated configurations:
+
+```shell
+lep dynamo create -n my-multi --framework vllm \
+  -svc frontend --resource-shape cpu.small --node-group my-node-group \
+  -svc worker --resource-shape gpu.h100-80gb --node-count 2
+lep dynamo create -n my-pd --framework vllm --serving-mode disaggregated \
+  -svc frontend --resource-shape cpu.small --node-group my-node-group \
+  -svc prefill-worker --resource-shape gpu.h100-80gb --node-count 2 \
+  -svc decode-worker --resource-shape gpu.h100-80gb --node-count 2
+lep dynamo create -n my-trt --framework trtllm \
+  -svc frontend --resource-shape cpu.small --node-group my-node-group \
+  -svc worker --resource-shape gpu.h100-80gb --node-count 2
+lep dynamo update -n my-multi --dry-run -svc worker --node-count 4
+```
+
+Choose shapes available in your group. Default commands derive GPU parallelism
+from the selected shape; unknown or fractional GPU counts require an explicit
+`--command`. Updates synchronize recognized default commands with changed
+parallelism and protect custom commands.
+
 Run `lep --help`, or `lep <command> --help` for any subcommand, to explore everything. See the [CLI references](https://docs.nvidia.com/dgx-cloud/lepton/reference/cli/get-started/) for the full guide.
 
 ## Calling an endpoint from Python

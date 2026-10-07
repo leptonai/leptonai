@@ -35,9 +35,11 @@ from ..api.v2.dynamo_spec import (
     build_service_spec,
     command_display_string,
     frontend_node_groups_of,
+    service_command_needs_refresh,
     serving_mode_from_services,
     sort_service_names,
     validate_dynamo_name,
+    validate_dynamo_spec,
     validate_ingress_timeout,
 )
 from ..api.v2.spec_utils import make_env_vars_from_strings
@@ -247,22 +249,91 @@ def _resolve_node_group_ids(client: APIClient, terms: Sequence[str]) -> List[str
 
 
 def _lookup_shape_gpu_count(
-    client: APIClient, node_group_id: Optional[str], resource_shape: Optional[str]
-) -> Optional[int]:
-    """Best effort: GPUs per replica of a shape, used for multinode commands."""
-    if not resource_shape:
-        return None
+    client: APIClient, node_group_id: str, resource_shape: Optional[str], cache: dict
+) -> int:
+    """Resolve whole GPUs per node; never truncate fractional allocations."""
+    context = f"GPU count for shape {resource_shape!r} in node group {node_group_id!r}"
     try:
-        shapes = client.shapes.list_shapes(
-            node_group=node_group_id, purpose="deployment"
-        )
-    except Exception:
-        return None
+        if node_group_id not in cache:
+            cache[node_group_id] = client.shapes.list_shapes(
+                node_group=node_group_id, purpose="deployment"
+            )
+        shapes = cache[node_group_id]
+    except Exception as exc:
+        raise ValueError(
+            f"Cannot resolve {context}: shapes API failed ({type(exc).__name__})."
+            " Retry the query or supply --command explicitly."
+        ) from exc
     for shape in shapes:
         names = {shape.metadata.id_, shape.metadata.name, shape.spec.name}
-        if resource_shape in names and shape.spec.accelerator_num:
-            return int(shape.spec.accelerator_num)
-    return None
+        count = shape.spec.accelerator_num
+        if (
+            resource_shape in names
+            and count
+            and count > 0
+            and float(count).is_integer()
+            and shape.spec.accelerator_fraction in (None, 0, 1)
+        ):
+            return int(count)
+    raise ValueError(
+        f"Cannot resolve a positive whole {context}. Choose a known GPU shape"
+        " or supply --command explicitly."
+    )
+
+
+def _resolve_service_gpus(
+    client: APIClient,
+    svc: DynamoServiceInput,
+    *,
+    base: Optional[LeptonDynamoServiceSpec],
+    frontend_groups: Optional[Sequence[str]],
+    cache: dict,
+    previous_frontend_groups: Optional[Sequence[str]] = None,
+    framework_changed: bool = False,
+    fill_defaults: bool = True,
+) -> None:
+    if svc.name == DYNAMO_FRONTEND_SERVICE or not service_command_needs_refresh(
+        svc,
+        base,
+        framework_changed=framework_changed,
+        frontend_node_groups=frontend_groups,
+        fill_defaults=fill_defaults,
+        previous_frontend_node_groups=previous_frontend_groups,
+    ):
+        return
+
+    def resolve(shape, groups):
+        if not groups:
+            raise ValueError(
+                f"Service {svc.name!r} needs a frontend node group to resolve its GPU"
+                " count; supply --node-group on frontend or --command explicitly."
+            )
+        try:
+            counts = {
+                _lookup_shape_gpu_count(client, group, shape, cache) for group in groups
+            }
+        except ValueError as exc:
+            raise ValueError(f"Service {svc.name!r}: {exc}") from exc
+        if len(counts) != 1:
+            raise ValueError(
+                f"Service {svc.name!r}: shape {shape!r} has different GPU counts across"
+                " node groups; select matching shapes or supply --command explicitly."
+            )
+        return counts.pop()
+
+    previous_nodes = base.multinode.node_count if base and base.multinode else None
+    node_count = svc.node_count if svc.node_count is not None else previous_nodes
+    if node_count and node_count >= 2:
+        svc.gpu_count = resolve(
+            svc.resource_shape or (base.resource_shape if base else None),
+            frontend_groups,
+        )
+    previous_container = _main_container(base)
+    if previous_nodes and previous_container and previous_container.command:
+        old_groups = (
+            base.affinity.allowed_dedicated_node_groups if base.affinity else None
+        ) or previous_frontend_groups
+        svc.previous_gpu_count = resolve(base.resource_shape, old_groups)
 
 
 def _warn_if_unofficial_image(name: str, service: LeptonDynamoServiceSpec, framework):
@@ -294,8 +365,6 @@ def _parse_int(value: Optional[str], flag: str) -> Optional[int]:
 def _service_input_from_block(
     block: Dict[str, Any],
     client: APIClient,
-    *,
-    framework: Optional[str],
 ) -> DynamoServiceInput:
     node_groups = (
         _resolve_node_group_ids(client, block["node_group"])
@@ -323,10 +392,6 @@ def _service_input_from_block(
             block.get("termination_grace_period"), "--termination-grace-period"
         ),
     )
-    if svc.node_count and framework == "sglang":
-        svc.gpu_count = _lookup_shape_gpu_count(
-            client, node_groups[0] if node_groups else None, svc.resource_shape
-        )
     return svc
 
 
@@ -1149,8 +1214,13 @@ Service blocks (-svc/--service TYPE)
 
   Rules (same as the dashboard):
     - frontend is required; workers inherit the frontend's node group.
-    - vLLM only supports aggregated mode.
-    - --node-count (multinode) is only available for SGLang workers.
+    - Dynamo 1.3.1: vLLM, SGLang and TensorRT-LLM support aggregated and
+      disaggregated request configurations. --node-count is available on workers.
+    - Default multinode commands require a known positive whole GPU count per
+      node, resolved from the effective node group and resource shape. If it
+      cannot be resolved, select a known GPU shape or provide --command.
+    - vLLM/SGLang use TP = GPUs per node * node count. TensorRT-LLM uses
+      TP = GPUs per node and PP = node count. Replicas do not change TP/PP.
     - image, working dir and command default to the official Dynamo runtime for
       the chosen framework/version; override them only if you know the server
       accepts the value.
@@ -1160,8 +1230,8 @@ Service blocks (-svc/--service TYPE)
     --resource-shape TEXT          REQUIRED for new services.
     --node-group TEXT              Dedicated node group (name or id). Frontend only;
                                    workers inherit it.
-    --replicas INTEGER             Replica count (default 1, >= 1).
-    --node-count INTEGER           Multinode node count (>= 2, SGLang workers only).
+    --replicas INTEGER             Replica groups (default 1, >= 1).
+    --node-count INTEGER           Nodes per worker replica group (>= 2).
     --image TEXT                   Container image (default: official runtime image).
     --working-dir TEXT             Container working directory.
     --command TEXT                 Run command, executed via `/bin/sh -c`.
@@ -1201,7 +1271,14 @@ Service blocks (-svc/--service NAME)
   --termination-grace-period) plus:
     --remove                       Delete this service from the deployment.
     --clear-working-dir            Reset the working dir (frontend: /workspace,
-                                   workers: image default)."""
+                                   workers: image default).
+
+  Changing node count or GPUs per node also refreshes recognized default
+  commands. For custom or unrecognized commands, supply the complete new
+  --command explicitly. Replicas/env-only changes preserve existing commands.
+  Existing services cannot add/remove multinode, and framework is immutable.
+  A raw -f patch overrides flags and does not infer command changes: include
+  both multinode and command when changing parallelism in the patch."""
 
 UpdateServiceBlockCommand = make_block_option_command(
     markers=("-svc", "--service"),
@@ -1253,7 +1330,7 @@ UpdateServiceBlockCommand = make_block_option_command(
     type=str,
     default=None,
     help=(
-        "Dynamo version; drives image tags and default commands. Default:"
+        "Dynamo version; drives image tags and default commands. Supported/default:"
         f" {DYNAMO_VERSION}."
     ),
 )
@@ -1337,10 +1414,30 @@ def create(
     effective_framework = (
         framework or (base.backend_framework if base else None) or "vllm"
     )
-    inputs = [
-        _service_input_from_block(block, client, framework=effective_framework)
-        for block in service_blocks
-    ]
+    inputs = [_service_input_from_block(block, client) for block in service_blocks]
+    frontend_groups = next(
+        (s.node_groups for s in inputs if s.name == DYNAMO_FRONTEND_SERVICE), None
+    ) or (frontend_node_groups_of(base) if base else None)
+    base_services = (base.services or {}) if base else {}
+    input_names = {s.name for s in inputs}
+    inputs.extend(
+        DynamoServiceInput(name=name)
+        for name in base_services
+        if name not in input_names
+    )
+    shape_cache = {}
+    for svc in inputs:
+        _resolve_service_gpus(
+            client,
+            svc,
+            base=base_services.get(svc.name),
+            frontend_groups=frontend_groups,
+            cache=shape_cache,
+            previous_frontend_groups=frontend_node_groups_of(base) if base else None,
+            framework_changed=bool(
+                base and effective_framework != base.backend_framework
+            ),
+        )
 
     spec = build_dynamo_spec(
         services=inputs,
@@ -1364,11 +1461,7 @@ def create(
     dep = LeptonDynamoGraphDeployment(metadata=Metadata(**metadata_kwargs), spec=spec)
 
     if dry_run:
-        console.print(
-            json.dumps(client.dynamo.safe_json(dep), indent=2),
-            markup=False,
-            highlight=False,
-        )
+        click.echo(json.dumps(client.dynamo.safe_json(dep), indent=2))
         return
 
     created = client.dynamo.create(dep)
@@ -1477,6 +1570,7 @@ def update(
         console.print(f"[red]Dynamo deployment {name!r} has no spec to update.[/]")
         sys.exit(1)
     original = current.spec
+    file_patch = _load_patch_file(file) if file else {}
     desired = original.model_copy(deep=True)
     desired.services = dict(desired.services or {})
     framework = desired.backend_framework or "vllm"
@@ -1491,7 +1585,29 @@ def update(
     if env or secret:
         desired.envs = make_env_vars_from_strings(list(env), list(secret))
 
+    inputs = {}
+    blocks_by_name = {}
     for block in service_blocks:
+        svc_name = block["key"]
+        if svc_name in blocks_by_name:
+            raise ValueError(f"Service {svc_name!r} is specified more than once.")
+        blocks_by_name[svc_name] = block
+        if not block.get("remove"):
+            inputs[svc_name] = _service_input_from_block(block, client)
+    frontend_input = inputs.get(DYNAMO_FRONTEND_SERVICE)
+    frontend_groups = (
+        frontend_input.node_groups
+        if frontend_input and frontend_input.node_groups is not None
+        else frontend_node_groups_of(original)
+    )
+    if frontend_groups != frontend_node_groups_of(original):
+        for svc_name in desired.services:
+            if svc_name not in blocks_by_name:
+                blocks_by_name[svc_name] = {"key": svc_name}
+                inputs[svc_name] = DynamoServiceInput(name=svc_name)
+
+    shape_cache = {}
+    for block in blocks_by_name.values():
         svc_name = block["key"]
         existing = desired.services.get(svc_name)
         if block.get("remove"):
@@ -1505,7 +1621,28 @@ def update(
             del desired.services[svc_name]
             continue
 
-        svc_input = _service_input_from_block(block, client, framework=framework)
+        svc_input = inputs[svc_name]
+        # A command supplied by the higher-priority raw patch is explicit too.
+        # Use its display form only for building the flag patch; the original
+        # argv is merged back verbatim below, including non-shell commands.
+        patch_command = file_patch
+        for key in (
+            "spec",
+            "services",
+            svc_name,
+            "extra_pod_spec",
+            "main_container",
+            "command",
+        ):
+            patch_command = (
+                patch_command.get(key) if isinstance(patch_command, dict) else None
+            )
+        if (
+            isinstance(patch_command, list)
+            and patch_command
+            and all(isinstance(arg, str) for arg in patch_command)
+        ):
+            svc_input.command = command_display_string(patch_command)
         if existing is not None:
             if svc_input.node_count is not None and existing.multinode is None:
                 raise ValueError(
@@ -1520,12 +1657,22 @@ def update(
                     "Worker node groups are automatically synchronized with the"
                     " frontend service; change the node group on the frontend instead."
                 )
+            _resolve_service_gpus(
+                client,
+                svc_input,
+                base=existing,
+                frontend_groups=frontend_groups,
+                cache=shape_cache,
+                previous_frontend_groups=frontend_node_groups_of(original),
+                fill_defaults=False,
+            )
             new_spec = build_service_spec(
                 svc_input,
                 framework=framework,
                 serving_mode=serving_mode,
                 dynamo_version=desired.dynamo_version,
-                frontend_node_groups=None,
+                frontend_node_groups=frontend_groups,
+                previous_frontend_node_groups=frontend_node_groups_of(original),
                 base=existing,
                 fill_defaults=False,
             )
@@ -1541,12 +1688,19 @@ def update(
                     f"Unknown Dynamo service {svc_name!r}. Expected one of:"
                     f" {', '.join(DYNAMO_SERVICE_NAMES)}."
                 )
+            _resolve_service_gpus(
+                client,
+                svc_input,
+                base=None,
+                frontend_groups=frontend_groups,
+                cache=shape_cache,
+            )
             new_spec = build_service_spec(
                 svc_input,
                 framework=framework,
                 serving_mode=serving_mode,
                 dynamo_version=desired.dynamo_version,
-                frontend_node_groups=frontend_node_groups_of(desired),
+                frontend_node_groups=frontend_groups,
                 base=None,
             )
         desired.services[svc_name] = new_spec
@@ -1564,8 +1718,14 @@ def update(
 
     spec_patch = build_merge_patch(spec_to_dict(original), spec_to_dict(desired))
     patch: Dict[str, Any] = {"spec": spec_patch} if spec_patch else {}
-    if file:
-        patch = deep_merge_patch(patch, _load_patch_file(file))
+    if file_patch:
+        patch = deep_merge_patch(patch, file_patch)
+
+    if "spec" in patch:
+        final_spec = LeptonDynamoGraphDeploymentUserSpec.model_validate(
+            apply_merge_patch(spec_to_dict(original), patch["spec"])
+        )
+        validate_dynamo_spec(final_spec, original)
 
     if not patch.get("spec"):
         console.print("No changes detected.")
@@ -1573,7 +1733,7 @@ def update(
 
     if dryrun:
         console.print("Merge patch:")
-        console.print(json.dumps(patch, indent=2), markup=False, highlight=False)
+        click.echo(json.dumps(patch, indent=2))
     elif "services" in patch["spec"]:
         _confirm(
             "This update changes services and may restart running replicas of"

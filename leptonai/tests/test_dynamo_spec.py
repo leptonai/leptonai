@@ -40,6 +40,80 @@ def _frontend(**overrides):
 
 
 class TestDefaultsRegistry(unittest.TestCase):
+    def test_multinode_defaults_require_positive_whole_gpu_count(self):
+        for framework in ("vllm", "sglang", "trtllm"):
+            for gpu_count in (None, 0, -1, 0.5, 1.5, True):
+                with self.subTest(framework=framework, gpu_count=gpu_count):
+                    with self.assertRaisesRegex(ValueError, "GPU.*--command"):
+                        build_dynamo_spec(
+                            framework=framework,
+                            services=[
+                                _frontend(),
+                                DynamoServiceInput(
+                                    name="worker",
+                                    resource_shape="unknown",
+                                    node_count=2,
+                                    gpu_count=gpu_count,
+                                ),
+                            ],
+                        )
+
+    def test_trtllm_multinode_parallelism(self):
+        spec = build_dynamo_spec(
+            framework="trtllm",
+            services=[
+                _frontend(),
+                DynamoServiceInput(
+                    name="worker",
+                    resource_shape="gpu.h100-4",
+                    node_count=2,
+                    gpu_count=4,
+                    replicas=3,
+                ),
+            ],
+        )
+        worker = spec.services["worker"]
+        self.assertEqual(worker.min_replicas, 3)
+        self.assertEqual(worker.multinode.node_count, 2)
+        self.assertEqual(
+            worker.extra_pod_spec.main_container.command[2],
+            "python3 -m dynamo.trtllm --model-path Qwen/Qwen3-0.6B --served-model-name"
+            " Qwen/Qwen3-0.6B --extra-engine-args"
+            " ./examples/backends/trtllm/engine_configs/qwen3/agg.yaml"
+            ' --override-engine-args \'{"tensor_parallel_size": 4,'
+            ' "pipeline_parallel_size": 2}\'',
+        )
+
+    def test_vllm_disaggregated_multinode(self):
+        spec = build_dynamo_spec(
+            framework="vllm",
+            serving_mode="disaggregated",
+            services=[
+                _frontend(),
+                DynamoServiceInput(
+                    name="prefill-worker",
+                    resource_shape="gpu.h100-4",
+                    node_count=2,
+                    gpu_count=4,
+                ),
+            ],
+        )
+        worker = spec.services["prefill-worker"]
+        self.assertEqual(worker.multinode.node_count, 2)
+        self.assertEqual(
+            worker.extra_pod_spec.main_container.command,
+            [
+                "/bin/sh",
+                "-c",
+                (
+                    "python3 -m dynamo.vllm --model Qwen/Qwen3-0.6B"
+                    " --disaggregation-mode prefill --kv-transfer-config"
+                    ' \'{"kv_connector":"NixlConnector","kv_role":"kv_both"}\''
+                    " --tensor-parallel-size 8"
+                ),
+            ],
+        )
+
     def test_default_image_uses_framework_and_version(self):
         self.assertEqual(
             get_default_image("vllm"),
@@ -92,11 +166,7 @@ class TestDefaultsRegistry(unittest.TestCase):
         self.assertIn("--disaggregation-bootstrap-port 30001", disaggregated)
         self.assertTrue(disaggregated.endswith(" --mem-fraction-static 0.82"))
 
-        # vLLM/TensorRT-LLM never rewrite, and the frontend never does.
-        self.assertEqual(
-            get_default_command("vllm", "worker", "aggregated", node_count=2),
-            get_default_command("vllm", "worker", "aggregated"),
-        )
+        # Frontend commands never gain parallelism flags.
         self.assertEqual(
             get_default_command("sglang", "frontend", "aggregated", node_count=2),
             "python3 -m dynamo.frontend",
@@ -133,9 +203,8 @@ class TestValidation(unittest.TestCase):
             with self.assertRaises(ValueError, msg=bad):
                 validate_dynamo_name(bad)
 
-    def test_vllm_rejects_disaggregated(self):
-        with self.assertRaises(ValueError):
-            validate_framework_and_mode("vllm", "disaggregated")
+    def test_framework_and_mode_validation(self):
+        validate_framework_and_mode("vllm", "disaggregated")
         validate_framework_and_mode("sglang", "disaggregated")
         with self.assertRaises(ValueError):
             validate_framework_and_mode("vllm", "hybrid")
@@ -242,7 +311,7 @@ class TestBuildDynamoSpec(unittest.TestCase):
             ],
         )
 
-    def test_multinode_only_for_sglang_workers(self):
+    def test_multinode_worker_constraints(self):
         spec = build_dynamo_spec(
             framework="sglang",
             services=[
@@ -259,7 +328,7 @@ class TestBuildDynamoSpec(unittest.TestCase):
         self.assertEqual(worker.multinode.node_count, 2)
         self.assertIn("--tp 16", worker.extra_pod_spec.main_container.command[2])
 
-        with self.assertRaisesRegex(ValueError, "only supported for SGLang"):
+        with self.assertRaisesRegex(ValueError, "GPU count"):
             build_dynamo_spec(
                 framework="vllm",
                 services=[
@@ -291,8 +360,6 @@ class TestBuildDynamoSpec(unittest.TestCase):
             build_dynamo_spec(services=[_frontend(node_groups=None)])
         with self.assertRaisesRegex(ValueError, "requires --resource-shape"):
             build_dynamo_spec(services=[_frontend(resource_shape=None)])
-        with self.assertRaisesRegex(ValueError, "not supported for vLLM"):
-            build_dynamo_spec(serving_mode="disaggregated", services=[_frontend()])
         with self.assertRaisesRegex(ValueError, "not available in aggregated mode"):
             build_dynamo_spec(
                 framework="sglang",
@@ -379,9 +446,24 @@ class TestBuildDynamoSpec(unittest.TestCase):
 
     def test_framework_change_cascades_like_the_dashboard(self):
         base = self._base_spec()
-        spec = build_dynamo_spec(services=[], framework="trtllm", base=base)
+        base.services["worker"].extra_pod_spec.main_container.command = [
+            "/bin/sh",
+            "-c",
+            (
+                "python3 -m dynamo.sglang --model-path Qwen/Qwen3-0.6B"
+                " --served-model-name Qwen/Qwen3-0.6B --page-size 16 --tp 16"
+                " --trust-remote-code --skip-tokenizer-init"
+            ),
+        ]
+        spec = build_dynamo_spec(
+            services=[
+                DynamoServiceInput(name="worker", gpu_count=8, previous_gpu_count=8)
+            ],
+            framework="trtllm",
+            base=base,
+        )
         worker = spec.services["worker"]
-        self.assertIsNone(worker.multinode)
+        self.assertEqual(worker.multinode.node_count, 2)
         container = worker.extra_pod_spec.main_container
         self.assertEqual(
             container.image, "nvcr.io/nvidia/ai-dynamo/tensorrtllm-runtime:1.3.1"
@@ -423,6 +505,44 @@ class TestBuildDynamoSpec(unittest.TestCase):
                 base=base,
                 fill_defaults=False,
             )
+
+    def test_update_multinode_refreshes_recognized_default(self):
+        base = build_dynamo_spec(
+            services=[
+                _frontend(),
+                DynamoServiceInput(
+                    name="worker",
+                    resource_shape="gpu.h100-4",
+                    node_count=2,
+                    gpu_count=4,
+                ),
+            ]
+        ).services["worker"]
+        updated = build_service_spec(
+            DynamoServiceInput(
+                name="worker", node_count=4, gpu_count=4, previous_gpu_count=4
+            ),
+            framework="vllm",
+            serving_mode="aggregated",
+            base=base,
+            fill_defaults=False,
+        )
+        self.assertEqual(updated.multinode.node_count, 4)
+        self.assertEqual(
+            updated.extra_pod_spec.main_container.command,
+            [
+                "/bin/sh",
+                "-c",
+                (
+                    "python3 -m dynamo.vllm --model Qwen/Qwen3-0.6B"
+                    " --tensor-parallel-size 16"
+                ),
+            ],
+        )
+        self.assertEqual(base.multinode.node_count, 2)
+        self.assertTrue(
+            base.extra_pod_spec.main_container.command[2].endswith("size 8")
+        )
 
 
 class TestMergePatch(unittest.TestCase):

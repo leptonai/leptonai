@@ -3,7 +3,8 @@ Pure helpers that turn CLI-style inputs into a Dynamo graph deployment spec.
 
 Everything here is side-effect free (no API calls) so it can be unit tested
 without click. The defaults registry is ported from the dashboard
-(``lep-fe/interaction-specs/apps/dashboard/src/generated/forms/dynamo/helpers.ts``)
+(``interaction-specs/apps/dashboard/src/generated/forms/dynamo/helpers.ts``,
+Lepton commit ``32aeb6f1d8``)
 so `lep dynamo create` fills in exactly what the web console would:
 
 - container image ``nvcr.io/nvidia/ai-dynamo/<framework>-runtime:<version>``
@@ -14,6 +15,7 @@ so `lep dynamo create` fills in exactly what the web console would:
 - commands sent as ``["/bin/sh", "-c", "<command>"]``
 """
 
+import json
 import re
 import shlex
 from dataclasses import dataclass, field
@@ -173,11 +175,6 @@ def validate_serving_mode(serving_mode: Optional[str]) -> str:
 def validate_framework_and_mode(framework: str, serving_mode: str) -> None:
     validate_framework(framework)
     validate_serving_mode(serving_mode)
-    if framework == "vllm" and serving_mode == "disaggregated":
-        raise ValueError(
-            "Disaggregated mode is not supported for vLLM currently. Use"
-            " `--serving-mode aggregated` or pick sglang/trtllm."
-        )
 
 
 def get_default_image(framework: str, dynamo_version: Optional[str] = None) -> str:
@@ -204,18 +201,34 @@ def get_default_command(
 ) -> str:
     """
     Default run command for a service, mirroring the dashboard. Returns "" for
-    service names outside the registry. For SGLang multinode workers the
-    tensor-parallel size is rewritten to ``gpu_count * node_count``.
+    service names outside the registry. GPU counts are per node; replica
+    groups do not change a group's tensor/pipeline parallel sizes.
     """
     registry = _command_registry(dynamo_version)
     base = registry.get(serving_mode, {}).get(service_name, {}).get(framework, "")
     if (
-        node_count
+        base
+        and node_count
         and node_count > 1
         and service_name != DYNAMO_FRONTEND_SERVICE
-        and framework == "sglang"
     ):
-        tp = (gpu_count or 1) * node_count
+        if type(gpu_count) is not int or gpu_count <= 0:
+            raise ValueError(
+                f"Service {service_name!r}: default multinode commands require a"
+                " positive whole GPU count per node. Choose a known GPU shape"
+                " or supply --command explicitly."
+            )
+        tp = gpu_count * node_count
+        if framework == "vllm":
+            return f"{base} --tensor-parallel-size {tp}"
+        if framework == "trtllm":
+            engine_args = json.dumps({
+                "tensor_parallel_size": gpu_count,
+                "pipeline_parallel_size": node_count,
+            })
+            return f"{base} --override-engine-args '{engine_args}'"
+        if framework != "sglang":
+            return base
         if serving_mode == "disaggregated":
             return (
                 base.replace("--tp 1", f"--tp-size {tp}").replace(
@@ -327,6 +340,51 @@ def validate_ingress_timeout(seconds: Optional[int]) -> Optional[int]:
     return seconds
 
 
+def validate_dynamo_spec(
+    spec: LeptonDynamoGraphDeploymentUserSpec,
+    original: Optional[LeptonDynamoGraphDeploymentUserSpec] = None,
+) -> None:
+    """Validate the effective spec, including file input and raw merge patches."""
+    validate_framework(spec.backend_framework)
+    if spec.dynamo_version not in SUPPORTED_DYNAMO_VERSIONS:
+        raise ValueError(
+            f"Unsupported Dynamo version {spec.dynamo_version!r}; supported versions:"
+            f" {', '.join(SUPPORTED_DYNAMO_VERSIONS)}."
+        )
+    if spec.dynamo_namespace:
+        raise ValueError(
+            "dynamo_namespace is unsupported for Dynamo 1.3.1 and must be empty."
+        )
+    validate_ingress_timeout(spec.ingress_timeout_seconds)
+    if original and original.backend_framework != spec.backend_framework:
+        raise ValueError(
+            "The backend framework of an existing deployment cannot be changed."
+        )
+    services = spec.services or {}
+    if not any(s.component_type == "frontend" for s in services.values()):
+        raise ValueError("At least one frontend service is required.")
+    for name, service in services.items():
+        if service.min_replicas is not None and service.min_replicas < 1:
+            raise ValueError(f"Service {name!r}: replicas must be at least 1.")
+        if service.multinode is not None:
+            if service.component_type != "worker":
+                raise ValueError(
+                    f"Service {name!r}: multinode is only supported for worker"
+                    " services."
+                )
+            if service.multinode.node_count is None or service.multinode.node_count < 2:
+                raise ValueError(
+                    f"Service {name!r}: multinode node count must be at least 2."
+                )
+        previous = (original.services or {}).get(name) if original else None
+        if previous and (previous.multinode is None) != (service.multinode is None):
+            action = "add" if previous.multinode is None else "remove"
+            raise ValueError(
+                f"Service {name!r}: cannot {action} multinode configuration on an"
+                " existing service."
+            )
+
+
 def parse_key_value_pairs(items: Sequence[str], kind: str) -> Dict[str, str]:
     """Parse ``KEY=VALUE`` strings; both sides are required (dashboard rule)."""
     result: Dict[str, str] = {}
@@ -372,9 +430,44 @@ class DynamoServiceInput:
     labels: List[str] = field(default_factory=list)
     shared_memory_size: Optional[int] = None
     termination_grace_period_seconds: Optional[int] = None
-    # GPUs per replica of the chosen shape; only used to derive the default
-    # tensor-parallel size of SGLang multinode commands.
+    # Whole GPUs per node, resolved from the effective shape and node groups.
     gpu_count: Optional[int] = None
+    previous_gpu_count: Optional[int] = None
+
+
+def service_command_needs_refresh(
+    svc: DynamoServiceInput,
+    base: Optional[LeptonDynamoServiceSpec],
+    *,
+    framework_changed: bool = False,
+    frontend_node_groups: Optional[Sequence[str]] = None,
+    previous_frontend_node_groups: Optional[Sequence[str]] = None,
+    fill_defaults: bool = True,
+) -> bool:
+    """Whether defaults need calculating after applying the requested changes."""
+    if svc.command is not None:
+        return False
+    if base is None:
+        return True
+    container = base.extra_pod_spec.main_container if base.extra_pod_spec else None
+    if framework_changed or (fill_defaults and not (container and container.command)):
+        return True
+    previous_nodes = base.multinode.node_count if base.multinode else None
+    if svc.node_count is not None and svc.node_count != previous_nodes:
+        return True
+    if base.multinode:
+        if svc.resource_shape is not None and svc.resource_shape != base.resource_shape:
+            return True
+        previous_groups = (
+            base.affinity.allowed_dedicated_node_groups if base.affinity else None
+        ) or previous_frontend_node_groups
+        if (
+            frontend_node_groups is not None
+            and previous_groups is not None
+            and list(frontend_node_groups) != list(previous_groups)
+        ):
+            return True
+    return False
 
 
 def _set_node_groups(spec: LeptonDynamoServiceSpec, node_groups: List[str]) -> None:
@@ -390,9 +483,11 @@ def build_service_spec(
     serving_mode: str,
     dynamo_version: Optional[str] = None,
     frontend_node_groups: Optional[Sequence[str]] = None,
+    previous_frontend_node_groups: Optional[Sequence[str]] = None,
     image_pull_secrets: Optional[Sequence[str]] = None,
     base: Optional[LeptonDynamoServiceSpec] = None,
     framework_changed: bool = False,
+    base_framework: Optional[str] = None,
     fill_defaults: bool = True,
 ) -> LeptonDynamoServiceSpec:
     """
@@ -400,10 +495,9 @@ def build_service_spec(
     service loaded from a spec file). Raises ``ValueError`` for every rule the
     dashboard enforces client side.
 
-    With ``fill_defaults=False`` (used by `lep dynamo update`) only explicitly
-    given inputs are applied on top of ``base``; missing image, working dir,
-    command, replica count and pod metadata are left untouched so the derived
-    merge patch contains nothing the user did not ask for.
+    With ``fill_defaults=False`` (used by `lep dynamo update`), omitted fields
+    stay untouched. A parallelism change also refreshes a recognized default
+    command. Unknown commands require an explicit replacement.
     """
     name = svc.name
     known = name in DYNAMO_SERVICE_NAMES
@@ -416,7 +510,7 @@ def build_service_spec(
     if is_new:
         fill_defaults = True
 
-    if known and (fill_defaults or not spec.component_type):
+    if known and (is_new or not spec.component_type):
         spec.component_type = component_type_for_service(name)
     elif not spec.component_type and fill_defaults:
         spec.component_type = "worker"
@@ -466,22 +560,54 @@ def build_service_spec(
             raise ValueError(
                 "--node-count is only supported for worker services, not the frontend."
             )
-        if framework != "sglang":
-            raise ValueError(
-                "Multinode (--node-count) is only supported for SGLang workers;"
-                f" the backend framework is {framework}."
-            )
         if svc.node_count < 2:
             raise ValueError(f"Node count must be at least 2 (service {name!r}).")
         spec.multinode = DynamoMultinodeSpec(node_count=svc.node_count)
-    elif framework_changed and framework != "sglang":
-        # Framework cascade from the dashboard: only SGLang supports multinode.
-        spec.multinode = None
     node_count = spec.multinode.node_count if spec.multinode else None
 
+    refresh_command = service_command_needs_refresh(
+        svc,
+        base,
+        framework_changed=framework_changed,
+        frontend_node_groups=frontend_node_groups,
+        fill_defaults=fill_defaults,
+        previous_frontend_node_groups=previous_frontend_node_groups,
+    )
+    previous_container = (
+        base.extra_pod_spec.main_container if base and base.extra_pod_spec else None
+    )
+    if refresh_command and previous_container and previous_container.command:
+        previous_nodes = base.multinode.node_count if base.multinode else None
+        # Shape/group changes with the same GPU count leave even custom commands alone.
+        if (
+            not framework_changed
+            and previous_nodes == node_count
+            and svc.previous_gpu_count is not None
+            and svc.previous_gpu_count == svc.gpu_count
+        ):
+            refresh_command = False
+        else:
+            old_default = get_default_command(
+                base_framework or framework,
+                name,
+                serving_mode,
+                dynamo_version,
+                node_count=previous_nodes,
+                gpu_count=svc.previous_gpu_count,
+            )
+            if not old_default or previous_container.command != shell_command_argv(
+                old_default
+            ):
+                raise ValueError(
+                    f"Service {name!r} has a custom or unrecognized command; changing"
+                    " its framework or parallelism requires an explicit --command."
+                )
+
     # Main container ---------------------------------------------------------
-    touch_container = fill_defaults or any(
-        value is not None for value in (svc.image, svc.working_dir, svc.command)
+    touch_container = (
+        fill_defaults
+        or refresh_command
+        or any(value is not None for value in (svc.image, svc.working_dir, svc.command))
     )
     if touch_container:
         if spec.extra_pod_spec is None:
@@ -506,7 +632,7 @@ def build_service_spec(
 
         if svc.command is not None:
             container.command = shell_command_argv(svc.command)
-        elif fill_defaults and (is_new or framework_changed or not container.command):
+        elif refresh_command:
             default_command = get_default_command(
                 framework,
                 name,
@@ -650,7 +776,8 @@ def build_dynamo_spec(
         )
 
     for name in inputs_by_name:
-        validate_service_name_for_mode(name, serving_mode)
+        if name in DYNAMO_SERVICE_NAMES or name not in base_services:
+            validate_service_name_for_mode(name, serving_mode)
     for name in base_services:
         if name in DYNAMO_SERVICE_NAMES:
             validate_service_name_for_mode(name, serving_mode)
@@ -661,6 +788,8 @@ def build_dynamo_spec(
         dynamo_version=spec.dynamo_version,
         image_pull_secrets=image_pull_secrets,
         framework_changed=framework_changed,
+        base_framework=base_framework,
+        previous_frontend_node_groups=frontend_node_groups_of(base) if base else None,
     )
 
     frontend_spec = build_service_spec(
@@ -693,4 +822,5 @@ def build_dynamo_spec(
             **common,
         )
     spec.services = new_services
+    validate_dynamo_spec(spec)
     return spec

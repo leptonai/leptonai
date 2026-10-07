@@ -12,6 +12,12 @@ import responses
 
 from leptonai.api.v2.api_resource import ClientError
 from leptonai.api.v2.client import APIClient
+from leptonai.api.v2.dynamo_patch import build_merge_patch, spec_to_dict
+from leptonai.api.v2.dynamo_spec import (
+    DynamoServiceInput,
+    build_dynamo_spec,
+    build_service_spec,
+)
 from leptonai.api.v2.types.common import Metadata
 from leptonai.api.v2.types.dynamo import (
     LeptonDynamoGraphDeployment,
@@ -93,6 +99,93 @@ def _query(request):
 
 
 class TestDynamoGraphDeploymentAPI(unittest.TestCase):
+    @responses.activate
+    def test_multinode_create_and_node_count_patch_wire_contract(self):
+        responses.add(responses.POST, DGD, json=_deployment_body(), status=201)
+        spec = build_dynamo_spec(
+            framework="trtllm",
+            services=[
+                DynamoServiceInput(
+                    name="frontend", resource_shape="cpu.small", node_groups=["ng-1"]
+                ),
+                DynamoServiceInput(
+                    name="worker",
+                    resource_shape="gpu.h100-4",
+                    node_count=2,
+                    gpu_count=4,
+                ),
+            ],
+        )
+        client = _client()
+        client.dynamo.create(
+            LeptonDynamoGraphDeployment(metadata=Metadata(name="dyn-1"), spec=spec)
+        )
+        body = json.loads(_last_request().body)
+        worker = body["spec"]["services"]["worker"]
+        self.assertEqual(worker["multinode"], {"node_count": 2})
+        expected_base = (
+            "python3 -m dynamo.trtllm --model-path Qwen/Qwen3-0.6B"
+            " --served-model-name Qwen/Qwen3-0.6B --extra-engine-args"
+            " ./examples/backends/trtllm/engine_configs/qwen3/agg.yaml"
+        )
+        self.assertEqual(
+            worker["extra_pod_spec"]["main_container"]["command"],
+            [
+                "/bin/sh",
+                "-c",
+                expected_base
+                + ' --override-engine-args \'{"tensor_parallel_size": 4,'
+                ' "pipeline_parallel_size": 2}\'',
+            ],
+        )
+        self.assertNotIn("serving_mode", body["spec"])
+        self.assertNotIn("multinode", body["spec"]["services"]["frontend"])
+        updated = build_service_spec(
+            DynamoServiceInput(
+                name="worker", node_count=4, gpu_count=4, previous_gpu_count=4
+            ),
+            framework="trtllm",
+            serving_mode="aggregated",
+            base=spec.services["worker"],
+            fill_defaults=False,
+        )
+        patch = {
+            "spec": {
+                "services": {
+                    "worker": build_merge_patch(
+                        spec_to_dict(spec.services["worker"]), spec_to_dict(updated)
+                    )
+                }
+            }
+        }
+        responses.add(responses.PATCH, f"{DGD}/dyn-1", json=_deployment_body())
+        client.dynamo.update("dyn-1", patch, dryrun=True)
+        self.assertEqual(_query(_last_request()), {"dryrun": ["true"]})
+        self.assertEqual(
+            json.loads(_last_request().body),
+            {
+                "spec": {
+                    "services": {
+                        "worker": {
+                            "multinode": {"node_count": 4},
+                            "extra_pod_spec": {
+                                "main_container": {
+                                    "command": [
+                                        "/bin/sh",
+                                        "-c",
+                                        expected_base
+                                        + " --override-engine-args"
+                                        ' \'{"tensor_parallel_size": 4,'
+                                        ' "pipeline_parallel_size": 4}\'',
+                                    ]
+                                }
+                            },
+                        }
+                    }
+                }
+            },
+        )
+
     @responses.activate
     def test_list_all_parses_bare_array_and_states(self):
         responses.add(

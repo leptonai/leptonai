@@ -3,6 +3,7 @@
 import json
 import os
 import tempfile
+from pathlib import Path
 
 # Set cache dir to a temp dir before importing anything from leptonai
 os.environ.setdefault("LEPTON_CACHE_DIR", tempfile.mkdtemp())
@@ -36,6 +37,9 @@ from leptonai.cli import lep as cli
 from leptonai.cli.dynamo import console as dynamo_console
 
 VLLM_IMAGE = "nvcr.io/nvidia/ai-dynamo/vllm-runtime:1.3.1"
+UI_CASES = json.loads(
+    (Path(__file__).parents[2] / "tests/fixtures/dynamo_1_3_1_ui.json").read_text()
+)["cases"]
 
 
 class _FakeResponse:
@@ -242,27 +246,42 @@ class FakeNodeGroupAPI:
                 metadata=Metadata(id="ng-1", name="my-ng"),
                 spec=DedicatedNodeGroupSpec(),
                 status=DedicatedNodeGroupStatus(),
-            )
+            ),
+            DedicatedNodeGroup(
+                metadata=Metadata(id="ng-2", name="other-ng"),
+                spec=DedicatedNodeGroupSpec(),
+                status=DedicatedNodeGroupStatus(),
+            ),
         ]
 
 
 class FakeShapesAPI:
-    def list_shapes(self, node_group=None, purpose=None):
-        return [
+    def __init__(self):
+        self.calls = []
+        self.by_group = {}
+        self.error = None
+        self.items = [
             Shape(
                 metadata=Metadata(id="gpu.h100-8", name="gpu.h100-8"),
                 spec=ShapeSpec(name="gpu.h100-8", accelerator_num=8),
             )
         ]
 
+    def list_shapes(self, node_group=None, purpose=None):
+        self.calls.append((node_group, purpose))
+        if self.error:
+            raise self.error
+        return self.by_group.get(node_group, self.items)
+
 
 class FakeAPIClient:
     dynamo_api = None
+    shapes_api = None
 
     def __init__(self, *args, **kwargs):
         self.dynamo = FakeAPIClient.dynamo_api
         self.nodegroup = FakeNodeGroupAPI()
-        self.shapes = FakeShapesAPI()
+        self.shapes = FakeAPIClient.shapes_api
 
 
 @pytest.fixture
@@ -343,6 +362,8 @@ def fake(monkeypatch):
     ]
 
     FakeAPIClient.dynamo_api = api
+    api.shapes = FakeShapesAPI()
+    FakeAPIClient.shapes_api = api.shapes
     monkeypatch.setattr("leptonai.cli.dynamo.APIClient", FakeAPIClient)
     monkeypatch.setattr(dynamo_console, "width", 240)
     return api
@@ -691,6 +712,488 @@ def test_create_disaggregated_sglang_with_multinode(fake):
     assert prefill.extra_pod_spec.main_container.image.endswith("sglang-runtime:1.3.1")
 
 
+def test_create_vllm_multinode_inherits_frontend_shape_scope(fake):
+    result = run(
+        "create",
+        "-n",
+        "multi",
+        "--framework",
+        "vllm",
+        "-svc",
+        "frontend",
+        "--resource-shape",
+        "cpu.small",
+        "--node-group",
+        "my-ng",
+        "-svc",
+        "worker",
+        "--resource-shape",
+        "gpu.h100-8",
+        "--node-count",
+        "2",
+        "--replicas",
+        "3",
+    )
+    assert result.exit_code == 0, result.output
+    worker = _created_spec(fake).services["worker"]
+    assert worker.multinode.node_count == 2
+    assert worker.min_replicas == 3
+    assert worker.affinity.allowed_dedicated_node_groups == ["ng-1"]
+    assert worker.extra_pod_spec.main_container.command == [
+        "/bin/sh",
+        "-c",
+        "python3 -m dynamo.vllm --model Qwen/Qwen3-0.6B --tensor-parallel-size 16",
+    ]
+    assert fake.shapes.calls == [("ng-1", "deployment")]
+
+
+@pytest.mark.parametrize(
+    "case", UI_CASES, ids=lambda c: f'{c["framework"]}-{c["mode"]}'
+)
+def test_create_matches_dynamo_1_3_1_dashboard_payload(fake, case):
+    fake.shapes.items = [
+        Shape(
+            metadata=Metadata(id=f"gpu.test-{count}"),
+            spec=ShapeSpec(accelerator_num=count),
+        )
+        for count in (1, 4)
+    ]
+    args = [
+        "create",
+        "-n",
+        "matrix",
+        "--framework",
+        case["framework"],
+        "--serving-mode",
+        case["mode"],
+        "--dry-run",
+        "-svc",
+        "frontend",
+        "--resource-shape",
+        "cpu.small",
+        "--node-group",
+        "my-ng",
+    ]
+    for name, expected in case["workers"].items():
+        args.extend([
+            "-svc",
+            name,
+            "--resource-shape",
+            f'gpu.test-{expected["gpus"]}',
+            "--node-count",
+            str(expected["nodes"]),
+            "--replicas",
+            str(expected["replicas"]),
+        ])
+    result = run(*args)
+    assert result.exit_code == 0, result.output
+    assert fake.created is None
+    spec = json.loads(result.output)["spec"]
+    assert spec["dynamo_version"] == "1.3.1"
+    assert "serving_mode" not in spec
+    frontend = spec["services"]["frontend"]
+    assert "multinode" not in frontend
+    assert frontend["extra_pod_spec"]["main_container"] == {
+        "image": case["image"],
+        "working_dir": "/workspace",
+        "command": ["/bin/sh", "-c", "python3 -m dynamo.frontend"],
+    }
+    for name, expected in case["workers"].items():
+        service = spec["services"][name]
+        assert service["component_type"] == "worker"
+        assert service["multinode"] == {"node_count": expected["nodes"]}
+        assert service["min_replicas"] == expected["replicas"]
+        assert service["affinity"]["allowed_dedicated_node_groups"] == ["ng-1"]
+        assert service["extra_pod_spec"]["main_container"] == {
+            "image": case["image"],
+            "working_dir": case["working_dir"],
+            "command": ["/bin/sh", "-c", expected["command"]],
+        }
+        role = name.split("-")[0] if name != "worker" else None
+        assert service["extra_pod_metadata"]["labels"] == (
+            {DYNAMO_WORKER_ROLE_LABEL_KEY: role} if role else {}
+        )
+    assert fake.shapes.calls == [("ng-1", "deployment")]
+
+
+@pytest.mark.parametrize("mixed", [False, True])
+def test_create_multinode_defaults_from_file(fake, tmp_path, mixed):
+    spec = _deployment("template")["spec"]
+    worker = spec["services"]["worker"]
+    worker["resource_shape"] = "gpu.h100-8"
+    worker["multinode"] = {"node_count": 2}
+    del worker["extra_pod_spec"]["main_container"]["command"]
+    del worker["affinity"]
+    path = tmp_path / "spec.json"
+    path.write_text(json.dumps(spec))
+    flags = ["-svc", "worker", "--replicas", "3"] if mixed else []
+    result = run("create", "-n", "multi", "-f", str(path), *flags)
+    assert result.exit_code == 0, result.output
+    worker = _created_spec(fake).services["worker"]
+    assert worker.extra_pod_spec.main_container.command == [
+        "/bin/sh",
+        "-c",
+        "python3 -m dynamo.vllm --model Qwen/Qwen3-0.6B --tensor-parallel-size 16",
+    ]
+    assert fake.shapes.calls == [("ng-1", "deployment")]
+
+
+@pytest.mark.parametrize(
+    "gpu_count, fraction, pass_all",
+    [
+        (None, None, False),
+        (0, None, False),
+        (0.5, None, False),
+        (1.5, None, False),
+        (1, 0.25, False),
+        (None, None, True),
+    ],
+)
+def test_create_does_not_guess_gpu_count(fake, gpu_count, fraction, pass_all):
+    fake.shapes.items[0].spec.accelerator_num = gpu_count
+    fake.shapes.items[0].spec.accelerator_fraction = fraction
+    fake.shapes.items[0].spec.accelerator_pass_all = pass_all
+    args = [
+        "create",
+        "-n",
+        "multi",
+        "-svc",
+        "frontend",
+        "--resource-shape",
+        "cpu.small",
+        "--node-group",
+        "my-ng",
+        "-svc",
+        "worker",
+        "--resource-shape",
+        "gpu.h100-8",
+        "--node-count",
+        "2",
+    ]
+    result = run(*args)
+    assert result.exit_code == 1, result.output
+    assert "GPU" in result.output and "--command" in result.output
+    assert fake.created is None
+    fake.shapes.calls.clear()
+    result = run(*args, "--command", "python3 -m custom --tp 4")
+    assert result.exit_code == 0, result.output
+    assert fake.shapes.calls == []
+    assert _created_spec(fake).services[
+        "worker"
+    ].extra_pod_spec.main_container.command == [
+        "/bin/sh",
+        "-c",
+        "python3 -m custom --tp 4",
+    ]
+
+
+@pytest.mark.parametrize("operation", ["update", "create"])
+def test_multinode_node_count_change_updates_command(fake, tmp_path, operation):
+    payload = _deployment("multi")
+    worker = payload["spec"]["services"]["worker"]
+    worker["resource_shape"] = "gpu.h100-8"
+    worker["multinode"] = {"node_count": 2}
+    worker["extra_pod_spec"]["main_container"]["command"][
+        2
+    ] += " --tensor-parallel-size 16"
+    if operation == "update":
+        fake.add_deployment(payload)
+        prefix = ["update", "-n", "multi", "-y"]
+    else:
+        path = tmp_path / "spec.json"
+        path.write_text(json.dumps(payload["spec"]))
+        prefix = ["create", "-n", "copy", "-f", str(path)]
+    result = run(*prefix, "-svc", "worker", "--node-count", "4")
+    assert result.exit_code == 0, result.output
+    if operation == "update":
+        worker = fake.updated[1]["spec"]["services"]["worker"]
+    else:
+        worker = _created_spec(fake).services["worker"].model_dump(exclude_none=True)
+    assert worker["multinode"] == {"node_count": 4}
+    assert worker["extra_pod_spec"]["main_container"]["command"] == [
+        "/bin/sh",
+        "-c",
+        "python3 -m dynamo.vllm --model Qwen/Qwen3-0.6B --tensor-parallel-size 32",
+    ]
+    assert fake.shapes.calls == [("ng-1", "deployment")]
+
+
+@pytest.mark.parametrize(
+    "spec_patch, message",
+    [
+        ({"backend_framework": "sglang"}, "framework"),
+        ({"dynamo_version": "1.2.0"}, "version"),
+        ({"dynamo_namespace": "prod"}, "dynamo_namespace"),
+        ({"services": {"frontend": {"multinode": {"node_count": 2}}}}, "worker"),
+        ({"services": {"worker": {"multinode": {"node_count": 2}}}}, "cannot add"),
+        ({"services": {"worker": {"min_replicas": 0}}}, "replicas"),
+        ({"services": {"frontend": None}}, "frontend"),
+    ],
+)
+def test_update_validates_final_raw_patch(fake, tmp_path, spec_patch, message):
+    path = tmp_path / "patch.json"
+    path.write_text(json.dumps({"spec": spec_patch}))
+    result = run("update", "-n", "my-dynamo", "-f", str(path), "--dry-run")
+    assert result.exit_code == 1, result.output
+    assert message in result.output
+    assert fake.updated is None
+
+
+def test_update_frontend_group_refreshes_inherited_multinode_parallelism(fake):
+    payload = _deployment("multi")
+    worker = payload["spec"]["services"]["worker"]
+    worker["resource_shape"] = "gpu.h100-8"
+    worker["multinode"] = {"node_count": 2}
+    worker["extra_pod_spec"]["main_container"]["command"][
+        2
+    ] += " --tensor-parallel-size 16"
+    fake.add_deployment(payload)
+    fake.shapes.by_group["ng-2"] = [
+        Shape(
+            metadata=Metadata(id="gpu.h100-8"),
+            spec=ShapeSpec(accelerator_num=4),
+        )
+    ]
+    result = run(
+        "update",
+        "-n",
+        "multi",
+        "-y",
+        "-svc",
+        "worker",
+        "--replicas",
+        "3",
+        "-svc",
+        "frontend",
+        "--node-group",
+        "other-ng",
+    )
+    assert result.exit_code == 0, result.output
+    patch = fake.updated[1]["spec"]["services"]["worker"]
+    assert patch["affinity"]["allowed_dedicated_node_groups"] == ["ng-2"]
+    assert patch["extra_pod_spec"]["main_container"]["command"][2].endswith(
+        "--tensor-parallel-size 8"
+    )
+    assert sorted(fake.shapes.calls) == [("ng-1", "deployment"), ("ng-2", "deployment")]
+
+
+def test_update_custom_command_protection_and_explicit_override(fake):
+    payload = _deployment("multi")
+    worker = payload["spec"]["services"]["worker"]
+    worker["resource_shape"] = "gpu.h100-8"
+    worker["multinode"] = {"node_count": 2}
+    worker["extra_pod_spec"]["main_container"]["command"] = [
+        "/bin/sh",
+        "-c",
+        "./serve-custom.sh",
+    ]
+    fake.add_deployment(payload)
+    args = ["update", "-n", "multi", "-y", "-svc", "worker"]
+    result = run(*args, "--node-count", "4")
+    assert result.exit_code == 1, result.output
+    assert (
+        "custom or unrecognized command" in result.output
+        and "--command" in result.output
+    )
+    assert fake.updated is None
+    fake.shapes.calls.clear()
+    result = run(*args, "--node-count", "4", "--command", "./serve-custom.sh --nodes 4")
+    assert result.exit_code == 0, result.output
+    assert fake.shapes.calls == []
+    assert fake.updated[1]["spec"]["services"]["worker"] == {
+        "multinode": {"node_count": 4},
+        "extra_pod_spec": {
+            "main_container": {
+                "command": ["/bin/sh", "-c", "./serve-custom.sh --nodes 4"]
+            }
+        },
+    }
+
+
+def test_update_raw_command_override_satisfies_custom_command_guard(fake, tmp_path):
+    payload = _deployment("multi")
+    worker = payload["spec"]["services"]["worker"]
+    worker["multinode"] = {"node_count": 2}
+    worker["extra_pod_spec"]["main_container"]["command"] = [
+        "python3",
+        "custom.py",
+        "--nodes",
+        "2",
+    ]
+    fake.add_deployment(payload)
+    command = ["python3", "custom.py", "--nodes", "4"]
+    path = tmp_path / "patch.json"
+    path.write_text(
+        json.dumps({
+            "spec": {
+                "services": {
+                    "worker": {
+                        "extra_pod_spec": {"main_container": {"command": command}},
+                    }
+                }
+            }
+        })
+    )
+    result = run(
+        "update",
+        "-n",
+        "multi",
+        "-y",
+        "-f",
+        str(path),
+        "-svc",
+        "worker",
+        "--node-count",
+        "4",
+    )
+    assert result.exit_code == 0, result.output
+    assert fake.shapes.calls == []
+    assert fake.updated[1]["spec"]["services"]["worker"] == {
+        "multinode": {"node_count": 4},
+        "extra_pod_spec": {"main_container": {"command": command}},
+    }
+
+
+@pytest.mark.parametrize("same_gpu_count", [True, False])
+def test_update_shape_preserves_custom_command_only_when_parallelism_unchanged(
+    fake, same_gpu_count
+):
+    payload = _deployment("multi")
+    worker = payload["spec"]["services"]["worker"]
+    worker["resource_shape"] = "gpu.h100-8"
+    worker["multinode"] = {"node_count": 2}
+    worker["extra_pod_spec"]["main_container"]["command"] = ["python3", "custom.py"]
+    fake.add_deployment(payload)
+    fake.shapes.items.append(
+        Shape(
+            metadata=Metadata(id="gpu.new"),
+            spec=ShapeSpec(accelerator_num=8 if same_gpu_count else 4),
+        )
+    )
+    result = run(
+        "update", "-n", "multi", "-y", "-svc", "worker", "--resource-shape", "gpu.new"
+    )
+    if same_gpu_count:
+        assert result.exit_code == 0, result.output
+        assert fake.updated[1] == {
+            "spec": {"services": {"worker": {"resource_shape": "gpu.new"}}}
+        }
+    else:
+        assert result.exit_code == 1, result.output
+        assert "--command" in result.output
+        assert fake.updated is None
+
+
+def test_multinode_blank_command_does_not_bypass_default_validation(fake):
+    result = run(
+        "create",
+        "-n",
+        "multi",
+        "-svc",
+        "frontend",
+        "--resource-shape",
+        "cpu.small",
+        "--node-group",
+        "my-ng",
+        "-svc",
+        "worker",
+        "--resource-shape",
+        "unknown",
+        "--node-count",
+        "2",
+        "--command",
+        "   ",
+    )
+    assert result.exit_code == 2, result.output
+    assert '"--command" must not be empty' in result.output
+    assert fake.created is None
+
+
+def test_create_shape_api_failure_is_actionable(fake):
+    fake.shapes.error = RuntimeError("shape service unavailable")
+    result = run(
+        "create",
+        "-n",
+        "multi",
+        "-svc",
+        "frontend",
+        "--resource-shape",
+        "cpu.small",
+        "--node-group",
+        "my-ng",
+        "-svc",
+        "worker",
+        "--resource-shape",
+        "gpu.h100-8",
+        "--node-count",
+        "2",
+    )
+    assert result.exit_code == 1, result.output
+    for message in ("worker", "ng-1", "gpu.h100-8", "shapes API failed", "--command"):
+        assert message in result.output
+    assert fake.created is None
+
+
+@pytest.mark.parametrize("custom", [False, True])
+def test_create_framework_override_preserves_multinode(fake, tmp_path, custom):
+    payload = _deployment("source")["spec"]
+    worker = payload["services"]["worker"]
+    worker["multinode"] = {"node_count": 2}
+    worker["resource_shape"] = "gpu.h100-8"
+    del worker["affinity"]
+    worker["extra_pod_spec"]["main_container"]["command"][2] = (
+        "./custom.sh"
+        if custom
+        else "python3 -m dynamo.vllm --model Qwen/Qwen3-0.6B --tensor-parallel-size 16"
+    )
+    path = tmp_path / "spec.json"
+    path.write_text(json.dumps(payload))
+    args = ["create", "-n", "copy", "-f", str(path), "--framework", "trtllm"]
+    result = run(*args)
+    if custom:
+        assert result.exit_code == 1 and "--command" in result.output
+        assert fake.created is None
+        result = run(*args, "-svc", "worker", "--command", "./trt-custom.sh")
+    assert result.exit_code == 0, result.output
+    worker = _created_spec(fake).services["worker"]
+    assert worker.multinode.node_count == 2
+    container = worker.extra_pod_spec.main_container
+    assert container.image == "nvcr.io/nvidia/ai-dynamo/tensorrtllm-runtime:1.3.1"
+    assert container.working_dir == "/workspace/"
+    assert container.command[2] == (
+        "./trt-custom.sh"
+        if custom
+        else (
+            "python3 -m dynamo.trtllm --model-path Qwen/Qwen3-0.6B --served-model-name"
+            " Qwen/Qwen3-0.6B --extra-engine-args"
+            " ./examples/backends/trtllm/engine_configs/qwen3/agg.yaml"
+            ' --override-engine-args \'{"tensor_parallel_size": 8,'
+            ' "pipeline_parallel_size": 2}\''
+        )
+    )
+
+
+@pytest.mark.parametrize(
+    "change, message",
+    [
+        ({"component_type": "frontend"}, "only supported for worker"),
+        ({"multinode": {"node_count": 1}}, "at least 2"),
+    ],
+)
+def test_create_file_multinode_is_validated(fake, tmp_path, change, message):
+    payload = _deployment("source")["spec"]
+    worker = payload["services"].pop("worker")
+    payload["services"]["custom-service"] = worker
+    worker["multinode"] = {"node_count": 2}
+    worker.update(change)
+    path = tmp_path / "spec.json"
+    path.write_text(json.dumps(payload))
+    result = run("create", "-n", "multi", "-f", str(path))
+    assert result.exit_code == 1, result.output
+    assert message in result.output
+    assert fake.created is None
+
+
 def test_create_rejections(fake):
     frontend = [
         "-svc",
@@ -700,9 +1203,6 @@ def test_create_rejections(fake):
         "--node-group",
         "my-ng",
     ]
-
-    result = run("create", "-n", "x", "--serving-mode", "disaggregated", *frontend)
-    assert result.exit_code == 1 and "not supported for vLLM" in result.output
 
     result = run(
         "create",
@@ -737,7 +1237,7 @@ def test_create_rejections(fake):
         "--node-count",
         "2",
     )
-    assert result.exit_code == 1 and "only supported for SGLang" in result.output
+    assert result.exit_code == 1 and "GPU count" in result.output
 
     result = run(
         "create",

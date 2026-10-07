@@ -285,8 +285,8 @@ not make the endpoint token-free.
 A Dynamo deployment is a multi-service inference graph served by NVIDIA Dynamo.
 Every `-svc` block configures one service. The frontend is required; workers
 inherit the frontend's node group, and prefill/decode workers are only valid in
-disaggregated mode (which vLLM does not support). Image, working directory, and
-run command default to the official Dynamo runtime for the chosen framework.
+disaggregated mode. Image, working directory, and run command default to the
+official Dynamo runtime for the chosen framework.
 
 ### 1. Aggregated serving (frontend + worker, vLLM)
 
