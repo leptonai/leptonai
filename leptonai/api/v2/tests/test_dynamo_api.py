@@ -522,6 +522,19 @@ class TestLogAPIDynamoScope(unittest.TestCase):
         _client().log.get_log_time_series(name_or_dynamo=dep, start=1, end=2)
         self.assertEqual(_query(_last_request())["dynamo_graph_deployment"], ["dyn-9"])
 
+    @responses.activate
+    def test_dynamo_object_without_id_or_name_fails_before_request(self):
+        client = _client()
+        for dep in (
+            LeptonDynamoGraphDeployment(),
+            LeptonDynamoGraphDeployment(metadata=Metadata()),
+        ):
+            with self.assertRaises(ValueError):
+                client.log.get_log(name_or_dynamo=dep, start=1, end=2)
+            with self.assertRaises(ValueError):
+                client.log.get_log_time_series(name_or_dynamo=dep, start=1, end=2)
+        self.assertEqual(len(responses.calls), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

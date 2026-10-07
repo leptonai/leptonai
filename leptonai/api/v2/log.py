@@ -112,7 +112,12 @@ class LogAPI(APIResourse):
         if isinstance(name_or_dynamo, str):
             return name_or_dynamo
         metadata = name_or_dynamo.metadata
-        return (metadata.id_ or metadata.name) if metadata else ""  # type: ignore
+        if metadata is None or not (metadata.id_ or metadata.name):
+            raise ValueError(
+                "LeptonDynamoGraphDeployment.metadata.id (or name) is required to"
+                " scope a log query."
+            )
+        return metadata.id_ or metadata.name  # type: ignore[return-value]
 
     def _workload_log_param(self) -> str:
         """The query key the shared ``/logs*`` routes use for a deployment/endpoint.

@@ -1308,6 +1308,18 @@ def test_create_rejections(fake):
     assert fake.created is None
 
 
+def test_service_flag_does_not_take_command_option_as_value(fake):
+    result = run("create", "-svc", "frontend", "--resource-shape", "-n", "x")
+    assert result.exit_code == 2
+    assert '"--resource-shape" requires a value' in result.output
+    assert fake.created is None
+
+    result = run("update", "-n", "my-dynamo", "-svc", "worker", "--image", "-y")
+    assert result.exit_code == 2
+    assert '"--image" requires a value' in result.output
+    assert fake.updated is None
+
+
 def test_create_dry_run_and_image_warning(fake):
     result = run(
         "create",

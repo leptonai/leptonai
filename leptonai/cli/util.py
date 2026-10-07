@@ -1093,7 +1093,15 @@ def make_block_option_command(
                         if i + 1 >= n:
                             raise click.UsageError(f'"{flag}" requires a value.')
                         nxt = args[i + 1]
-                        if nxt in marker_set or nxt in flag_map or nxt.startswith("--"):
+                        # The command's own short options (e.g. -n, -y) also mean
+                        # the value was left out; other dash-prefixed values such
+                        # as "-1" stay valid.
+                        if (
+                            nxt in marker_set
+                            or nxt in flag_map
+                            or nxt in global_opts
+                            or nxt.startswith("--")
+                        ):
                             raise click.UsageError(f'"{flag}" requires a value.')
                         value = nxt
                         i += 1
