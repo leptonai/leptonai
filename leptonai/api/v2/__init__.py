@@ -12,7 +12,7 @@ the platform. Typical usage::
 
 Resource groups (``client.deployment``, ``client.job``, ``client.pod``,
 ``client.secret``, ``client.ingress``, ``client.log``,
-``client.raycluster``, ``client.slurm``, ``client.nodegroup``,
+``client.raycluster``, ``client.slurm``, ``client.dynamo``, ``client.nodegroup``,
 ``client.template``) each expose
 the operations for that resource. Data types live under
 :mod:`leptonai.api.v2.types`.

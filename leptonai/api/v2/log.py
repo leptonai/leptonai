@@ -6,6 +6,7 @@ from leptonai.api.v2.types.deployment import LeptonDeployment
 from leptonai.api.v2.types.job import LeptonJob
 from leptonai.api.v2.types.replica import Replica
 from leptonai.api.v2.types.job import LeptonJobQueryMode
+from leptonai.api.v2.types.dynamo import LeptonDynamoGraphDeployment
 
 
 class LogAPIError(RuntimeError):
@@ -106,6 +107,18 @@ class LogAPI(APIResourse):
     The CLI's historical-query retry behavior is separate.
     """
 
+    @staticmethod
+    def _dynamo_id(name_or_dynamo: Union[str, LeptonDynamoGraphDeployment]) -> str:
+        if isinstance(name_or_dynamo, str):
+            return name_or_dynamo
+        metadata = name_or_dynamo.metadata
+        if metadata is None or not (metadata.id_ or metadata.name):
+            raise ValueError(
+                "LeptonDynamoGraphDeployment.metadata.id (or name) is required to"
+                " scope a log query."
+            )
+        return metadata.id_ or metadata.name  # type: ignore[return-value]
+
     def _workload_log_param(self) -> str:
         """The query key the shared ``/logs*`` routes use for a deployment/endpoint.
 
@@ -164,6 +177,8 @@ class LogAPI(APIResourse):
             if key in owners:
                 if not value:
                     continue
+                if key == "name_or_dynamo":
+                    value = self._dynamo_id(value)
                 if key == "name_or_deployment":
                     key = self._workload_log_param()
                 else:
@@ -264,7 +279,7 @@ class LogAPI(APIResourse):
         q: str = "",
         job_query_mode: str = LeptonJobQueryMode.AliveAndArchive.value,
         direction: str = "backward",
-        name_or_dynamo: Optional[str] = None,
+        name_or_dynamo: Union[str, LeptonDynamoGraphDeployment] = None,
         dynamo_service: str = None,
         *,
         level: Optional[str] = None,
@@ -315,7 +330,7 @@ class LogAPI(APIResourse):
                 ``"archive_only"``, or ``"alive_and_archive"`` (default).
             direction: Retrieval direction, ``"forward"`` or ``"backward"``
                 (default). The SDK preserves the server's response ordering.
-            name_or_dynamo: Dynamo graph deployment ID. Sent as
+            name_or_dynamo: Dynamo graph deployment ID or object. Sent as
                 ``dynamo_graph_deployment``.
             dynamo_service: Unsupported legacy parameter. A nonempty value
                 raises ``ValueError`` because the backend ignores this filter.
@@ -400,7 +415,7 @@ class LogAPI(APIResourse):
         direction: str = "backward",
         timeout: Optional[float] = None,
         *,
-        name_or_dynamo: Optional[str] = None,
+        name_or_dynamo: Union[str, LeptonDynamoGraphDeployment] = None,
         dynamo_service: str = None,
         stream: bool = False,
         timestamps: bool = False,
@@ -461,7 +476,7 @@ class LogAPI(APIResourse):
                 from the request when ``stream=True``.
             job_query_mode: Job lookup scope: ``"alive_only"``,
                 ``"archive_only"``, or ``"alive_and_archive"`` (default).
-            name_or_dynamo: Dynamo graph deployment ID. Sent as
+            name_or_dynamo: Dynamo graph deployment ID or object. Sent as
                 ``dynamo_graph_deployment``.
             dynamo_service: Legacy parameter retained for compatibility. The
                 current shared logs backend ignores it; it does not filter

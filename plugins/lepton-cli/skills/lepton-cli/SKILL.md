@@ -83,6 +83,7 @@ Before running the mutation, read the workload's current state with a narrow rea
 ## Known Gotchas
 
 - `deployment` may be available as an alias for `endpoint`.
+- Dynamo endpoints are a separate resource: use `lep dynamo ...`, not `lep endpoint ...`. `lep dynamo replica log` returns a snapshot of a replica's recent lines rather than a stream.
 - Some command groups may be hidden from top-level help but still invokable. If the user asks for a known Lepton resource, try `lep <group> --help` before concluding it is unsupported.
 - Slurm clusters are not self-serve — they are provisioned on request by the Lepton team. See [references/workloads.md](references/workloads.md).
 - Slurm is exposed as nested commands with flag-based selectors (no positional resource arguments). Start with `lep slurm cluster list` and `lep slurm job list`; both lists accept repeatable `--status` filters, while cluster list also accepts repeatable `--name` substring filters. Use `lep slurm cluster get --name <name>` (or `--id <namespace/name>`), `lep slurm job get --id <job-id>` (or `--name <job-name>`), `lep slurm job attempts ...`, and `lep slurm job logs ...` for detail. Add `--output json` where advertised when structured output is needed.
