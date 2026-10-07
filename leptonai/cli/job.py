@@ -293,12 +293,11 @@ def _resolve_node_label_selector(
         if not node_label_selector:
             raise ValueError("--node-label-selector cannot be empty.")
 
+    affinity = job_spec.affinity
     existing = None
-    affinity = getattr(job_spec, "affinity", None)
     if affinity is not None:
-        existing = getattr(affinity, "node_label_selector", None)
-        if isinstance(existing, str):
-            existing = existing.strip() or None
+        existing = (affinity.node_label_selector or "").strip() or None
+        affinity.node_label_selector = existing
 
     selector = node_label_selector if node_label_selector is not None else existing
     if not selector:

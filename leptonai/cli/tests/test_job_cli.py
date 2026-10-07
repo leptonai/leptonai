@@ -248,6 +248,19 @@ class TestJobCreateNodeLabelSelector(unittest.TestCase):
         self.assertIn("mutually exclusive", " ".join(result.output.split()))
         self.assertIsNone(_FakeAPIClient.last_instance.job.created_job)
 
+    def test_blank_file_selector_is_dropped(self):
+        path = self._write_spec({
+            "node_label_selector": "   ",
+            "allowed_nodes_in_node_group": ["node-1"],
+        })
+        result = self._invoke([], spec_file=path)
+        self.assertEqual(result.exit_code, 0, result.output)
+        created = _FakeAPIClient.last_instance.job.created_job
+        self.assertEqual(
+            created.model_dump(exclude_none=True)["spec"]["affinity"],
+            {"allowed_nodes_in_node_group": ["node-1"]},
+        )
+
     def test_node_group_keeps_file_selector(self):
         path = self._write_spec({"node_label_selector": "vmss=1"})
         _FakeAPIClient.last_instance = None
