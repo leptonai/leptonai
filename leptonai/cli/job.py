@@ -297,7 +297,6 @@ def _resolve_node_label_selector(
     existing = None
     if affinity is not None:
         existing = (affinity.node_label_selector or "").strip() or None
-        affinity.node_label_selector = existing
 
     selector = node_label_selector if node_label_selector is not None else existing
     if not selector:
@@ -731,11 +730,10 @@ def create(
         sys.exit(1)
 
     # Re-apply after node-group handling, which replaces affinity.
-    if selector:
-        if job_spec.affinity is None:
-            job_spec.affinity = LeptonResourceAffinity(node_label_selector=selector)
-        else:
-            job_spec.affinity.node_label_selector = selector
+    if job_spec.affinity is not None:
+        job_spec.affinity.node_label_selector = selector
+    elif selector:
+        job_spec.affinity = LeptonResourceAffinity(node_label_selector=selector)
 
     # Set resource shape
     if resource_shape:
