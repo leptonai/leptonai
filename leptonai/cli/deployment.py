@@ -270,6 +270,7 @@ from ..api.v2.utils import (
 from ..api.v2.devpod import DevPodAPI
 from ..api.v2.endpoint import EndpointAPI, NewEndpointAPIUnsupported
 from ..api.v2.deployment import make_token_vars_from_config
+from ..api.v2.shell import ShellUnavailable
 from ..api.v2.spec_utils import (
     make_mounts_from_strings,
     make_env_vars_from_strings,
@@ -2086,6 +2087,36 @@ def log(name, replica):
         console.print(
             f"Use `lep endpoint status -n {name}` to check the status of the endpoint."
         )
+
+
+@deployment.command()
+@click.option("--name", "-n", help="The endpoint name.", required=True)
+@click.option(
+    "--replica",
+    "-r",
+    help="Replica ID; required when the endpoint has several running replicas.",
+)
+def shell(name, replica):
+    """Open an interactive shell in an endpoint replica.
+
+    The session is tunnelled through the workspace API over HTTPS (the same
+    path the dashboard terminal uses). Use `lep endpoint status` to list
+    replica IDs.
+    """
+    # Local import keeps websocket-client off the CLI startup path.
+    from .ws_shell import ensure_interactive_terminal, run_shell_session
+
+    ensure_interactive_terminal()
+    client = APIClient()
+    try:
+        replica_id = client.deployment.get_shell_replica(name, replica)
+    except ShellUnavailable as error:
+        raise click.ClickException(str(error)) from None
+    console.print(
+        f"Opening a shell in replica [green]{replica_id}[/] of endpoint"
+        f" [green]{name}[/] (type `exit` or press Ctrl-D to leave)..."
+    )
+    run_shell_session(lambda: client.deployment.shell_connection(name, replica_id))
 
 
 @deployment.command()

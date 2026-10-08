@@ -11,6 +11,7 @@ from types import SimpleNamespace
 os.environ.setdefault("LEPTON_CACHE_DIR", tempfile.mkdtemp())
 
 import pytest
+import requests
 import responses
 from click.testing import CliRunner
 
@@ -327,14 +328,161 @@ def test_connection_api_error_is_not_treated_as_disabled_or_fallback(session, co
     run.assert_not_called()
 
 
-def test_new_devpod_api_rejects_teleport_without_legacy_requests(session):
+FEATURES = f"{BASE}/info/features"
+DEVPOD = f"{BASE}/devpods/my-pod"
+POD_UID = "0f8fad5b-d9cb-469f-a165-70867728950e"
+
+
+def devpod_body(state="Ready", stopped=None):
+    spec = {} if stopped is None else {"stopped": stopped}
+    return {"metadata": {"name": "my-pod"}, "spec": spec, "status": {"state": state}}
+
+
+def devpod_replica(reason="Ready", pod_uid=POD_UID):
+    status = {"readiness_issue": {"reason": reason}}
+    if pod_uid is not None:
+        status["pod_uid"] = pod_uid
+    return {"metadata": {"id": "my-pod-0"}, "status": status}
+
+
+def native_node(hostname="ws-teleport-my-pod", workspace="ws-teleport"):
+    return {
+        "kind": "node",
+        "metadata": {
+            "name": "node-uuid",
+            "labels": {"teleport.lepton.ai/workspace": workspace},
+        },
+        "spec": {"hostname": hostname},
+    }
+
+
+def register_native(http, *, features=None, body=None, replicas=None):
+    http.get(
+        FEATURES, json={"dev_pod_teleport": True} if features is None else features
+    )
+    if features is not None and features.get("dev_pod_teleport") is not True:
+        return
+    body = devpod_body() if body is None else body
+    http.get(DEVPOD, json=body)
+    if body["status"]["state"] != "Ready" or body["spec"].get("stopped"):
+        return
+    http.get(
+        f"{DEVPOD}/replicas", json=[devpod_replica()] if replicas is None else replicas
+    )
+
+
+def test_new_devpod_api_connects_to_the_registered_node(session):
     http, flag, _, run = session
     flag.return_value = True
+    register_native(http)
+    run.side_effect = [
+        profile(profile_url="https://proxy.example.com", cluster="proxy.example.com"),
+        profile(profile_url="https://proxy.example.com", cluster="proxy.example.com"),
+        subprocess.CompletedProcess([], 0, json.dumps([native_node()]), ""),
+        completed(),
+    ]
+    result = invoke()
+    assert result.exit_code == 0, result.output
+    assert "Connecting to Dev Pod my-pod via Teleport" in result.output
+    # Resolved before sign-in and revalidated before handing over the terminal.
+    assert [c.request.url for c in http.calls] == [
+        FEATURES,
+        DEVPOD,
+        f"{DEVPOD}/replicas",
+    ] * 2
+    listing = run.call_args_list[2].args[0]
+    assert "--search=ws-teleport-my-pod" in listing
+    assert "teleport.lepton.ai/workspace=ws-teleport" in listing
+    assert run.call_args.args[0] == [
+        "/usr/bin/tsh",
+        "ssh",
+        "--proxy=proxy.example.com:443",
+        "--cluster=proxy.example.com",
+        "--user=alice@example.com",
+        "root@node-uuid",
+    ]
+
+
+def test_new_devpod_api_uses_an_explicit_proxy(session):
+    http, flag, _, run = session
+    flag.return_value = True
+    register_native(http)
+    run.side_effect = [
+        profile(profile_url="https://other.example.com", cluster="other.example.com"),
+        subprocess.CompletedProcess([], 0, json.dumps([native_node()]), ""),
+        completed(),
+    ]
+    result = invoke("--teleport-proxy", "other.example.com")
+    assert result.exit_code == 0, result.output
+    assert run.call_args_list[0].args[0][1:3] == [
+        "status",
+        "--proxy=other.example.com:443",
+    ]
+    assert run.call_args.args[0][-1] == "root@node-uuid"
+
+
+@pytest.mark.parametrize(
+    "setup, message",
+    [
+        ({"features": {}}, "not enabled for Dev Pods"),
+        ({"body": devpod_body(state="Starting")}, "is not Ready (state: Starting)"),
+        ({"body": devpod_body(stopped=True)}, "state: Stopped"),
+        ({"body": devpod_body(state="Deleting")}, "is not Ready (state: Deleting)"),
+        ({"replicas": []}, "exactly one Dev Pod replica"),
+        ({"replicas": [devpod_replica(reason="Starting")]}, "replica is not Ready"),
+        ({"replicas": [devpod_replica(pod_uid=None)]}, "replica identity"),
+    ],
+)
+def test_new_devpod_api_never_connects_to_an_unready_dev_pod(session, setup, message):
+    http, flag, _, run = session
+    flag.return_value = True
+    register_native(http, **setup)
     result = invoke()
     assert result.exit_code == 1
-    assert "not yet supported by the new DevPod API" in result.output
+    assert message in result.output
+    run.assert_not_called()
+
+
+def test_new_devpod_api_rejects_a_pod_replaced_during_sign_in(session):
+    http, flag, _, run = session
+    flag.return_value = True
+    register_native(http)
+    http.get(f"{DEVPOD}/replicas", json=[devpod_replica(pod_uid=POD_UID[:-1] + "f")])
+    run.side_effect = [profile(), profile()]
+    result = invoke()
+    assert result.exit_code == 1
+    assert "restarted or replaced" in result.output
+    assert [c.args[0][1] for c in run.call_args_list] == ["status", "status"]
+
+
+def test_api_failure_while_rechecking_is_not_blamed_on_tsh(session):
+    http, flag, _, run = session
+    flag.return_value = True
+    register_native(http)
+    http.get(FEATURES, body=requests.exceptions.ConnectionError("gateway down"))
+    run.side_effect = [profile(), profile()]
+    result = invoke()
+    assert result.exit_code == 1
+    assert "Could not recheck the SSH target with the workspace API" in result.output
+    assert "tsh" not in result.output.split("Error:")[-1]
+    assert [c.args[0][1] for c in run.call_args_list] == ["status", "status"]
+
+
+def test_teleport_proxy_is_only_for_new_api_dev_pods(session):
+    http, _, _, run = session
+    result = invoke("--teleport-proxy", "proxy.example.com")
+    assert result.exit_code == 2
+    assert "only applies to Dev Pods on the new DevPod API" in result.output
     assert len(http.calls) == 0
     run.assert_not_called()
+
+    with patch("leptonai.cli.pod.APIClient") as client:
+        result = CliRunner().invoke(
+            pod, ["ssh", "-n", "my-pod", "--teleport-proxy", "proxy.example.com"]
+        )
+    assert result.exit_code == 2
+    assert "--teleport-proxy requires --transport teleport" in result.output
+    client.assert_not_called()
 
 
 def test_auth_option_requires_teleport_before_api_client_creation():

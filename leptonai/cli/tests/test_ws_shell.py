@@ -1,11 +1,18 @@
 import json
 import os
+import threading
+import time
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import websocket
 
 from leptonai.api.v2.slurm import SlurmAPI
 from leptonai.cli.ws_shell import (
+    _Activity,
+    _forward_resizes,
+    _forward_stdin,
+    _keepalive,
     _receive_loop,
     encode_resize,
     encode_stdin,
@@ -121,3 +128,93 @@ def test_receive_loop_finishes_partial_writes():
         assert write.call_count == 5
     finally:
         os.close(out_read)
+
+
+def test_keepalive_pings_only_after_a_silent_interval():
+    sent = []
+    activity = _Activity()
+    waits = []
+
+    class Stop:
+        def wait(self, timeout):
+            waits.append(timeout)
+            if len(waits) == 1:
+                activity.touch()  # traffic just moved: no ping
+            elif len(waits) == 2:
+                activity.at -= 61  # a silent minute: ping on the stdin channel
+            return len(waits) > 2
+
+    _keepalive(SimpleNamespace(send_binary=sent.append), activity, Stop(), 60)
+
+    assert sent == [b"\x00"]
+    assert waits == [60, 60, 60]
+
+
+def test_keepalive_stops_once_the_socket_is_gone():
+    activity = _Activity()
+    activity.at -= 120
+    attempts = []
+
+    def send_binary(frame):
+        attempts.append(frame)
+        raise OSError("closed")
+
+    class NeverStopped:
+        def wait(self, timeout):
+            return False
+
+    _keepalive(SimpleNamespace(send_binary=send_binary), activity, NeverStopped(), 60)
+
+    assert attempts == [b"\x00"]
+
+
+def test_output_and_keystrokes_reset_the_idle_clock():
+    activity = _Activity()
+    activity.at = 0.0
+    out_read, out_write = os.pipe()
+    try:
+        _receive_loop(_ScriptedSocket([b"\x01hi"]), out_write, 2, activity)
+    finally:
+        os.close(out_write)
+        os.close(out_read)
+    assert activity.at > 0
+
+    activity.at = 0.0
+    sent = []
+    in_read, in_write = os.pipe()
+    os.write(in_write, b"ls\n")
+    os.close(in_write)
+    try:
+        _forward_stdin(SimpleNamespace(send_binary=sent.append), in_read, activity)
+    finally:
+        os.close(in_read)
+    assert sent == [b"\x00ls\n"]
+    assert activity.at > 0
+
+
+def test_resizes_are_sent_from_a_worker_not_the_signal_handler():
+    sent = []
+    pending, stop = threading.Event(), threading.Event()
+
+    def send_binary(frame):
+        sent.append((threading.current_thread(), frame))
+
+    worker = threading.Thread(
+        target=_forward_resizes,
+        args=(SimpleNamespace(send_binary=send_binary), pending, stop),
+    )
+    with patch(
+        "leptonai.cli.ws_shell.shutil.get_terminal_size",
+        return_value=os.terminal_size((100, 30)),
+    ):
+        worker.start()
+        pending.set()  # what the SIGWINCH handler does
+        deadline = time.monotonic() + 5
+        while not sent and time.monotonic() < deadline:
+            time.sleep(0.01)
+        stop.set()
+        pending.set()
+        worker.join(5)
+
+    assert not worker.is_alive()
+    assert sent == [(worker, encode_resize(100, 30))]

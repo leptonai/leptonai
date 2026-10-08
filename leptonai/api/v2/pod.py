@@ -1,10 +1,11 @@
-from typing import Union, List, Iterator, Optional
+from typing import Any, Union, List, Iterator, Optional
 import warnings
 from urllib.parse import quote
 
 from pydantic import ValidationError
 
 from .api_resource import APIResourse
+from .shell import select_shell_replica
 from .types.deployment import LeptonDeployment, LeptonDeploymentUserSpec
 from .types.readiness import ReadinessIssue
 from .types.termination import DeploymentTerminations
@@ -83,6 +84,27 @@ class PodAPI(APIResourse):
     # of this class entirely.
     def get(self, name_or_pod: Union[str, LeptonDeployment]) -> LeptonDeployment:
         return self._client._deployment_api_for_legacy_pod().get(name_or_pod)
+
+    def get_shell_replica(
+        self, name_or_pod: Union[str, LeptonDeployment], replica: Optional[str] = None
+    ) -> Optional[str]:
+        """Select the pod replica an interactive shell should exec into."""
+        name = self._to_name(name_or_pod)
+        replicas = self.ensure_json(
+            self._get(f"/deployments/{quote(name, safe='')}/replicas")
+        )
+        return select_shell_replica(replicas, replica, f"pod {name}")
+
+    def shell_connection(
+        self, name_or_pod: Union[str, LeptonDeployment], replica_id: Optional[str]
+    ) -> Any:
+        """Open the interactive shell WebSocket for one pod replica."""
+        if not replica_id:
+            raise ValueError("A legacy pod shell needs a replica ID.")
+        name = quote(self._to_name(name_or_pod), safe="")
+        return self._open_shell(
+            f"/deployments/{name}/replicas/{quote(replica_id, safe='')}/shell"
+        )
 
     def get_teleport_connection(
         self, name_or_pod: Union[str, LeptonDeployment]

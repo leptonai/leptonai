@@ -78,8 +78,9 @@ resources — they live inside the cluster and are surfaced as a queryable list.
 The CLI can list clusters, inspect workspace-wide live or archived jobs, show
 attempt/step history, and read or follow logs; list tables link rows to the
 matching dashboard view. `lep slurm cluster shell` opens a login-node shell
-through the workspace API. The CLI intentionally does not submit or cancel
-Slurm jobs.
+through the workspace API; `lep slurm cluster ssh` and `lep slurm job ssh`
+connect to a login node or to a node allocated to your running job through
+Teleport. The CLI intentionally does not submit or cancel Slurm jobs.
 
 Each user can also have a personal Slurm Dev Pod on an enabled cluster for
 interactive work; `lep slurm devpod` supports list/get/create/remove/shell/ssh,

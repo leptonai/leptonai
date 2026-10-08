@@ -1,7 +1,8 @@
-from typing import Union, List, Iterator, Optional
+from typing import Any, Union, List, Iterator, Optional
 from urllib.parse import quote
 
 from .api_resource import APIResourse
+from .shell import select_shell_replica
 from .job_validation import validate_job_create
 from .types.events import LeptonEvent
 
@@ -182,6 +183,28 @@ class JobAPI(APIResourse):
                 f"List current replicas with: lep job replicas --id {job_id}"
             )
         return ready_ids[0]
+
+    def get_shell_replica(
+        self, id_or_job: Union[str, LeptonJob], replica: Optional[str] = None
+    ) -> str:
+        """Select the live Job replica an interactive shell should exec into."""
+        job_id = self._to_id(id_or_job)
+        replicas = self.ensure_json(
+            self._get(
+                f"/jobs/{quote(job_id, safe='')}/replicas",
+                params={"job_query_mode": LeptonJobQueryMode.AliveOnly.value},
+            )
+        )
+        return select_shell_replica(replicas, replica, f"job {job_id}")
+
+    def shell_connection(
+        self, id_or_job: Union[str, LeptonJob], replica_id: str
+    ) -> Any:
+        """Open the interactive shell WebSocket for one Job replica."""
+        job_id = quote(self._to_id(id_or_job), safe="")
+        return self._open_shell(
+            f"/jobs/{job_id}/replicas/{quote(replica_id, safe='')}/shell"
+        )
 
     def get_log(
         self,

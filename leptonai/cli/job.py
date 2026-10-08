@@ -55,6 +55,7 @@ from leptonai.api.v2.types.deployment import (
     LeptonLog,
 )
 from leptonai.api.v2.client import APIClient
+from leptonai.api.v2.shell import ShellUnavailable
 from leptonai.api.v2.types.common import LeptonUserSecurityContext
 
 
@@ -1522,6 +1523,62 @@ def log(id, replica):
         )
 
 
+def _live_job_id(client, id, name):
+    """Return --id, or the ID of the one live job whose name is exactly --name."""
+    if not name:
+        return id
+    matches = [
+        item
+        for item in client.job.list_all(
+            q=name, job_query_mode=LeptonJobQueryMode.AliveOnly.value
+        )
+        if item.metadata.name == name
+    ]
+    if not matches:
+        raise click.ClickException("No live job matches that name.")
+    if len(matches) != 1:
+        raise click.ClickException(
+            "Multiple jobs match that name. Select one with --id."
+        )
+    if not matches[0].metadata.id_:
+        raise click.ClickException("The job response is missing its ID.")
+    return matches[0].metadata.id_
+
+
+@job.command()
+@click.option("--id", "-i", help="Job ID to connect to.")
+@click.option("--name", "-n", help="Exact Job name; must identify one live job.")
+@click.option(
+    "--replica",
+    "-r",
+    help="Replica ID; required when the job has several running replicas.",
+)
+def shell(id, name, replica):
+    """Open an interactive shell in a running Job replica.
+
+    The session is tunnelled through the workspace API over HTTPS (the same
+    path the dashboard terminal uses), so the Job image needs no SSH server
+    or Teleport agent. Use `lep job replicas` to list worker IDs.
+    """
+    # Local import keeps websocket-client off the CLI startup path.
+    from .ws_shell import ensure_interactive_terminal, run_shell_session
+
+    if bool(id) == bool(name):
+        raise click.UsageError("Specify exactly one of --id or --name.")
+    ensure_interactive_terminal()
+    client = APIClient()
+    id = _live_job_id(client, id, name)
+    try:
+        replica_id = client.job.get_shell_replica(id, replica)
+    except ShellUnavailable as error:
+        raise click.ClickException(str(error)) from None
+    console.print(
+        f"Opening a shell in replica [green]{replica_id}[/] of job [green]{id}[/]"
+        " (type `exit` or press Ctrl-D to leave)..."
+    )
+    run_shell_session(lambda: client.job.shell_connection(id, replica_id))
+
+
 @job.command()
 @click.option("--id", "-i", help="Job ID to connect to.")
 @click.option("--name", "-n", help="Exact Job name; must identify one live job.")
@@ -1549,23 +1606,7 @@ def ssh(id, name, replica, teleport_proxy, teleport_auth):
         raise click.UsageError("Specify exactly one of --id or --name.")
     client = APIClient()
     try:
-        if name:
-            matches = [
-                item
-                for item in client.job.list_all(
-                    q=name, job_query_mode=LeptonJobQueryMode.AliveOnly.value
-                )
-                if item.metadata.name == name
-            ]
-            if not matches:
-                raise click.ClickException("No live job matches that name.")
-            if len(matches) != 1:
-                raise click.ClickException(
-                    "Multiple jobs match that name. Select one with --id."
-                )
-            id = matches[0].metadata.id_
-            if not id:
-                raise click.ClickException("The job response is missing its ID.")
+        id = _live_job_id(client, id, name)
         selected = client.job.get_ssh_replica(id, replica)
 
         def revalidate():

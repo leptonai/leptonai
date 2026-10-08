@@ -958,17 +958,19 @@ def test_open_and_dashboard_commands_are_removed():
         assert result.exit_code != 0, args
 
 
-def test_devpod_bastion_ssh_and_shell_are_in_command_tree():
+def test_shell_and_ssh_are_in_command_tree():
     cluster_help = CliRunner().invoke(lep, ["slurm", "cluster", "--help"])
+    job_help = CliRunner().invoke(lep, ["slurm", "job", "--help"])
     devpod_help = CliRunner().invoke(lep, ["slurm", "devpod", "--help"])
 
+    # Login nodes: a web shell, or Teleport SSH; there is no direct SSH.
     assert "shell" in cluster_help.output
-    assert "ssh" not in cluster_help.output
+    assert "ssh" in cluster_help.output
+    # Jobs are reached through Teleport on an allocated node only.
+    assert "ssh" in job_help.output
+    assert "shell" not in job_help.output
     assert "shell" in devpod_help.output
     assert "ssh" in devpod_help.output
-    result = CliRunner().invoke(lep, ["slurm", "cluster", "ssh", "-n", "cluster-a"])
-    assert result.exit_code == 2, result.output
-    assert "No such command" in result.output
 
 
 def test_shell_requires_interactive_terminal():

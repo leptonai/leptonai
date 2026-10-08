@@ -1,6 +1,8 @@
-from typing import Union, List, Dict, Any
+from typing import Union, List, Dict, Any, Optional
+from urllib.parse import quote
 
 from .api_resource import APIResourse
+from .shell import select_shell_replica
 from .types.raycluster import LeptonRayCluster
 
 
@@ -212,3 +214,31 @@ class RayClusterAPI(APIResourse):
     def delete(self, name_or_raycluster: Union[str, LeptonRayCluster]) -> bool:
         response = self._delete(f"/rayclusters/{self._to_name(name_or_raycluster)}")
         return self.ensure_ok(response)
+
+    def get_shell_replica(
+        self,
+        name_or_raycluster: Union[str, LeptonRayCluster],
+        replica: Optional[str] = None,
+    ) -> Optional[str]:
+        """Validate an explicit node; without one the shell opens on the head."""
+        if replica is None:
+            return None
+        name = self._to_name(name_or_raycluster)
+        # Lists the head and every worker replica across all worker groups.
+        replicas = self.ensure_json(
+            self._get(f"/rayclusters/{quote(name, safe='')}/replicas")
+        )
+        return select_shell_replica(replicas, replica, f"Ray cluster {name}")
+
+    def shell_connection(
+        self,
+        name_or_raycluster: Union[str, LeptonRayCluster],
+        replica_id: Optional[str] = None,
+    ) -> Any:
+        """Open a shell on the cluster's head, or on one replica when given."""
+        name = quote(self._to_name(name_or_raycluster), safe="")
+        if replica_id is None:
+            return self._open_shell(f"/rayclusters/{name}/shell")
+        return self._open_shell(
+            f"/rayclusters/{name}/replicas/{quote(replica_id, safe='')}/shell"
+        )

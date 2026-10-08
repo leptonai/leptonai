@@ -1,7 +1,9 @@
 import warnings
-from typing import Union, List, Iterator, Optional
+from typing import Any, Union, List, Iterator, Optional
+from urllib.parse import quote
 
 from .api_resource import APIResourse
+from .shell import select_shell_replica
 from .types.deployment import LeptonDeployment, TokenVar
 from .types.events import LeptonEvent
 from .types.readiness import ReadinessIssue
@@ -302,6 +304,27 @@ class DeploymentAPI(APIResourse):
             f"/deployments/{self._to_name(name_or_deployment)}/replicas"
         )
         return self.ensure_list(response, Replica)
+
+    def get_shell_replica(
+        self,
+        name_or_deployment: Union[str, LeptonDeployment],
+        replica: Optional[str] = None,
+    ) -> str:
+        """Select the replica an interactive shell should exec into."""
+        name = self._to_name(name_or_deployment)
+        replicas = self.ensure_json(
+            self._get(f"/deployments/{quote(name, safe='')}/replicas")
+        )
+        return select_shell_replica(replicas, replica, f"endpoint {name}")
+
+    def shell_connection(
+        self, name_or_deployment: Union[str, LeptonDeployment], replica_id: str
+    ) -> Any:
+        """Open the interactive shell WebSocket for one replica."""
+        name = quote(self._to_name(name_or_deployment), safe="")
+        return self._open_shell(
+            f"/deployments/{name}/replicas/{quote(replica_id, safe='')}/shell"
+        )
 
     def get_log(
         self,
