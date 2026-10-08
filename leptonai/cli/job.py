@@ -1591,9 +1591,8 @@ def shell(id, name, replica):
 )
 @click.option(
     "--teleport-auth",
-    default="Starfleet",
-    show_default=True,
-    help="Teleport SSO connector.",
+    default=None,
+    help="Teleport SSO connector; by default Teleport uses the cluster's default.",
 )
 def ssh(id, name, replica, teleport_proxy, teleport_auth):
     """SSH into a running Job replica through Teleport.

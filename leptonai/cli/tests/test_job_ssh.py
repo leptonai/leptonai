@@ -18,6 +18,7 @@ from leptonai.cli.job import job
 
 
 BASE = "https://gw.example/api/v2/workspaces/ws-job-ssh"
+FEATURES_URL = f"{BASE}/info/features"
 JOB_URL = f"{BASE}/jobs/train-id"
 REPLICAS_URL = f"{JOB_URL}/replicas"
 HOST = "ws-job-ssh-worker-1"
@@ -75,8 +76,9 @@ def session():
 
 
 def register(http, *, state="Running", replicas=None):
+    http.get(FEATURES_URL, json={"job_teleport": True})
     http.get(JOB_URL, json=job_body(state))
-    if state == "Running":
+    if state in ("Running", "Starting"):
         http.get(REPLICAS_URL, json=[replica()] if replicas is None else replicas)
 
 
@@ -116,8 +118,14 @@ def test_single_replica_uses_active_proxy_and_exact_node_id(session):
     assert run.call_args.args[0][-1] == "root@node-uuid"
     assert run.call_args.kwargs == {"check": False}
     assert "worker-1" in output.output
-    assert len(http.calls) == 4  # Job and replica checks both before and after login.
-    assert all("job_query_mode=alive_only" in c.request.url for c in http.calls)
+    urls = [c.request.url for c in http.calls]
+    # Feature, Job and replica checks both before and after login.
+    assert [url.split("?")[0] for url in urls] == [
+        FEATURES_URL,
+        JOB_URL,
+        REPLICAS_URL,
+    ] * 2
+    assert all("job_query_mode=alive_only" in u for u in urls if u.startswith(JOB_URL))
 
 
 def test_explicit_proxy_logs_in_without_an_active_profile(session):
@@ -140,6 +148,27 @@ def test_explicit_proxy_logs_in_without_an_active_profile(session):
         "proxy.example.com",
     ]
     assert run.call_args_list[1].kwargs == {"check": False}
+
+
+def test_login_leaves_the_connector_to_teleport_by_default(session):
+    # The dashboard pins Starfleet only for legacy and Slurm Dev Pods.
+    http, run = session
+    register(http)
+    run.side_effect = [
+        result(1, stderr="ERROR: Not logged in."),
+        result(),
+        profile(),
+        result(stdout=json.dumps([node()])),
+        result(),
+    ]
+    output = invoke("--teleport-proxy", PROXY)
+    assert output.exit_code == 0, output.output
+    assert run.call_args_list[1].args[0] == [
+        "/usr/bin/tsh",
+        "login",
+        "--proxy=proxy.example.com:443",
+        "proxy.example.com",
+    ]
 
 
 def test_active_profile_with_distinct_cluster_is_preserved(session):
@@ -277,7 +306,7 @@ def test_missing_or_malformed_replica_list_never_invokes_tsh(session, replicas):
 
 
 @pytest.mark.parametrize(
-    "state", ["Completed", "Failed", "Archived", "Starting", "Stopped"]
+    "state", ["Completed", "Failed", "Archived", "Queueing", "Stopped"]
 )
 def test_only_running_jobs_can_connect(session, state):
     http, run = session
@@ -285,6 +314,31 @@ def test_only_running_jobs_can_connect(session, state):
     output = invoke()
     assert output.exit_code == 1
     assert "running job" in output.output
+    run.assert_not_called()
+
+
+def test_starting_job_with_a_ready_worker_can_connect(session):
+    # The dashboard treats Starting like Running once a worker is Ready.
+    http, run = session
+    register(http, state="Starting")
+    run.side_effect = [
+        profile(),
+        profile(),
+        result(stdout=json.dumps([node()])),
+        result(),
+    ]
+    output = invoke()
+    assert output.exit_code == 0, output.output
+
+
+@pytest.mark.parametrize("features", [{}, {"job_teleport": False}])
+def test_job_teleport_must_be_enabled_for_the_workspace(session, features):
+    http, run = session
+    http.get(FEATURES_URL, json=features)
+    output = invoke()
+    assert output.exit_code == 1
+    assert "not enabled for Jobs" in output.output
+    assert [call.request.url for call in http.calls] == [FEATURES_URL]
     run.assert_not_called()
 
 
@@ -332,6 +386,7 @@ def test_node_lookup_failures_are_actionable(session, failure, message):
 
 def test_replica_disappearing_during_login_cannot_connect(session):
     http, run = session
+    http.get(FEATURES_URL, json={"job_teleport": True})
     http.get(JOB_URL, json=job_body())
     http.get(REPLICAS_URL, json=[replica()])
     http.get(REPLICAS_URL, json=[replica("replacement")])

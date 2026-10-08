@@ -89,10 +89,12 @@ lep pod ssh -n my-pod --transport teleport
 `lep pod shell`, `lep endpoint shell`, `lep job shell`, and `lep raycluster shell`
 open the same interactive shell as the dashboard terminal. The session is
 tunnelled through the workspace API over HTTPS, so it needs no SSH key, public
-IP, or Teleport client. A pod, endpoint, or job with several running replicas
-requires `--replica`; a Ray cluster shell opens on the head node unless
-`--replica` selects another node. Idle shells send a keepalive so the workspace
-ingress does not close them.
+IP, or Teleport client. They follow the dashboard's rules: a pod must be Ready
+and opens in its newest replica, an endpoint or job with several running
+replicas requires `--replica`, archived jobs and platform-managed tuning jobs
+have no shell, and a Ray cluster shell opens on the head node of a cluster that
+is not stopped unless `--replica` selects another node. Idle shells send a
+keepalive so the workspace ingress does not close them.
 
 Teleport SSH commands require `tsh` v18 or newer in your PATH. The CLI checks
 the client version before reading login profiles or starting SSO; missing, older,
@@ -100,13 +102,16 @@ or unrecognized clients produce an actionable error. This minimum version check
 does not guarantee compatibility with every Teleport cluster version.
 
 Teleport SSH reuses your local Teleport login, or starts SSO login when needed.
-The default connector is `Starfleet`; use `--teleport-auth <connector>` to override
-it. Lepton API credentials and Teleport login are separate. Your workspace, node
-group, and pod must have Teleport enabled. Pods on the new DevPod API do not
-publish their Teleport proxy, so, as for Jobs below, Teleport SSH uses the active
-`tsh` profile or `--teleport-proxy <host>:443` and connects as `root` to the
-pod's `<workspace-id>-<pod-name>` node. Without `--transport teleport`,
-`lep pod ssh` continues to use direct SSH.
+As in the dashboard, legacy Pods and Slurm Dev Pods sign in with the `Starfleet`
+connector by default, while other targets let Teleport use the cluster's default
+connector; use `--teleport-auth <connector>` to choose one. Lepton API
+credentials and Teleport login are separate. Your workspace
+(`dev_pod_teleport`), node group, and pod must have Teleport enabled, and the
+pod must be Ready. Pods on the new DevPod API do not publish their Teleport
+proxy, so, as for Jobs below, Teleport SSH uses the active `tsh` profile or
+`--teleport-proxy <host>:443` and connects as `root` to the pod's
+`<workspace-id>-<pod-name>` node. Without `--transport teleport`, `lep pod ssh`
+continues to use direct SSH.
 
 Jobs can also be accessed through Teleport when their workspace has `job_teleport`
 enabled and their image/entrypoint starts a Teleport agent:
@@ -124,9 +129,9 @@ Job SSH defaults to the active `tsh` profile because the Job API does not publis
 Teleport connection details. It uses the standard Lepton agent's
 `<workspace-id>-<replica-id>` hostname and workspace label to find one node, then
 connects to its Teleport node ID as `root`. Historical and unready replicas are
-excluded; multiple ready replicas require `--replica`. Job SSH does not install
-the agent or change the workload's startup command. Use `--teleport-auth` to
-override the default `Starfleet` SSO connector.
+excluded; multiple ready replicas require `--replica`. The job must be Running
+or Starting. Job SSH does not install the agent or change the workload's startup
+command. Use `--teleport-auth` to choose an SSO connector.
 
 Slurm compute nodes also support Teleport SSH:
 

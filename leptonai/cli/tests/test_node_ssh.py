@@ -87,6 +87,7 @@ def session():
         patch("leptonai.cli.teleport.subprocess.run") as run,
     ):
         http.get(f"{BASE}/dedicated-node-groups", json=[GROUP])
+        http.get(f"{BASE}/dedicated-node-groups/gpu-group", json=GROUP)
         http.get(BASE, json={"name": "ws-node", "role": "user"})
         http.get(
             f"{BASE}/tokens",
@@ -153,6 +154,25 @@ def test_login_uses_expected_personal_identity_and_discovers_cluster(session, in
         "login",
         "--proxy=proxy.example.com:443",
         "--auth=Custom SSO",
+        "--user=alice@example.com",
+    ]
+
+
+def test_login_leaves_the_connector_to_teleport_by_default(session):
+    _, run, _ = session
+    run.side_effect = [
+        completed(code=1, stderr="ERROR: Not logged in."),
+        completed(),
+        profile(),
+        completed(json.dumps(INVENTORY)),
+        completed(),
+    ]
+    result = invoke()
+    assert result.exit_code == 0, result.output
+    assert run.call_args_list[1].args[0] == [
+        "/usr/bin/tsh",
+        "login",
+        "--proxy=proxy.example.com:443",
         "--user=alice@example.com",
     ]
 
@@ -292,6 +312,41 @@ def test_node_and_machine_must_match(session, resource, section, key, value):
     )
     result = invoke()
     assert result.exit_code == 1
+    run.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "status, message",
+    [
+        ({"inaccessible": True}, "accessible node"),
+        ({"machine_status": "Terminated"}, "accessible node"),
+        ({"status": ["Ready", "RemoveFromNodeGroup"]}, "accessible node"),
+        ({"inaccessible": "no"}, "could not be verified"),
+        ({"status": "Ready"}, "could not be verified"),
+    ],
+)
+def test_nodes_the_dashboard_disables_cannot_connect(session, status, message):
+    http, run, _ = session
+    http.replace(responses.GET, NODE_URL, json={**NODE, "status": status})
+    result = invoke()
+    assert result.exit_code == 1
+    assert message in result.output
+    run.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "group",
+    [
+        {**GROUP, "status": {"phase": "Deleting"}},
+        {**GROUP, "metadata": {**GROUP["metadata"], "deleted_at": 1}},
+    ],
+)
+def test_node_group_being_deleted_cannot_connect(session, group):
+    http, run, _ = session
+    http.replace(responses.GET, f"{BASE}/dedicated-node-groups/gpu-group", json=group)
+    result = invoke()
+    assert result.exit_code == 1
+    assert "being deleted" in result.output
     run.assert_not_called()
 
 

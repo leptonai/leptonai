@@ -58,8 +58,8 @@ DEVPOD = {
 }
 
 
-def completed(stdout="", code=0):
-    return subprocess.CompletedProcess([], code, stdout, "")
+def completed(stdout="", code=0, stderr=""):
+    return subprocess.CompletedProcess([], code, stdout, stderr)
 
 
 def profile(logins=("alice_corp",)):
@@ -331,6 +331,36 @@ def test_devpod_teleport_uses_the_reported_node_and_account(session):
     ]
     login = [c for c in run.call_args_list if c.args[0][1] == "login"]
     assert login == []
+
+
+@pytest.mark.parametrize(
+    "args, auth",
+    [
+        (
+            ["devpod", "ssh", "-n", "training-alice", "--transport", "teleport"],
+            "Starfleet",
+        ),
+        (["cluster", "ssh", "-n", "training"], None),
+        (["job", "ssh", "--id", "42", "-c", "training"], None),
+    ],
+)
+def test_only_dev_pods_pin_the_starfleet_connector(session, args, auth):
+    _, run = session
+    hostname = {"devpod": "training-alice", "cluster": "login-0"}.get(args[0], "gpu-1")
+    run.side_effect = [
+        completed(code=1, stderr="ERROR: Not logged in."),
+        completed(),
+        profile(["alice", "alice_corp"]),
+        inventory(hostname),
+        completed(),
+    ]
+    result = invoke(*args)
+    assert result.exit_code == 0, result.output
+    login = run.call_args_list[1].args[0]
+    assert login[:3] == ["/usr/bin/tsh", "login", "--proxy=proxy.example.com:443"]
+    assert [arg for arg in login if arg.startswith("--auth")] == (
+        [f"--auth={auth}"] if auth else []
+    )
 
 
 @pytest.mark.parametrize(

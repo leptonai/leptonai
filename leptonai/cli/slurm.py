@@ -911,7 +911,7 @@ def _resolve_devpod_selection(
 
 def _ssh_via_teleport(
     resolve: Callable[[], NodeSSHTarget],
-    auth: str,
+    auth: Optional[str],
     describe: Callable[[NodeSSHTarget], str],
 ) -> None:
     """Connect to a Slurm Teleport target, resolving it again after SSO."""
@@ -1037,7 +1037,15 @@ def shell_cluster(name: Optional[str], id: Optional[str]) -> None:
     _validate_name_id_selector(name, id)
     ensure_interactive_terminal()
     api = APIClient().slurm
-    cluster_id = _resolve_cluster_id(api, id or name)
+    item = _resolve_cluster(api, id or name)
+    cluster_id = str(item.metadata.id_)
+    state = item.status.state if item.status else None
+    # The dashboard offers the login-node terminal only in these states.
+    if state not in ("Ready", "Updating"):
+        raise click.ClickException(
+            f"Slurm cluster {cluster_id} is {state or 'not reporting a state'}; a"
+            " login-node shell needs a Ready or Updating cluster."
+        )
     console.print(
         f"Opening a login-node shell on [green]{cluster_id}[/]"
         " (type `exit` or press Ctrl-D to leave)..."
@@ -1051,12 +1059,14 @@ def shell_cluster(name: Optional[str], id: Optional[str]) -> None:
 @click.option("--node", help="Login node name; defaults to the first current one.")
 @click.option(
     "--teleport-auth",
-    default="Starfleet",
-    show_default=True,
-    help="Teleport SSO connector.",
+    default=None,
+    help="Teleport SSO connector; by default Teleport uses the cluster's default.",
 )
 def ssh_cluster(
-    name: Optional[str], id: Optional[str], node: Optional[str], teleport_auth: str
+    name: Optional[str],
+    id: Optional[str],
+    node: Optional[str],
+    teleport_auth: Optional[str],
 ) -> None:
     """SSH into a Slurm login node through Teleport.
 
@@ -1335,16 +1345,15 @@ def job_logs(
 )
 @click.option(
     "--teleport-auth",
-    default="Starfleet",
-    show_default=True,
-    help="Teleport SSO connector.",
+    default=None,
+    help="Teleport SSO connector; by default Teleport uses the cluster's default.",
 )
 def ssh_job(
     name: Optional[str],
     id: Optional[str],
     cluster: Optional[str],
     node: Optional[str],
-    teleport_auth: str,
+    teleport_auth: Optional[str],
 ) -> None:
     """SSH into a node allocated to your running Slurm job through Teleport.
 
@@ -1492,8 +1501,8 @@ def remove_devpod(
     "--teleport-auth",
     default=None,
     help=(
-        "Teleport SSO connector for login (default: Starfleet). Requires"
-        " --transport teleport."
+        "Teleport SSO connector for login (default: Starfleet, as the dashboard"
+        " uses for Slurm Dev Pods). Requires --transport teleport."
     ),
 )
 def ssh_devpod(
@@ -1592,6 +1601,14 @@ def shell_devpod(
     devpod_id = item.metadata.id_
     if not devpod_id:
         raise ValueError("The Slurm Dev Pod response did not contain an ID.")
+    # A Dev Pod being torn down keeps reporting Ready; its deletion time wins.
+    if (item.metadata.deleted_at or 0) > 0:
+        raise click.ClickException(f"Slurm Dev Pod {devpod_id} is being deleted.")
+    state = item.status.state if item.status else None
+    if state != "Ready":
+        raise click.ClickException(
+            f"Slurm Dev Pod {devpod_id} is not Ready (state: {state or 'unknown'})."
+        )
     console.print(
         f"Opening a shell in Dev Pod [green]{devpod_id}[/]"
         " (type `exit` or press Ctrl-D to leave)..."

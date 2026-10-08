@@ -137,37 +137,12 @@ class _ValidatedCommand(click.Command):
 
 def click_group(*args, **kwargs):
     """
-    A wrapper around click.group that allows for command shorthands as long as
-    they are unambiguous. For example, in the lepton case, the command `lep deployment`
-    can be shortened to `lep depl` as `depl` uniquely identifies the `deployment` command.
+    A wrapper around click.group that validates empty option values and turns
+    workspace and API errors into concise messages. Commands must be spelled in
+    full; abbreviations are not resolved.
     """
 
     class ClickAliasedGroup(click.Group):
-        def get_command(self, ctx, cmd_name):
-            rv = click.Group.get_command(self, ctx, cmd_name)
-            if rv is not None:
-                return rv
-
-            def is_abbrev(x, y):
-                # first char must match
-                if x[0] != y[0]:
-                    return False
-                it = iter(y)
-                return all(any(c == ch for c in it) for ch in x)
-
-            matches = [x for x in self.list_commands(ctx) if is_abbrev(cmd_name, x)]
-
-            if not matches:
-                return None
-            elif len(matches) == 1:
-                return click.Group.get_command(self, ctx, matches[0])
-            ctx.fail(f"'{cmd_name}' is ambiguous: {', '.join(sorted(matches))}")
-
-        def resolve_command(self, ctx, args):
-            # always return the full command name
-            _, cmd, args = super().resolve_command(ctx, args)
-            return cmd.name, cmd, args
-
         def command(self, *c_args, **c_kwargs):
             # Ensure all commands under this group use the empty-string guard by default
             if "cls" not in c_kwargs:

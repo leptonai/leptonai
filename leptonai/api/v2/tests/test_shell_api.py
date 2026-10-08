@@ -9,7 +9,11 @@ from leptonai.api.v2.endpoint import EndpointAPI
 from leptonai.api.v2.job import JobAPI
 from leptonai.api.v2.pod import PodAPI
 from leptonai.api.v2.raycluster import RayClusterAPI
-from leptonai.api.v2.shell import ShellUnavailable, select_shell_replica
+from leptonai.api.v2.shell import (
+    ShellUnavailable,
+    is_lepton_system_image,
+    select_shell_replica,
+)
 
 
 GATEWAY = "https://gateway.example.com/api/v2/workspaces/ws"
@@ -114,36 +118,124 @@ def test_shell_routes_match_the_dashboard_terminal(opened, api_class, args, path
 
 
 @pytest.mark.parametrize(
-    "api_class, path, message",
+    "api_class, path",
     [
-        (DeploymentAPI, "/deployments/ep/replicas", "Endpoint ep has no running"),
-        (EndpointAPI, "/endpoints/ep/replicas", "Endpoint ep has no running"),
-        (PodAPI, "/deployments/ep/replicas", "Pod ep has no running"),
+        (DeploymentAPI, "/deployments/ep/replicas"),
+        (EndpointAPI, "/endpoints/ep/replicas"),
     ],
 )
-def test_replica_shells_choose_from_the_workload_replicas(api_class, path, message):
+def test_endpoint_shells_choose_from_the_running_replicas(api_class, path):
     client = _client([replica("ep-0", "Ready"), replica("ep-1", "Deleted")])
     assert api_class(client).get_shell_replica("ep") == "ep-0"
     assert client._get.call_args.args == (path,)
 
-    client._get.return_value = _Response([replica("ep-1", "Deleted")])
-    with pytest.raises(ShellUnavailable, match=message):
+    client._get.return_value = _Response([replica("ep-1", "Terminated")])
+    with pytest.raises(ShellUnavailable, match="Endpoint ep has no running"):
         api_class(client).get_shell_replica("ep")
 
 
-def test_job_shell_replicas_exclude_archived_runs():
-    client = _client([replica("train-0")])
+def _reads(client, *payloads):
+    client._get.side_effect = [_Response(payload) for payload in payloads]
+    return client
+
+
+def _created(rid, created_at, reason="Ready"):
+    item = replica(rid, reason)
+    item["metadata"]["created_at"] = created_at
+    return item
+
+
+def test_pod_shell_uses_the_newest_replica_of_a_ready_pod():
+    # As the dashboard's Pod card does while a restart briefly shows two.
+    pod = {"status": {"state": "Not Ready", "phase": "Ready"}}
+    replicas = [_created("pod-old", 1), _created("pod-new", 2)]
+    client = _reads(_client(), pod, replicas)
+    assert PodAPI(client).get_shell_replica("pod") == "pod-new"
+    assert [c.args for c in client._get.call_args_list] == [
+        ("/deployments/pod",),
+        ("/deployments/pod/replicas",),
+    ]
+
+    client = _reads(_client(), pod, [_created("pod-0", 1, "Failed")])
+    with pytest.raises(ShellUnavailable, match="has stopped"):
+        PodAPI(client).get_shell_replica("pod")
+
+    client = _reads(_client(), pod, replicas)
+    assert PodAPI(client).get_shell_replica("pod", "pod-old") == "pod-old"
+
+
+@pytest.mark.parametrize(
+    "status", [{"state": "Ready", "phase": "Stopped"}, {"state": "Not Ready"}, None]
+)
+def test_pod_shell_needs_a_ready_pod(status):
+    client = _reads(_client(), {"status": status}, [replica("pod-0")])
+    with pytest.raises(ShellUnavailable, match="is not Ready"):
+        PodAPI(client).get_shell_replica("pod")
+    assert client._get.call_count == 1
+
+
+def test_job_shell_reads_live_replicas():
+    job = {"spec": {"container": {"image": "nvcr.io/nvidia/pytorch:24.01"}}}
+    client = _reads(_client(), job, [replica("train-0")])
     assert JobAPI(client).get_shell_replica("train") == "train-0"
-    assert client._get.call_args.args == ("/jobs/train/replicas",)
-    assert client._get.call_args.kwargs == {"params": {"job_query_mode": "alive_only"}}
+    alive = {"params": {"job_query_mode": "alive_only"}}
+    assert [(c.args, c.kwargs) for c in client._get.call_args_list] == [
+        (("/jobs/train",), alive),
+        (("/jobs/train/replicas",), alive),
+    ]
 
 
-def test_ray_cluster_shell_defaults_to_the_head_without_a_lookup():
-    client = _client([replica("rc-head"), replica("rc-w-0", "Deleted")])
-    api = RayClusterAPI(client)
-    assert api.get_shell_replica("rc") is None
-    client._get.assert_not_called()
+@pytest.mark.parametrize(
+    "job, message",
+    [
+        ({"status": {"state": "Archived"}}, "is archived"),
+        ({"spec": {"container": {"image": "leptonai/l3m:0.3"}}}, "system image"),
+        ({"spec": {"container": {"image": "leptonai/lep-tuner"}}}, "system image"),
+        ({"spec": {"container": {"image": "default/lepton:tuna-v2"}}}, "system image"),
+    ],
+)
+def test_job_shell_is_unavailable_where_the_dashboard_hides_it(job, message):
+    client = _reads(_client(), job)
+    with pytest.raises(ShellUnavailable, match=message):
+        JobAPI(client).get_shell_replica("train")
+
+
+@pytest.mark.parametrize(
+    "image, system",
+    [
+        ("leptonai/l3m", True),
+        ("docker.io/leptonai/l3m:1.2.3", True),
+        ("registry.example.com/team/lepton:tuna", False),
+        ("leptonai/l3m-custom", False),
+        ("myorg/leptonai/l3m", False),
+        (None, False),
+    ],
+)
+def test_system_images_match_the_dashboard_patterns(image, system):
+    assert is_lepton_system_image(image) is system
+
+
+@pytest.mark.parametrize("state", ["Stopped", "Stopping", "", None])
+def test_ray_head_shell_needs_a_running_cluster(state):
+    client = _reads(_client(), {"status": {"state": state}})
+    with pytest.raises(ShellUnavailable, match="head shell needs a running cluster"):
+        RayClusterAPI(client).get_shell_replica("rc")
+
+
+def test_ray_cluster_shell_defaults_to_the_head():
+    client = _reads(_client(), {"status": {"state": "Scaling"}})
+    assert RayClusterAPI(client).get_shell_replica("rc") is None
+    assert client._get.call_args.args == ("/rayclusters/rc",)
+
+    replicas = [
+        replica("rc-head"),
+        replica("rc-w-0", "Deleted"),
+        replica("rc-w-1", "Terminated"),
+    ]
+    api = RayClusterAPI(_client(replicas))
     assert api.get_shell_replica("rc", "rc-head") == "rc-head"
+    # The dashboard's Ray replica table leaves Terminated replicas enabled.
+    assert api.get_shell_replica("rc", "rc-w-1") == "rc-w-1"
     with pytest.raises(ShellUnavailable, match="has stopped"):
         api.get_shell_replica("rc", "rc-w-0")
 
@@ -157,7 +249,7 @@ def test_ray_cluster_shell_defaults_to_the_head_without_a_lookup():
 )
 def test_new_api_dev_pod_shell_needs_a_running_pod(spec, status):
     body = {"metadata": {"name": "pod"}, "spec": spec, "status": status}
-    with pytest.raises(NewDevPodAPIUnsupported, match="not Ready"):
+    with pytest.raises(ShellUnavailable, match="not Ready"):
         DevPodAPI(_client(body)).get_shell_replica("pod")
 
 

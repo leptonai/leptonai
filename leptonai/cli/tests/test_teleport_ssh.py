@@ -20,7 +20,13 @@ from leptonai.cli.pod import pod
 
 
 BASE = "https://gw.example/api/v2/workspaces/ws-teleport"
-REPLICAS = f"{BASE}/deployments/my-pod/replicas"
+FEATURES = f"{BASE}/info/features"
+POD = f"{BASE}/deployments/my-pod"
+REPLICAS = f"{POD}/replicas"
+READY_REPLICA = {
+    "metadata": {"id": "replica-1"},
+    "status": {"readiness_issue": {"reason": "Ready"}},
+}
 CONNECTION_URL = f"{REPLICAS}/replica-1/teleport-connectivity"
 CONNECTION = {
     "name": "ws-teleport-my-pod",
@@ -73,11 +79,20 @@ def session():
     reset_new_deployment_api_flag_cache()
 
 
-def register(http, *, connection=None, replicas=None):
-    http.get(
-        REPLICAS,
-        json=replicas if replicas is not None else [{"metadata": {"id": "replica-1"}}],
-    )
+def pod_body(phase="Ready", **metadata):
+    return {
+        "metadata": {"id": "my-pod", **metadata},
+        "spec": {"is_pod": True},
+        "status": {"state": "Ready", "phase": phase},
+    }
+
+
+def register(http, *, connection=None, replicas=None, pod=None):
+    http.get(FEATURES, json={"dev_pod_teleport": True})
+    http.get(POD, json=pod_body() if pod is None else pod)
+    if pod is not None:
+        return
+    http.get(REPLICAS, json=replicas if replicas is not None else [READY_REPLICA])
     if replicas is None:
         http.get(CONNECTION_URL, json=CONNECTION if connection is None else connection)
 
@@ -94,7 +109,12 @@ def test_reuses_profile_without_public_ip_or_port_mapping(session):
     run.side_effect = [profile(), completed()]
     result = invoke()
     assert result.exit_code == 0, result.output
-    assert [c.request.url for c in http.calls] == [REPLICAS, CONNECTION_URL]
+    assert [c.request.url for c in http.calls] == [
+        FEATURES,
+        POD,
+        REPLICAS,
+        CONNECTION_URL,
+    ]
     assert run.call_args_list[0].args[0] == [
         "/usr/bin/tsh",
         "status",
@@ -304,8 +324,18 @@ def test_unavailable_or_malformed_connection_never_spawns_tsh(
     run.assert_not_called()
 
 
-@pytest.mark.parametrize("replicas", [[], [{}, {}], {}, [{"metadata": {}}]])
-def test_missing_ambiguous_or_invalid_replica_never_queries_connection(
+@pytest.mark.parametrize(
+    "replicas",
+    [
+        [],
+        [{}, {}],
+        {},
+        [{"metadata": {}}],
+        [{"metadata": {"id": "replica-1"}}],
+        [{**READY_REPLICA, "status": {"readiness_issue": {"reason": "Starting"}}}],
+    ],
+)
+def test_missing_ambiguous_invalid_or_unready_replica_never_queries_connection(
     session, replicas
 ):
     http, _, _, run = session
@@ -313,14 +343,52 @@ def test_missing_ambiguous_or_invalid_replica_never_queries_connection(
     result = invoke()
     assert result.exit_code == 1
     assert "replica" in result.output
+    assert len(http.calls) == 3
+    run.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "pod, message",
+    [
+        (pod_body(phase="Stopped"), "is not Ready (state: Stopped)"),
+        (pod_body(deleted_at=1), "is being deleted"),
+        ({**pod_body(), "spec": {"is_pod": False}}, "is a Pod"),
+    ],
+)
+def test_pods_the_dashboard_disables_never_query_connection(session, pod, message):
+    http, _, _, run = session
+    register(http, pod=pod)
+    result = invoke()
+    assert result.exit_code == 1
+    assert message in result.output
+    run.assert_not_called()
+
+
+def test_dev_pod_teleport_must_be_enabled_for_the_workspace(session):
+    http, _, _, run = session
+    http.get(FEATURES, json={})
+    result = invoke()
+    assert result.exit_code == 1
+    assert "not enabled for Dev Pods" in result.output
     assert len(http.calls) == 1
+    run.assert_not_called()
+
+
+def test_connection_for_another_node_is_rejected(session):
+    http, _, _, run = session
+    register(http, connection={**CONNECTION, "name": "ws-teleport-other-pod"})
+    result = invoke()
+    assert result.exit_code == 1
+    assert "does not belong to this pod" in result.output
     run.assert_not_called()
 
 
 @pytest.mark.parametrize("code", [403, 404, 500])
 def test_connection_api_error_is_not_treated_as_disabled_or_fallback(session, code):
     http, _, _, run = session
-    http.get(REPLICAS, json=[{"metadata": {"id": "replica-1"}}])
+    http.get(FEATURES, json={"dev_pod_teleport": True})
+    http.get(POD, json=pod_body())
+    http.get(REPLICAS, json=[READY_REPLICA])
     http.get(CONNECTION_URL, status=code, json={"message": "API unavailable"})
     result = invoke()
     assert result.exit_code == 1
@@ -328,7 +396,6 @@ def test_connection_api_error_is_not_treated_as_disabled_or_fallback(session, co
     run.assert_not_called()
 
 
-FEATURES = f"{BASE}/info/features"
 DEVPOD = f"{BASE}/devpods/my-pod"
 POD_UID = "0f8fad5b-d9cb-469f-a165-70867728950e"
 

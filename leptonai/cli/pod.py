@@ -921,7 +921,8 @@ def shell(name, replica):
     "--teleport-auth",
     default=None,
     help=(
-        "Teleport SSO connector for login (default: Starfleet). Requires --transport"
+        "Teleport SSO connector for login. Legacy Pods default to Starfleet; Pods on"
+        " the new DevPod API use the cluster's default. Requires --transport"
         " teleport."
     ),
 )
@@ -943,9 +944,9 @@ def ssh(name, transport, teleport_auth, teleport_proxy):
     client = APIClient()
 
     if transport == "teleport":
-        auth = teleport_auth or "Starfleet"
+        # Like the dashboard, only legacy Pods pin the Starfleet connector.
         if isinstance(client.pod, DevPodAPI):
-            _ssh_devpod_teleport(client, name, teleport_proxy, auth)
+            _ssh_devpod_teleport(client, name, teleport_proxy, teleport_auth)
             return
         if teleport_proxy is not None:
             raise click.UsageError(
@@ -956,7 +957,7 @@ def ssh(name, transport, teleport_auth, teleport_proxy):
             connection = client.pod.get_teleport_connection(name)
         except (RuntimeError, RequestException) as error:
             raise click.ClickException(str(error)) from None
-        connect_teleport(connection, auth=auth)
+        connect_teleport(connection, auth=teleport_auth or "Starfleet")
         return
 
     pod = client.pod.get(name)

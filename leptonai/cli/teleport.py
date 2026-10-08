@@ -209,7 +209,7 @@ def _run_interactive(args: list, operation: str) -> None:
 
 def connect_teleport(
     connection: TeleportTarget,
-    auth: str = "Starfleet",
+    auth: Optional[str] = "Starfleet",
     *,
     workspace: Optional[str] = None,
     before_connect: Optional[Callable[[], None]] = None,
@@ -232,7 +232,7 @@ def connect_teleport(
 def _connect_teleport(
     tsh: str,
     connection: TeleportTarget,
-    auth: str,
+    auth: Optional[str],
     *,
     workspace: Optional[str] = None,
     workload: _Workload = _JOB_REPLICA,
@@ -249,7 +249,10 @@ def _connect_teleport(
         profile = _profile(tsh, connection, **profile_options)
         if profile is None:
             click.echo("Signing in to Teleport...")
-            login_args = [tsh, "login", proxy, f"--auth={auth}"]
+            login_args = [tsh, "login", proxy]
+            # Without a connector Teleport uses the cluster's default one.
+            if auth:
+                login_args.append(f"--auth={auth}")
             if expected_user is not None:
                 login_args.append(f"--user={expected_user}")
             if slurm_cluster is None:
@@ -381,7 +384,7 @@ def _slurm_node(tsh: str, target: TeleportTarget, user: str, cluster: str) -> st
 
 def connect_node_teleport(
     target: NodeSSHTarget,
-    auth: str = "Starfleet",
+    auth: Optional[str] = None,
     *,
     before_connect: Optional[Callable[[], None]] = None,
     description: Optional[str] = None,
@@ -490,7 +493,7 @@ def connect_job_teleport(
     replica: str,
     *,
     proxy: Optional[str] = None,
-    auth: str = "Starfleet",
+    auth: Optional[str] = None,
     before_connect: Optional[Callable[[], None]] = None,
 ) -> None:
     """Job APIs omit Teleport metadata; use an explicit proxy or the tsh profile."""
@@ -511,7 +514,7 @@ def connect_devpod_teleport(
     name: str,
     *,
     proxy: Optional[str] = None,
-    auth: str = "Starfleet",
+    auth: Optional[str] = None,
     before_connect: Optional[Callable[[], None]] = None,
 ) -> None:
     """New-API Dev Pods omit Teleport metadata too; same proxy rules as Jobs."""
@@ -533,7 +536,7 @@ def _connect_workload_teleport(
     description: str,
     *,
     proxy: Optional[str],
-    auth: str,
+    auth: Optional[str],
     before_connect: Optional[Callable[[], None]],
 ) -> None:
     tsh = _require_tsh()

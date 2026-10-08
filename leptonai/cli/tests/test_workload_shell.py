@@ -168,3 +168,17 @@ def test_refused_handshake_reports_status_and_api_message(body, message):
     assert message in _text(result)
     assert "secret" not in result.output
     bridge.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "args, token",
+    [
+        (["pod", "sh", "-n", "my-pod"], "sh"),
+        (["job", "she", "--id", "x"], "she"),
+        (["depl", "list"], "depl"),
+    ],
+)
+def test_commands_must_be_spelled_in_full(args, token):
+    result = CliRunner().invoke(lep, args)
+    assert result.exit_code == 2
+    assert f"No such command '{token}'" in result.output

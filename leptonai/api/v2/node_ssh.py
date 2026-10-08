@@ -111,6 +111,35 @@ def _slurm_login(spec, actor):
     return username
 
 
+def _require_accessible_node(node):
+    """The dashboard's node entry rule: lifecycle fields, when present, must be
+    well-formed, and the node must not be inaccessible or leaving the group."""
+    status = node.get("status", {})
+    states = status.get("status", []) if isinstance(status, dict) else None
+    if (
+        not isinstance(status, dict)
+        or not isinstance(status.get("inaccessible", False), bool)
+        or not isinstance(status.get("machine_status", ""), str)
+        or not isinstance(states, list)
+        or not all(isinstance(state, str) for state in states)
+    ):
+        raise RuntimeError(
+            "The node's lifecycle status could not be verified. Refresh the node"
+            " information before connecting."
+        )
+    if (
+        node.get("terminated")
+        or node.get("deleted")
+        or status.get("inaccessible")
+        or {status.get("machine_status"), *states}
+        & {"Terminated", "RemoveFromNodeGroup"}
+    ):
+        raise RuntimeError(
+            "A current accessible node with a machine assignment is required for"
+            " Teleport."
+        )
+
+
 @dataclass(frozen=True)
 class NodeSSHTarget:
     actor_email: str
@@ -207,6 +236,18 @@ class NodeSSHAPI(APIResourse):
         if not _dns(node_group_id) or not _dns(node_id):
             raise RuntimeError("Node SSH requires a valid node group ID and node ID.")
         actor = self._actor()
+        group_record = _object(
+            self._read(f"/dedicated-node-groups/{quote(node_group_id, safe='')}")
+        )
+        group_status = group_record.get("status") or {}
+        if (
+            _live_metadata(group_record).get("id") != node_group_id
+            or not isinstance(group_status, dict)
+            or group_status.get("phase") == "Deleting"
+        ):
+            raise RuntimeError(
+                "The selected node group is unavailable or being deleted."
+            )
         matches = []
         for cluster in self._clusters():
             spec = _object(_object(cluster).get("spec"))
@@ -260,6 +301,7 @@ class NodeSSHAPI(APIResourse):
             raise RuntimeError(
                 "The compute node no longer matches its selected group and machine."
             )
+        _require_accessible_node(node)
         machine = _object(self._read(f"{base}/machines/{quote(machine_id, safe='')}"))
         machine_meta = _live_metadata(machine)
         status = _object(machine.get("status"))

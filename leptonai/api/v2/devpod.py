@@ -39,7 +39,8 @@ from .types.deployment import (
 from .types.readiness import ReadinessIssue
 from .types.termination import DeploymentTerminations
 from .types.teleport import TeleportConnection
-from .pod import TeleportUnavailable
+from .shell import ShellUnavailable
+from .teleport_access import TeleportUnavailable, require_teleport_feature
 from . import translation
 
 
@@ -93,14 +94,7 @@ class DevPodAPI(APIResourse):
             and all(_DNS_LABEL.fullmatch(label) for label in hostname.split("."))
         ):
             raise TeleportUnavailable("The Dev Pod's Teleport node name is invalid.")
-        features = self.ensure_json(self._get("/info/features"))
-        if not isinstance(features, dict):
-            raise TeleportUnavailable("The workspace feature response is invalid.")
-        # The flag is omitted when false.
-        if features.get("dev_pod_teleport") is not True:
-            raise TeleportUnavailable(
-                "Teleport SSH is not enabled for Dev Pods in this workspace."
-            )
+        require_teleport_feature(self, "dev_pod_teleport", "Dev Pods")
         path = f"/devpods/{quote(name, safe='')}"
         pod = self.ensure_json(self._get(path))
         metadata = pod.get("metadata") if isinstance(pod, dict) else None
@@ -172,9 +166,9 @@ class DevPodAPI(APIResourse):
             state != LeptonDeploymentState.Ready
         ):
             shown = getattr(state, "value", state) or "unknown"
-            raise NewDevPodAPIUnsupported(
+            raise ShellUnavailable(
                 f"Pod {self._to_name(name_or_pod)} is not Ready (state: {shown});"
-                " a shell needs a running Dev Pod."
+                " a shell needs a Ready pod."
             )
         return None
 

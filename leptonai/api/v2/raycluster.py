@@ -2,7 +2,11 @@ from typing import Union, List, Dict, Any, Optional
 from urllib.parse import quote
 
 from .api_resource import APIResourse
-from .shell import select_shell_replica
+from .shell import (
+    RAY_STOPPED_REPLICA_REASONS,
+    ShellUnavailable,
+    select_shell_replica,
+)
 from .types.raycluster import LeptonRayCluster
 
 
@@ -220,15 +224,31 @@ class RayClusterAPI(APIResourse):
         name_or_raycluster: Union[str, LeptonRayCluster],
         replica: Optional[str] = None,
     ) -> Optional[str]:
-        """Validate an explicit node; without one the shell opens on the head."""
-        if replica is None:
-            return None
+        """Validate an explicit node; without one the shell opens on the head.
+
+        Mirrors the dashboard: the head shell needs a cluster reporting a
+        state other than Stopped or Stopping.
+        """
         name = self._to_name(name_or_raycluster)
+        path = f"/rayclusters/{quote(name, safe='')}"
+        if replica is None:
+            cluster = self.ensure_json(self._get(path))
+            status = cluster.get("status") if isinstance(cluster, dict) else None
+            state = status.get("state") if isinstance(status, dict) else None
+            if not state or state in ("Stopped", "Stopping"):
+                raise ShellUnavailable(
+                    f"Ray cluster {name} is {state or 'not reporting a state'}; its"
+                    " head shell needs a running cluster."
+                )
+            return None
         # Lists the head and every worker replica across all worker groups.
-        replicas = self.ensure_json(
-            self._get(f"/rayclusters/{quote(name, safe='')}/replicas")
+        replicas = self.ensure_json(self._get(f"{path}/replicas"))
+        return select_shell_replica(
+            replicas,
+            replica,
+            f"Ray cluster {name}",
+            stopped_reasons=RAY_STOPPED_REPLICA_REASONS,
         )
-        return select_shell_replica(replicas, replica, f"Ray cluster {name}")
 
     def shell_connection(
         self,

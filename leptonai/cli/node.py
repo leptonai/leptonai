@@ -94,9 +94,8 @@ def node():
 @click.option("--node-group", "-ng", required=True, help="Exact node group name or ID.")
 @click.option(
     "--teleport-auth",
-    default="Starfleet",
-    show_default=True,
-    help="Teleport SSO connector.",
+    default=None,
+    help="Teleport SSO connector; by default Teleport uses the cluster's default.",
 )
 def ssh(id, node_group, teleport_auth):
     """SSH into a Slurm compute container through Teleport.
