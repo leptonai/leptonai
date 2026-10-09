@@ -1,5 +1,6 @@
 """Launch workload SSH sessions using the user's local Teleport client."""
 
+from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
 import re
@@ -10,6 +11,7 @@ from urllib.parse import urlsplit
 
 import click
 from pydantic import ValidationError
+from requests import RequestException
 
 from leptonai.api.v2.node_ssh import NodeSSHTarget
 from leptonai.api.v2.types.teleport import TeleportConnection, TeleportTarget
@@ -19,6 +21,25 @@ _TSH_INSTALL_URL = (
     "https://goteleport.com/docs/connect-your-client/teleport-clients/tsh/"
 )
 _MIN_TSH_MAJOR = 18
+
+
+@dataclass(frozen=True)
+class _Workload:
+    """Wording for a workload whose Lepton agent registers a Teleport node."""
+
+    noun: str
+    requirement: str
+
+
+_JOB_REPLICA = _Workload(
+    "Job replica",
+    "job_teleport enablement, and that the Job image starts a Teleport agent",
+)
+_DEV_POD = _Workload(
+    "Dev Pod",
+    "dev_pod_teleport and node group enablement, and that the Dev Pod runs the"
+    " default entrypoint, which starts its Teleport agent",
+)
 
 
 def _check_tsh_version(tsh: str) -> None:
@@ -188,7 +209,7 @@ def _run_interactive(args: list, operation: str) -> None:
 
 def connect_teleport(
     connection: TeleportTarget,
-    auth: str = "Starfleet",
+    auth: Optional[str] = "Starfleet",
     *,
     workspace: Optional[str] = None,
     before_connect: Optional[Callable[[], None]] = None,
@@ -211,9 +232,10 @@ def connect_teleport(
 def _connect_teleport(
     tsh: str,
     connection: TeleportTarget,
-    auth: str,
+    auth: Optional[str],
     *,
     workspace: Optional[str] = None,
+    workload: _Workload = _JOB_REPLICA,
     before_connect: Optional[Callable[[], None]] = None,
     slurm_cluster: Optional[str] = None,
     expected_user: Optional[str] = None,
@@ -227,7 +249,10 @@ def _connect_teleport(
         profile = _profile(tsh, connection, **profile_options)
         if profile is None:
             click.echo("Signing in to Teleport...")
-            login_args = [tsh, "login", proxy, f"--auth={auth}"]
+            login_args = [tsh, "login", proxy]
+            # Without a connector Teleport uses the cluster's default one.
+            if auth:
+                login_args.append(f"--auth={auth}")
             if expected_user is not None:
                 login_args.append(f"--user={expected_user}")
             if slurm_cluster is None:
@@ -252,7 +277,7 @@ def _connect_teleport(
             before_connect()
         node = connection.name
         if workspace is not None:
-            node = _job_node(tsh, connection, profile["username"], workspace)
+            node = _job_node(tsh, connection, profile["username"], workspace, workload)
         if slurm_cluster is not None:
             connection = TeleportTarget(**{
                 **connection.model_dump(by_alias=True),
@@ -274,6 +299,13 @@ def _connect_teleport(
         )
     except KeyboardInterrupt:
         raise click.exceptions.Exit(130) from None
+    except RequestException:
+        # Only before_connect reads the API here. RequestException is also an
+        # OSError, so it must not be reported as a tsh failure below.
+        raise click.ClickException(
+            "Could not recheck the SSH target with the workspace API after"
+            " sign-in. Retry the command."
+        ) from None
     except OSError as error:
         raise click.ClickException(
             f"Could not run Teleport CLI (tsh): {error}"
@@ -300,7 +332,7 @@ def _slurm_node(tsh: str, target: TeleportTarget, user: str, cluster: str) -> st
         )
     except subprocess.TimeoutExpired:
         raise click.ClickException(
-            "Timed out discovering the Slurm compute node in Teleport."
+            "Timed out discovering the Slurm node in Teleport."
         ) from None
     if result.returncode:
         raise click.ClickException(
@@ -339,12 +371,12 @@ def _slurm_node(tsh: str, target: TeleportTarget, user: str, cluster: str) -> st
         raise click.ClickException("Teleport returned an invalid node list.") from None
     if not matches:
         raise click.ClickException(
-            "No Teleport node is visible for this Slurm compute node. Check agent"
+            "No Teleport node is visible for this Slurm node. Check agent"
             " registration and permissions."
         )
     if len(matches) != 1:
         raise click.ClickException(
-            "Multiple Teleport nodes match this Slurm compute node. Resolve stale"
+            "Multiple Teleport nodes match this Slurm node. Resolve stale"
             " registrations before retrying."
         )
     return matches[0]
@@ -352,11 +384,16 @@ def _slurm_node(tsh: str, target: TeleportTarget, user: str, cluster: str) -> st
 
 def connect_node_teleport(
     target: NodeSSHTarget,
-    auth: str = "Starfleet",
+    auth: Optional[str] = None,
     *,
     before_connect: Optional[Callable[[], None]] = None,
+    description: Optional[str] = None,
 ) -> None:
-    """Discover the Teleport cluster from the verified personal user's profile."""
+    """Discover the Teleport cluster from the verified personal user's profile.
+
+    Serves every Slurm target: compute containers, login nodes, job
+    allocations, and Dev Pods all register under their runtime hostname.
+    """
     connection = TeleportTarget(
         name=target.hostname,
         proxy=target.proxy,
@@ -364,10 +401,10 @@ def connect_node_teleport(
         clusterDomain=target.proxy,
         username=target.username,
     )
-    click.echo(
-        f"Connecting to Slurm compute container {target.hostname} as"
-        f" {target.username} via Teleport..."
-    )
+    if target.notice:
+        click.echo(f"Note: {target.notice}")
+    description = description or f"Slurm compute container {target.hostname}"
+    click.echo(f"Connecting to {description} as {target.username} via Teleport...")
     _connect_teleport(
         _require_tsh(),
         connection,
@@ -378,7 +415,13 @@ def connect_node_teleport(
     )
 
 
-def _job_node(tsh: str, target: TeleportTarget, user: str, workspace: str) -> str:
+def _job_node(
+    tsh: str,
+    target: TeleportTarget,
+    user: str,
+    workspace: str,
+    workload: _Workload = _JOB_REPLICA,
+) -> str:
     """Resolve the exact registered hostname to one Teleport node ID."""
     try:
         result = subprocess.run(
@@ -399,7 +442,7 @@ def _job_node(tsh: str, target: TeleportTarget, user: str, workspace: str) -> st
         )
     except subprocess.TimeoutExpired:
         raise click.ClickException(
-            "Timed out discovering the Job's Teleport node."
+            f"Timed out discovering the {workload.noun}'s Teleport node."
         ) from None
     if result.returncode:
         raise click.ClickException(
@@ -434,12 +477,12 @@ def _job_node(tsh: str, target: TeleportTarget, user: str, workspace: str) -> st
         raise click.ClickException("Teleport returned an invalid node list.") from None
     if not matches:
         raise click.ClickException(
-            "No Teleport node is visible for this Job replica. Verify the proxy, "
-            "job_teleport enablement, and that the Job image starts a Teleport agent."
+            f"No Teleport node is visible for this {workload.noun}. Verify the"
+            f" proxy, {workload.requirement}."
         )
     if len(matches) != 1:
         raise click.ClickException(
-            "Multiple Teleport nodes match this Job replica. Wait for stale "
+            f"Multiple Teleport nodes match this {workload.noun}. Wait for stale "
             "registrations to expire or ask your administrator to resolve them."
         )
     return matches[0]
@@ -450,10 +493,52 @@ def connect_job_teleport(
     replica: str,
     *,
     proxy: Optional[str] = None,
-    auth: str = "Starfleet",
+    auth: Optional[str] = None,
     before_connect: Optional[Callable[[], None]] = None,
 ) -> None:
     """Job APIs omit Teleport metadata; use an explicit proxy or the tsh profile."""
+    _connect_workload_teleport(
+        workspace,
+        f"{workspace}-{replica}",
+        _JOB_REPLICA,
+        f"Job replica {replica}",
+        proxy=proxy,
+        auth=auth,
+        before_connect=before_connect,
+    )
+
+
+def connect_devpod_teleport(
+    workspace: str,
+    hostname: str,
+    name: str,
+    *,
+    proxy: Optional[str] = None,
+    auth: Optional[str] = None,
+    before_connect: Optional[Callable[[], None]] = None,
+) -> None:
+    """New-API Dev Pods omit Teleport metadata too; same proxy rules as Jobs."""
+    _connect_workload_teleport(
+        workspace,
+        hostname,
+        _DEV_POD,
+        f"Dev Pod {name}",
+        proxy=proxy,
+        auth=auth,
+        before_connect=before_connect,
+    )
+
+
+def _connect_workload_teleport(
+    workspace: str,
+    hostname: str,
+    workload: _Workload,
+    description: str,
+    *,
+    proxy: Optional[str],
+    auth: Optional[str],
+    before_connect: Optional[Callable[[], None]],
+) -> None:
     tsh = _require_tsh()
     try:
         if proxy is not None:
@@ -482,7 +567,7 @@ def connect_job_teleport(
         ):
             raise ValueError
         target = TeleportTarget(
-            name=f"{workspace}-{replica}",
+            name=hostname,
             proxy=url.hostname,
             port=url.port if url.port is not None else 443,
             clusterDomain=cluster,
@@ -490,7 +575,8 @@ def connect_job_teleport(
         )
     except (ValueError, TypeError, KeyError, ValidationError):
         raise click.ClickException(
-            "Invalid Teleport proxy or Job replica. Use --teleport-proxy <host[:port]>."
+            f"Invalid Teleport proxy or {workload.noun}. Use --teleport-proxy"
+            " <host[:port]>."
         ) from None
     except OSError as error:
         raise click.ClickException(
@@ -499,9 +585,13 @@ def connect_job_teleport(
     except KeyboardInterrupt:
         raise click.exceptions.Exit(130) from None
     click.echo(
-        f"Connecting to Job replica {replica} via Teleport"
-        f" ({target.proxy}:{target.port})..."
+        f"Connecting to {description} via Teleport ({target.proxy}:{target.port})..."
     )
     _connect_teleport(
-        tsh, target, auth, workspace=workspace, before_connect=before_connect
+        tsh,
+        target,
+        auth,
+        workspace=workspace,
+        workload=workload,
+        before_connect=before_connect,
     )

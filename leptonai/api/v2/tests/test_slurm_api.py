@@ -62,6 +62,7 @@ def test_shell_handshake_has_user_agent(method, user_agent, header_name, monkeyp
         "subprotocols": ["v4.channel.k8s.io"],
         "enable_multithread": True,
         "timeout": 30,
+        "redirect_limit": 0,
     }
     connection.settimeout.assert_called_once_with(None)
     assert client._header == original_headers

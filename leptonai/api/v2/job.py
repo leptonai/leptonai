@@ -1,7 +1,9 @@
-from typing import Union, List, Iterator, Optional
+from typing import Any, Union, List, Iterator, Optional
 from urllib.parse import quote
 
 from .api_resource import APIResourse
+from .shell import ShellUnavailable, is_lepton_system_image, select_shell_replica
+from .teleport_access import require_teleport_feature
 from .job_validation import validate_job_create
 from .types.events import LeptonEvent
 
@@ -134,10 +136,15 @@ class JobAPI(APIResourse):
     def get_ssh_replica(
         self, id_or_job: Union[str, LeptonJob], replica: Optional[str] = None
     ) -> str:
-        """Select one live Job replica without guessing among workers or history."""
+        """Select one live Job replica without guessing among workers or history.
+
+        Like the dashboard, requires ``job_teleport`` and a Running or Starting
+        job.
+        """
+        require_teleport_feature(self, "job_teleport", "Jobs")
         job = self.get(id_or_job, job_query_mode=LeptonJobQueryMode.AliveOnly.value)
-        if job.status is None or job.status.state != "Running":
-            raise RuntimeError("SSH requires a running job.")
+        if job.status is None or job.status.state not in ("Running", "Starting"):
+            raise RuntimeError("SSH requires a running job (Running or Starting).")
         job_id = self._to_id(job)
         if not job_id:
             raise RuntimeError("The job response is missing its ID.")
@@ -182,6 +189,41 @@ class JobAPI(APIResourse):
                 f"List current replicas with: lep job replicas --id {job_id}"
             )
         return ready_ids[0]
+
+    def get_shell_replica(
+        self, id_or_job: Union[str, LeptonJob], replica: Optional[str] = None
+    ) -> str:
+        """Select the live Job replica an interactive shell should exec into.
+
+        Like the dashboard, archived jobs and platform-managed tuning jobs
+        (Lepton system images) have no terminal.
+        """
+        job_id = self._to_id(id_or_job)
+        path = f"/jobs/{quote(job_id, safe='')}"
+        params = {"job_query_mode": LeptonJobQueryMode.AliveOnly.value}
+        job = self.ensure_json(self._get(path, params=params))
+        spec = job.get("spec") if isinstance(job, dict) else None
+        status = job.get("status") if isinstance(job, dict) else None
+        container = spec.get("container") if isinstance(spec, dict) else None
+        if isinstance(status, dict) and status.get("state") == "Archived":
+            raise ShellUnavailable(f"Job {job_id} is archived.")
+        if isinstance(container, dict) and is_lepton_system_image(
+            container.get("image")
+        ):
+            raise ShellUnavailable(
+                f"Job {job_id} runs a Lepton system image, which has no terminal."
+            )
+        replicas = self.ensure_json(self._get(f"{path}/replicas", params=params))
+        return select_shell_replica(replicas, replica, f"job {job_id}")
+
+    def shell_connection(
+        self, id_or_job: Union[str, LeptonJob], replica_id: str
+    ) -> Any:
+        """Open the interactive shell WebSocket for one Job replica."""
+        job_id = quote(self._to_id(id_or_job), safe="")
+        return self._open_shell(
+            f"/jobs/{job_id}/replicas/{quote(replica_id, safe='')}/shell"
+        )
 
     def get_log(
         self,

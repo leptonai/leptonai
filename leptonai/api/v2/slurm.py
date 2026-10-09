@@ -9,7 +9,7 @@ by the shared Loki-compatible endpoint.
 from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import quote
 
-from .api_resource import APIResourse
+from .api_resource import SHELL_SUBPROTOCOL, APIResourse
 from .types.slurm import (
     LeptonSlurmCluster,
     LeptonSlurmDevPod,
@@ -29,8 +29,8 @@ SLURM_JOB_QUERY_MODES = (
     "alive_and_archive",
 )
 
-# Kubernetes remote-command subprotocol spoken by the /shell endpoints.
-SLURM_SHELL_SUBPROTOCOL = "v4.channel.k8s.io"
+# Kept for importers; every workspace /shell route shares this subprotocol.
+SLURM_SHELL_SUBPROTOCOL = SHELL_SUBPROTOCOL
 
 
 class SlurmClusterLookupError(ValueError):
@@ -314,40 +314,6 @@ class SlurmAPI(APIResourse):
         )
         response = self._get("/logs", params=params)
         return self.ensure_type(response, SlurmLogs)
-
-    @staticmethod
-    def _websocket_url(url: str) -> str:
-        if url.startswith("https://"):
-            return "wss://" + url[len("https://") :]
-        if url.startswith("http://"):
-            return "ws://" + url[len("http://") :]
-        raise ValueError(f"Cannot derive a WebSocket URL from {url!r}.")
-
-    def _open_shell(self, path: str) -> Any:
-        # Lazy import: websocket-client is only needed for interactive shells.
-        import websocket
-
-        # Reuse the bearer header the HTTP client already built instead of
-        # formatting the token a second time here.
-        headers = {
-            "User-Agent" if key.lower() == "user-agent" else key: value
-            for key, value in getattr(self._client, "_header", {}).items()
-            if key.lower() in ("authorization", "user-agent")
-        }
-        # websocket-client has no default User-Agent; the gateway WAF requires one.
-        if not headers.get("User-Agent"):
-            headers["User-Agent"] = "leptonai"
-        connection = websocket.create_connection(
-            self._websocket_url(self._client.url + path),
-            header=headers,
-            subprotocols=[SLURM_SHELL_SUBPROTOCOL],
-            enable_multithread=True,
-            timeout=30,
-        )
-        # The 30s timeout above only guards the handshake; an idle shell must
-        # be able to sit quietly for longer than any read timeout.
-        connection.settimeout(None)
-        return connection
 
     def shell_connection(self, cluster_id: str) -> Any:
         """Open the interactive login-node shell WebSocket for a cluster.

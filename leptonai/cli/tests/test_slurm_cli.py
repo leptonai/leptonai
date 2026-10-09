@@ -2,6 +2,7 @@ from functools import partial
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
+import pytest
 from click.testing import CliRunner
 
 from leptonai.api.v2.types.slurm import (
@@ -958,17 +959,19 @@ def test_open_and_dashboard_commands_are_removed():
         assert result.exit_code != 0, args
 
 
-def test_devpod_bastion_ssh_and_shell_are_in_command_tree():
+def test_shell_and_ssh_are_in_command_tree():
     cluster_help = CliRunner().invoke(lep, ["slurm", "cluster", "--help"])
+    job_help = CliRunner().invoke(lep, ["slurm", "job", "--help"])
     devpod_help = CliRunner().invoke(lep, ["slurm", "devpod", "--help"])
 
+    # Login nodes: a web shell, or Teleport SSH; there is no direct SSH.
     assert "shell" in cluster_help.output
-    assert "ssh" not in cluster_help.output
+    assert "ssh" in cluster_help.output
+    # Jobs are reached through Teleport on an allocated node only.
+    assert "ssh" in job_help.output
+    assert "shell" not in job_help.output
     assert "shell" in devpod_help.output
     assert "ssh" in devpod_help.output
-    result = CliRunner().invoke(lep, ["slurm", "cluster", "ssh", "-n", "cluster-a"])
-    assert result.exit_code == 2, result.output
-    assert "No such command" in result.output
 
 
 def test_shell_requires_interactive_terminal():
@@ -1026,6 +1029,60 @@ def test_devpod_shell_bridges_and_propagates_exit_code():
     api.resolve_devpod.assert_called_once_with("cluster-a-alice")
     api.devpod_shell_connection.assert_called_once_with("ns/cluster-a-alice")
     bridge.assert_called_once_with(socket)
+
+
+@pytest.mark.parametrize("state", ["Creating", "NotReady", None])
+def test_cluster_shell_needs_a_ready_or_updating_cluster(state):
+    client, api = _fake_client()
+    cluster = CLUSTER.model_copy(deep=True)
+    cluster.status.state = state
+    api.list_clusters.return_value = [cluster]
+    with (
+        patch("leptonai.cli.slurm.APIClient", return_value=client),
+        patch("leptonai.cli.ws_shell.ensure_interactive_terminal"),
+        patch("leptonai.cli.ws_shell.run_ws_shell", return_value=0) as bridge,
+    ):
+        result = CliRunner().invoke(
+            lep, ["slurm", "cluster", "shell", "-n", "cluster-a"]
+        )
+        cluster.status.state = "Updating"
+        updating = CliRunner().invoke(
+            lep, ["slurm", "cluster", "shell", "-n", "cluster-a"]
+        )
+
+    assert result.exit_code == 1, result.output
+    assert "needs a Ready or Updating cluster" in result.output
+    assert updating.exit_code == 0, updating.output
+    bridge.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "metadata, status, message",
+    [
+        ({"deleted_at": 1}, {"state": "Ready"}, "is being deleted"),
+        ({}, {"state": "Creating"}, "is not Ready (state: Creating)"),
+    ],
+)
+def test_devpod_shell_needs_a_ready_dev_pod(metadata, status, message):
+    client, api = _fake_client()
+    devpod = DEVPOD.model_copy(deep=True)
+    for key, value in metadata.items():
+        setattr(devpod.metadata, key, value)
+    devpod.status.state = status["state"]
+    api.resolve_devpod.return_value = devpod
+    with (
+        patch("leptonai.cli.slurm.APIClient", return_value=client),
+        patch("leptonai.cli.ws_shell.ensure_interactive_terminal"),
+        patch("leptonai.cli.ws_shell.run_ws_shell", return_value=0) as bridge,
+    ):
+        result = CliRunner().invoke(
+            lep, ["slurm", "devpod", "shell", "-n", "cluster-a-alice"]
+        )
+
+    assert result.exit_code == 1, result.output
+    assert message in result.output
+    api.devpod_shell_connection.assert_not_called()
+    bridge.assert_not_called()
 
 
 def test_job_logs_follow_seeds_newest_page_then_drains_full_pages():

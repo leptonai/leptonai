@@ -26,6 +26,7 @@ from .util import (
     state_matches,
 )
 from ..api.v2.client import APIClient
+from ..api.v2.shell import ShellUnavailable
 from ..api.v2.types.common import LeptonVisibility, Metadata, LeptonUserSecurityContext
 from ..api.v2.types.raycluster import (
     LeptonRayCluster,
@@ -1639,6 +1640,37 @@ def remove(name):
     client = APIClient()
     client.raycluster.delete(name)
     console.print(f"Ray cluster [green]{name}[/] deleted successfully.")
+
+
+@raycluster.command()
+@click.option("--name", "-n", help="The raycluster name.", required=True)
+@click.option(
+    "--replica",
+    "-r",
+    help="Head or worker replica ID; defaults to the head node.",
+)
+def shell(name, replica):
+    """Open an interactive shell on a Ray cluster node.
+
+    Without --replica the shell opens on the head node. The session is
+    tunnelled through the workspace API over HTTPS (the same path the
+    dashboard terminal uses).
+    """
+    # Local import keeps websocket-client off the CLI startup path.
+    from .ws_shell import ensure_interactive_terminal, run_shell_session
+
+    ensure_interactive_terminal()
+    client = APIClient()
+    try:
+        replica_id = client.raycluster.get_shell_replica(name, replica)
+    except ShellUnavailable as error:
+        raise click.ClickException(str(error)) from None
+    target = f"replica [green]{replica_id}[/]" if replica_id else "the head node"
+    console.print(
+        f"Opening a shell on {target} of Ray cluster [green]{name}[/]"
+        " (type `exit` or press Ctrl-D to leave)..."
+    )
+    run_shell_session(lambda: client.raycluster.shell_connection(name, replica_id))
 
 
 @raycluster.command()

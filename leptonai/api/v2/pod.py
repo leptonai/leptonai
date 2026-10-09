@@ -1,18 +1,16 @@
-from typing import Union, List, Iterator, Optional
+from typing import Any, Union, List, Iterator, Optional
 import warnings
 from urllib.parse import quote
 
 from pydantic import ValidationError
 
 from .api_resource import APIResourse
+from .shell import ShellUnavailable, select_shell_replica
 from .types.deployment import LeptonDeployment, LeptonDeploymentUserSpec
 from .types.readiness import ReadinessIssue
 from .types.termination import DeploymentTerminations
 from .types.teleport import TeleportConnection
-
-
-class TeleportUnavailable(RuntimeError):
-    """The Pod API could not provide a usable Teleport connection."""
+from .teleport_access import TeleportUnavailable, require_teleport_feature
 
 
 class PodAPI(APIResourse):
@@ -84,15 +82,78 @@ class PodAPI(APIResourse):
     def get(self, name_or_pod: Union[str, LeptonDeployment]) -> LeptonDeployment:
         return self._client._deployment_api_for_legacy_pod().get(name_or_pod)
 
+    def get_shell_replica(
+        self, name_or_pod: Union[str, LeptonDeployment], replica: Optional[str] = None
+    ) -> Optional[str]:
+        """Select the replica a shell opens in, as the dashboard's Pod card does:
+        the pod must be Ready, and its newest replica is used by default."""
+        name = self._to_name(name_or_pod)
+        path = f"/deployments/{quote(name, safe='')}"
+        pod = self.ensure_json(self._get(path))
+        status = pod.get("status") if isinstance(pod, dict) else None
+        state = (
+            (status.get("phase") or status.get("state"))
+            if isinstance(status, dict)
+            else None
+        )
+        if state != "Ready":
+            raise ShellUnavailable(
+                f"Pod {name} is not Ready (state: {state or 'unknown'}); a shell"
+                " needs a Ready pod."
+            )
+        replicas = self.ensure_json(self._get(f"{path}/replicas"))
+        return select_shell_replica(
+            replicas, replica, f"pod {name}", prefer_newest=True
+        )
+
+    def shell_connection(
+        self, name_or_pod: Union[str, LeptonDeployment], replica_id: Optional[str]
+    ) -> Any:
+        """Open the interactive shell WebSocket for one pod replica."""
+        if not replica_id:
+            raise ValueError("A legacy pod shell needs a replica ID.")
+        name = quote(self._to_name(name_or_pod), safe="")
+        return self._open_shell(
+            f"/deployments/{name}/replicas/{quote(replica_id, safe='')}/shell"
+        )
+
     def get_teleport_connection(
         self, name_or_pod: Union[str, LeptonDeployment]
     ) -> TeleportConnection:
         """Resolve the single Pod replica to Teleport connection metadata.
 
-        A Running status means the backend found a registered Teleport node;
-        the caller still needs a Teleport login authorized to access it.
+        Mirrors the dashboard's legacy Dev Pod guide: the workspace must enable
+        ``dev_pod_teleport``, the Pod must be Ready with exactly one Ready
+        replica, and the published node must be ``<workspace>-<pod>``. A
+        Running status means the backend found that node; the caller still
+        needs a Teleport login authorized to access it.
         """
-        name = quote(self._to_name(name_or_pod), safe="")
+        pod_name = self._to_name(name_or_pod)
+        name = quote(pod_name, safe="")
+        require_teleport_feature(self, "dev_pod_teleport", "Dev Pods")
+        pod = self.ensure_json(self._get(f"/deployments/{name}"))
+        pod_meta = pod.get("metadata") if isinstance(pod, dict) else None
+        pod_spec = pod.get("spec") if isinstance(pod, dict) else None
+        pod_status = pod.get("status") if isinstance(pod, dict) else None
+        if (
+            not isinstance(pod_meta, dict)
+            or pod_meta.get("id") != pod_name
+            or not isinstance(pod_spec, dict)
+            or pod_spec.get("is_pod") is not True
+        ):
+            raise TeleportUnavailable("The API did not confirm that this is a Pod.")
+        if pod_meta.get("deleted_at") not in (None, 0):
+            raise TeleportUnavailable(f"Pod {pod_name} is being deleted.")
+        state = (
+            (pod_status.get("phase") or pod_status.get("state"))
+            if isinstance(pod_status, dict)
+            else None
+        )
+        if state != "Ready":
+            raise TeleportUnavailable(
+                f"Pod {pod_name} is not Ready (state: {state or 'unknown'});"
+                " Teleport SSH needs a Ready pod."
+            )
         replicas = self.ensure_json(self._get(f"/deployments/{name}/replicas"))
         # Do not use ensure_list: it skips malformed replicas, which could hide
         # an ambiguous target while choosing the remaining replica.
@@ -106,6 +167,16 @@ class PodAPI(APIResourse):
         rid = metadata.get("id") if isinstance(metadata, dict) else None
         if not isinstance(rid, str) or not rid.strip():
             raise TeleportUnavailable("The pod replica is missing its ID.")
+        replica_status = replica.get("status")
+        readiness = (
+            replica_status.get("readiness_issue")
+            if isinstance(replica_status, dict)
+            else None
+        )
+        if not isinstance(readiness, dict) or readiness.get("reason") != "Ready":
+            raise TeleportUnavailable(
+                "The pod replica is not Ready. Retry when the pod is running."
+            )
         response = self.ensure_json(
             self._get(
                 f"/deployments/{name}/replicas/{quote(rid, safe='')}/teleport-connectivity"
@@ -121,11 +192,17 @@ class PodAPI(APIResourse):
                 "Check the pod's Teleport SSH Access settings in the dashboard."
             )
         try:
-            return TeleportConnection.model_validate(response)
+            connection = TeleportConnection.model_validate(response)
         except ValidationError:
             raise TeleportUnavailable(
                 "The server returned incomplete or invalid Teleport connection details."
             ) from None
+        # The agent registers <workspace>-<pod>; never follow another node name.
+        if connection.name != f"{self._client.workspace_id}-{pod_name}":
+            raise TeleportUnavailable(
+                "The server reported a Teleport node that does not belong to this pod."
+            )
+        return connection
 
     def update(
         self, name_or_deployment: Union[str, LeptonDeployment], spec: LeptonDeployment

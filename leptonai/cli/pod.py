@@ -46,6 +46,8 @@ from .util import (
 )
 from .util import make_container_ports_from_str_list
 from ..api.v2.client import APIClient
+from ..api.v2.devpod import DevPodAPI, NewDevPodAPIUnsupported
+from ..api.v2.shell import ShellUnavailable
 from ..api.v2.spec_utils import (
     make_mounts_from_strings,
     make_env_vars_from_strings,
@@ -58,7 +60,7 @@ from ..api.v2.types.deployment import (
     LeptonContainer,
 )
 from ..api.v2.types.common import LeptonUserSecurityContext
-from .teleport import connect_teleport
+from .teleport import connect_devpod_teleport, connect_teleport
 
 
 console = Console(highlight=False)
@@ -877,6 +879,36 @@ def remove(name):
 
 
 @pod.command()
+@click.option("--name", "-n", help="The pod name.", required=True)
+@click.option(
+    "--replica",
+    "-r",
+    help="Replica ID; defaults to the pod's only running replica.",
+)
+def shell(name, replica):
+    """Open an interactive shell in a running pod.
+
+    The session is tunnelled through the workspace API over HTTPS (the same
+    path the dashboard terminal uses), so it needs no SSH key, public IP, or
+    Teleport client.
+    """
+    # Local import keeps websocket-client off the CLI startup path.
+    from .ws_shell import ensure_interactive_terminal, run_shell_session
+
+    ensure_interactive_terminal()
+    client = APIClient()
+    try:
+        replica_id = client.pod.get_shell_replica(name, replica)
+    except (ShellUnavailable, NewDevPodAPIUnsupported) as error:
+        raise click.ClickException(str(error)) from None
+    console.print(
+        f"Opening a shell in pod [green]{name}[/]"
+        " (type `exit` or press Ctrl-D to leave)..."
+    )
+    run_shell_session(lambda: client.pod.shell_connection(name, replica_id))
+
+
+@pod.command()
 @click.option("--name", "-n", help="The pod name to ssh.", required=True)
 @click.option(
     "--transport",
@@ -889,17 +921,38 @@ def remove(name):
     "--teleport-auth",
     default=None,
     help=(
-        "Teleport SSO connector for login (default: Starfleet). Requires --transport"
+        "Teleport SSO connector for login. Legacy Pods default to Starfleet; Pods on"
+        " the new DevPod API use the cluster's default. Requires --transport"
         " teleport."
     ),
 )
-def ssh(name, transport, teleport_auth):
+@click.option(
+    "--teleport-proxy",
+    default=None,
+    help=(
+        "Teleport proxy host[:port] for Dev Pods on the new DevPod API, which does"
+        " not publish it; defaults to the active tsh profile. Requires --transport"
+        " teleport."
+    ),
+)
+def ssh(name, transport, teleport_auth, teleport_proxy):
     """SSH into a running pod."""
     if teleport_auth is not None and transport != "teleport":
         raise click.UsageError("--teleport-auth requires --transport teleport.")
+    if teleport_proxy is not None and transport != "teleport":
+        raise click.UsageError("--teleport-proxy requires --transport teleport.")
     client = APIClient()
 
     if transport == "teleport":
+        # Like the dashboard, only legacy Pods pin the Starfleet connector.
+        if isinstance(client.pod, DevPodAPI):
+            _ssh_devpod_teleport(client, name, teleport_proxy, teleport_auth)
+            return
+        if teleport_proxy is not None:
+            raise click.UsageError(
+                "--teleport-proxy only applies to Dev Pods on the new DevPod API;"
+                " this workspace publishes the pod's Teleport proxy."
+            )
         try:
             connection = client.pod.get_teleport_connection(name)
         except (RuntimeError, RequestException) as error:
@@ -924,8 +977,8 @@ def ssh(name, transport, teleport_auth):
     if not public_ip:
         dashboard_base_url = client.get_dashboard_base_url()
         console.print(
-            "No public IP is found, you can choose to use the web terminal to access"
-            " the pod."
+            "No public IP is found. Open a shell through the workspace API with"
+            f" `lep pod shell -n {name}`, or use the web terminal."
             + (
                 f"\n{dashboard_base_url}/compute/pods/detail/{name}/terminal \n"
                 if dashboard_base_url
@@ -965,8 +1018,8 @@ def ssh(name, transport, teleport_auth):
     if not ssh_flag:
         dashboard_base_url = client.get_dashboard_base_url()
         console.print(
-            "SSH port not found, you can choose to use the web terminal to access the"
-            " pod."
+            "SSH port not found. Open a shell through the workspace API with"
+            f" `lep pod shell -n {name}`, or use the web terminal."
             + (
                 f"\n{dashboard_base_url}/compute/pods/detail/{name}/terminal \n"
                 if dashboard_base_url
@@ -975,6 +1028,34 @@ def ssh(name, transport, teleport_auth):
         )
         console.print(notice_msg)
         sys.exit(1)
+
+
+def _ssh_devpod_teleport(client, name, proxy, auth):
+    """New-API Dev Pods publish only their node name; the proxy comes from the
+    user, as for Jobs."""
+    try:
+        node = client.pod.get_teleport_node(name)
+
+        def revalidate():
+            if client.pod.get_teleport_node(name) != node:
+                raise click.ClickException(
+                    "The Dev Pod was restarted or replaced during sign-in. Retry the"
+                    " command."
+                )
+
+        connect_devpod_teleport(
+            client.workspace_id,
+            node.hostname,
+            name,
+            proxy=proxy,
+            auth=auth,
+            before_connect=revalidate,
+        )
+    except click.exceptions.Exit:
+        # Click's Exit may inherit RuntimeError; preserve SSH/interrupt codes.
+        raise
+    except (RuntimeError, RequestException) as error:
+        raise click.ClickException(str(error)) from None
 
 
 @pod.command()

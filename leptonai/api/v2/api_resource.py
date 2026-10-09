@@ -30,6 +30,10 @@ class ServerError(RuntimeError):
         self.response = response
 
 
+# Kubernetes remote-command subprotocol spoken by every workspace /shell route.
+SHELL_SUBPROTOCOL = "v4.channel.k8s.io"
+
+
 class APIResourse(object):
     """
     APIResource is a base class for all api implementations. It is registered
@@ -81,6 +85,43 @@ class APIResourse(object):
         self._patch = _client._patch
         self._delete = _client._delete
         self._head = _client._head
+
+    @staticmethod
+    def _websocket_url(url: str) -> str:
+        if url.startswith("https://"):
+            return "wss://" + url[len("https://") :]
+        if url.startswith("http://"):
+            return "ws://" + url[len("http://") :]
+        raise ValueError(f"Cannot derive a WebSocket URL from {url!r}.")
+
+    def _open_shell(self, path: str) -> Any:
+        """Open a workspace ``/shell`` WebSocket (Kubernetes exec channels)."""
+        # Lazy import: websocket-client is only needed for interactive shells.
+        import websocket
+
+        # Reuse the bearer header the HTTP client already built instead of
+        # formatting the token a second time here.
+        headers = {
+            "User-Agent" if key.lower() == "user-agent" else key: value
+            for key, value in getattr(self._client, "_header", {}).items()
+            if key.lower() in ("authorization", "user-agent")
+        }
+        # websocket-client has no default User-Agent; the gateway WAF requires one.
+        if not headers.get("User-Agent"):
+            headers["User-Agent"] = "leptonai"
+        connection = websocket.create_connection(
+            self._websocket_url(self._client.url + path),
+            header=headers,
+            subprotocols=[SHELL_SUBPROTOCOL],
+            enable_multithread=True,
+            timeout=30,
+            # A followed redirect would replay the bearer header to its target.
+            redirect_limit=0,
+        )
+        # The 30s timeout above only guards the handshake; an idle shell must
+        # be able to sit quietly for longer than any read timeout.
+        connection.settimeout(None)
+        return connection
 
     # A type variable to represent a subclass of BaseModel
     T = TypeVar("T", bound=BaseModel)

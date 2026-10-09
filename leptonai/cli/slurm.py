@@ -6,12 +6,14 @@ import subprocess
 import sys
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 import click
+from requests import RequestException
 from rich.table import Table
 
 from ..api.v2.client import APIClient
+from ..api.v2.node_ssh import NodeSSHTarget
 from ..api.v2.slurm import SlurmClusterLookupError
 from ..api.v2.types.slurm import (
     LeptonSlurmCluster,
@@ -25,6 +27,7 @@ from ..api.v2.types.slurm import (
     WorkspaceSlurmJobList,
 )
 from .log import _preprocess_time
+from .teleport import connect_node_teleport
 from .util import (
     LooseChoice,
     click_group,
@@ -906,6 +909,31 @@ def _resolve_devpod_selection(
     return api.resolve_devpod(name or id, cluster=cluster_id)
 
 
+def _ssh_via_teleport(
+    resolve: Callable[[], NodeSSHTarget],
+    auth: Optional[str],
+    describe: Callable[[NodeSSHTarget], str],
+) -> None:
+    """Connect to a Slurm Teleport target, resolving it again after SSO."""
+    try:
+        target = resolve()
+
+        def revalidate() -> None:
+            if resolve() != target:
+                raise click.ClickException(
+                    "The SSH target changed during sign-in. Retry the command."
+                )
+
+        connect_node_teleport(
+            target, auth=auth, before_connect=revalidate, description=describe(target)
+        )
+    except click.exceptions.Exit:
+        # Click's Exit may inherit RuntimeError; preserve SSH/interrupt codes.
+        raise
+    except (RuntimeError, RequestException) as error:
+        raise click.ClickException(str(error)) from None
+
+
 @click_group()
 def slurm():
     """Inspect Slurm clusters/jobs and manage your Slurm Dev Pods."""
@@ -913,7 +941,7 @@ def slurm():
 
 @slurm.group()
 def cluster():
-    """Inspect Slurm clusters and start login-node shells."""
+    """Inspect Slurm clusters and connect to their login nodes."""
 
 
 @cluster.command(name="list")
@@ -1004,19 +1032,57 @@ def shell_cluster(name: Optional[str], id: Optional[str]) -> None:
     works. The shell runs as your workspace user on the login node.
     """
     # Local import keeps websocket-client off the CLI startup path.
-    from .ws_shell import ensure_interactive_terminal, run_ws_shell
+    from .ws_shell import ensure_interactive_terminal, run_shell_session
 
     _validate_name_id_selector(name, id)
     ensure_interactive_terminal()
     api = APIClient().slurm
-    cluster_id = _resolve_cluster_id(api, id or name)
+    item = _resolve_cluster(api, id or name)
+    cluster_id = str(item.metadata.id_)
+    state = item.status.state if item.status else None
+    # The dashboard offers the login-node terminal only in these states.
+    if state not in ("Ready", "Updating"):
+        raise click.ClickException(
+            f"Slurm cluster {cluster_id} is {state or 'not reporting a state'}; a"
+            " login-node shell needs a Ready or Updating cluster."
+        )
     console.print(
         f"Opening a login-node shell on [green]{cluster_id}[/]"
         " (type `exit` or press Ctrl-D to leave)..."
     )
-    exit_code = run_ws_shell(api.shell_connection(cluster_id))
-    if exit_code:
-        raise click.exceptions.Exit(exit_code)
+    run_shell_session(lambda: api.shell_connection(cluster_id))
+
+
+@cluster.command(name="ssh")
+@click.option("--name", "-n", help="Cluster name", type=str)
+@click.option("--id", "-i", help="Canonical NAMESPACE/NAME cluster ID", type=str)
+@click.option("--node", help="Login node name; defaults to the first current one.")
+@click.option(
+    "--teleport-auth",
+    default=None,
+    help="Teleport SSO connector; by default Teleport uses the cluster's default.",
+)
+def ssh_cluster(
+    name: Optional[str],
+    id: Optional[str],
+    node: Optional[str],
+    teleport_auth: Optional[str],
+) -> None:
+    """SSH into a Slurm login node through Teleport.
+
+    Requires a personal workspace user/admin token and local tsh v18 or newer.
+    The cluster must be Ready with Teleport enabled for its login nodes; you
+    log in as your mapped Slurm Linux account. `lep slurm cluster shell`
+    opens a login-node shell without Teleport.
+    """
+    _validate_name_id_selector(name, id)
+    client = APIClient()
+    cluster_id = _resolve_cluster_id(client.slurm, id or name)
+    _ssh_via_teleport(
+        lambda: client.node_ssh.resolve_login(cluster_id, node),
+        teleport_auth,
+        lambda target: f"Slurm login node {target.hostname}",
+    )
 
 
 @slurm.group()
@@ -1265,6 +1331,55 @@ def job_logs(
     )
 
 
+@job.command(name="ssh")
+@click.option("--name", "-n", help="Job name", type=str)
+@click.option("--id", "-i", help="Slurm job id", type=str)
+@click.option(
+    "--cluster",
+    "cluster",
+    "-c",
+    help="Cluster NAME or NAMESPACE/NAME; resolved from the job when omitted.",
+)
+@click.option(
+    "--node", help="Allocated node name; required when the job runs on several nodes."
+)
+@click.option(
+    "--teleport-auth",
+    default=None,
+    help="Teleport SSO connector; by default Teleport uses the cluster's default.",
+)
+def ssh_job(
+    name: Optional[str],
+    id: Optional[str],
+    cluster: Optional[str],
+    node: Optional[str],
+    teleport_auth: Optional[str],
+) -> None:
+    """SSH into a node allocated to your running Slurm job through Teleport.
+
+    Requires a personal workspace user/admin token and local tsh v18 or newer.
+    The job must run under your mapped Slurm account on a cluster whose
+    compute node groups enable Teleport. This opens a new shell on the node;
+    it does not attach to the job.
+    """
+    _validate_name_id_selector(name, id)
+    client = APIClient()
+    api = client.slurm
+    cluster_id = _resolve_cluster_id(api, cluster) if cluster else None
+    if id and cluster_id:
+        job_id = id
+    else:
+        cluster_id, item = _resolve_single_job(
+            api, name=name, id=id, cluster_id=cluster_id, include_archived=False
+        )
+        job_id = _job_identifier(item)
+    _ssh_via_teleport(
+        lambda: client.node_ssh.resolve_job(cluster_id, job_id, node),
+        teleport_auth,
+        lambda target: f"node {target.hostname} of Slurm job {job_id}",
+    )
+
+
 @slurm.group()
 def devpod():
     """Manage the current user's Slurm Dev Pods."""
@@ -1375,21 +1490,59 @@ def remove_devpod(
 @click.option(
     "--print-only", is_flag=True, help="Print the SSH command without running it."
 )
+@click.option(
+    "--transport",
+    type=click.Choice(["bastion", "teleport"]),
+    default="bastion",
+    show_default=True,
+    help="Connect through the cluster bastion, or Teleport (requires local tsh).",
+)
+@click.option(
+    "--teleport-auth",
+    default=None,
+    help=(
+        "Teleport SSO connector for login (default: Starfleet, as the dashboard"
+        " uses for Slurm Dev Pods). Requires --transport teleport."
+    ),
+)
 def ssh_devpod(
     name: Optional[str],
     id: Optional[str],
     cluster: Optional[str],
     ssh_args: Tuple[str, ...],
     print_only: bool,
+    transport: str,
+    teleport_auth: Optional[str],
 ) -> None:
-    """Connect to a Slurm Dev Pod via its cluster bastion.
+    """Connect to a Slurm Dev Pod via its cluster bastion or Teleport.
 
-    Runs the exact SSH command reported by the platform. Select the pod by
+    By default runs the exact bastion SSH command reported by the platform;
+    extra SSH options can be passed after ``--``. With --transport teleport,
+    connects through Teleport as the Dev Pod's Linux account (requires a
+    personal workspace token and local tsh v18 or newer). Select the pod by
     --name or --id, optionally scoped by --cluster; the owning --cluster may
-    also be used alone. Extra SSH options can be passed after ``--``.
+    also be used alone.
     """
     _validate_devpod_selector(name, id, cluster)
-    api = APIClient().slurm
+    if teleport_auth is not None and transport != "teleport":
+        raise click.UsageError("--teleport-auth requires --transport teleport.")
+    if transport == "teleport" and (ssh_args or print_only):
+        raise click.UsageError(
+            "Extra SSH arguments and --print-only apply only to --transport bastion."
+        )
+    client = APIClient()
+    api = client.slurm
+    if transport == "teleport":
+        item = _resolve_devpod_selection(api, name, id, cluster)
+        devpod_id = item.metadata.id_
+        if not devpod_id:
+            raise ValueError("The Slurm Dev Pod response did not contain an ID.")
+        _ssh_via_teleport(
+            lambda: client.node_ssh.resolve_devpod(devpod_id),
+            teleport_auth or "Starfleet",
+            lambda _target: f"Slurm Dev Pod {devpod_id}",
+        )
+        return
     clusters = api.list_clusters()
     item = _resolve_devpod_selection(api, name, id, cluster, clusters=clusters)
     owning_cluster = _require_devpod_cluster(item, clusters)
@@ -1439,7 +1592,7 @@ def shell_devpod(
     so it works wherever `lep` works.
     """
     # Local import keeps websocket-client off the CLI startup path.
-    from .ws_shell import ensure_interactive_terminal, run_ws_shell
+    from .ws_shell import ensure_interactive_terminal, run_shell_session
 
     _validate_devpod_selector(name, id, cluster)
     ensure_interactive_terminal()
@@ -1448,13 +1601,19 @@ def shell_devpod(
     devpod_id = item.metadata.id_
     if not devpod_id:
         raise ValueError("The Slurm Dev Pod response did not contain an ID.")
+    # A Dev Pod being torn down keeps reporting Ready; its deletion time wins.
+    if (item.metadata.deleted_at or 0) > 0:
+        raise click.ClickException(f"Slurm Dev Pod {devpod_id} is being deleted.")
+    state = item.status.state if item.status else None
+    if state != "Ready":
+        raise click.ClickException(
+            f"Slurm Dev Pod {devpod_id} is not Ready (state: {state or 'unknown'})."
+        )
     console.print(
         f"Opening a shell in Dev Pod [green]{devpod_id}[/]"
         " (type `exit` or press Ctrl-D to leave)..."
     )
-    exit_code = run_ws_shell(api.devpod_shell_connection(devpod_id))
-    if exit_code:
-        raise click.exceptions.Exit(exit_code)
+    run_shell_session(lambda: api.devpod_shell_connection(devpod_id))
 
 
 def add_command(cli_group: click.Group) -> None:
