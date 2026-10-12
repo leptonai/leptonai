@@ -12,7 +12,6 @@ from leptonai._internal.client_utils import (  # noqa
 )
 from leptonai.api.v2.workspace_record import WorkspaceRecord
 from leptonai.config import DEFAULT_PORT, build_endpoint_url
-from leptonai.types import FileParam  # noqa
 from leptonai.util import is_valid_url
 
 

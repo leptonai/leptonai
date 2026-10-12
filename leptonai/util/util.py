@@ -7,7 +7,6 @@ import os
 import socket
 from typing import Any, Optional
 from urllib.parse import urlparse
-import warnings
 
 from rich.console import Console
 
@@ -117,12 +116,6 @@ def is_valid_url(candidate_str: Any) -> bool:
         return False
     parsed = urlparse(candidate_str)
     return parsed.scheme != "" and parsed.netloc != ""
-
-
-# backward compatible function name
-def _is_valid_url(candidate_str: Any) -> bool:
-    warnings.warn("_is_valid_url is deprecated. Please use is_valid_url instead.")
-    return is_valid_url(candidate_str)
 
 
 def _is_local_url(candidate_str: str) -> bool:
