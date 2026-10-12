@@ -45,7 +45,7 @@ from .util import (
     state_matches,
 )
 from .util import make_container_ports_from_str_list
-from ..api.v2.client import APIClient
+from .client import APIClient
 from ..api.v2.devpod import DevPodAPI, NewDevPodAPIUnsupported
 from ..api.v2.shell import ShellUnavailable
 from ..api.v2.spec_utils import (

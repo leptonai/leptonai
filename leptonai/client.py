@@ -303,7 +303,7 @@ class Client(object):
                 raise ValueError("You must specify the deployment name.")
             self.url = build_endpoint_url(workspace_or_url, deployment)
 
-        headers = {}
+        headers = {"X-Lepton-Client": "sdk"}
 
         if token is not None:
             headers.update({"Authorization": f"Bearer {token}"})
@@ -435,6 +435,8 @@ class Client(object):
     # discouraged, only when accessing endpoints that are not defined in the
     # deployment's OpenAPI schema.
     def _get(self, path: str, *args, **kwargs) -> httpx.Response:
+        kwargs["headers"] = httpx.Headers(kwargs.get("headers"))
+        kwargs["headers"]["X-Lepton-Client"] = "sdk"
         if self.stream:
             return self._session.stream(
                 "GET", f"{self.url}/{path.lstrip('/')}", *args, **kwargs
@@ -443,6 +445,8 @@ class Client(object):
             return self._session.get(f"{self.url}/{path.lstrip('/')}", *args, **kwargs)
 
     def _post(self, path: str, *args, **kwargs) -> httpx.Response:
+        kwargs["headers"] = httpx.Headers(kwargs.get("headers"))
+        kwargs["headers"]["X-Lepton-Client"] = "sdk"
         if self.stream:
             return self._session.stream(
                 "POST", f"{self.url}/{path.lstrip('/')}", *args, **kwargs

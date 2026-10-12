@@ -11,7 +11,7 @@ from .util import (
     keyword_matches,
     normalize_keyword,
 )
-from leptonai.api.v2.client import APIClient
+from .client import APIClient
 from ..api.v2.types.common import Metadata
 from ..api.v2.types.ingress import (
     CustomDomainValidationStatus,

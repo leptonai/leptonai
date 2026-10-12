@@ -20,7 +20,7 @@ from .util import (
     prefix_matches,
     state_matches,
 )
-from ..api.v2.client import APIClient
+from .client import APIClient
 from ..api.v2.types.node_reservation import ReservationStatusEnum
 from ..api.v2.types.dedicated_node_group import (
     Node,

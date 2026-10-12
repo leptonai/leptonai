@@ -18,7 +18,7 @@ from .util import (
     PathResolutionError,
     labels_to_selector,
 )
-from ..api.v2.client import APIClient
+from .client import APIClient
 from leptonai.api.v2.types.job import (
     LeptonJobQueryMode,
     LeptonJobSegmentConfig,

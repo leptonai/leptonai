@@ -8,7 +8,7 @@ import os
 import sys
 from pydantic import BaseModel, Field
 from threading import Lock
-from typing import Optional, Union, Dict, TYPE_CHECKING, List
+from typing import Optional, Union, Dict, TYPE_CHECKING, List, Literal
 import yaml
 from loguru import logger
 
@@ -86,7 +86,7 @@ class WorkspaceRecord(object):
                 yaml.safe_dump(cls._singleton_record.dict(by_alias=True), f)
 
     @classmethod
-    def login_with_env(cls):
+    def login_with_env(cls, client_type: Literal["sdk", "cli"] = "sdk"):
         """
         Logs in to the workspace using the environmental variables.
         """
@@ -95,7 +95,13 @@ class WorkspaceRecord(object):
         workspace_url = os.environ.get("LEPTON_WORKSPACE_URL")
         workspace_origin_url = os.environ.get("LEPTON_WORKSPACE_ORIGIN_URL")
         if workspace_id:
-            cls.set(workspace_id, auth_token, workspace_url, workspace_origin_url)
+            cls.set(
+                workspace_id,
+                auth_token,
+                workspace_url,
+                workspace_origin_url,
+                client_type=client_type,
+            )
         else:
             raise WorkspaceConfigurationError(
                 "LEPTON_WORKSPACE_ID environment variable is not set. Please set it to"
@@ -110,6 +116,7 @@ class WorkspaceRecord(object):
         url: Optional[str] = None,
         workspace_origin_url: Optional[str] = None,
         could_be_new_token: Optional[bool] = False,
+        client_type: Literal["sdk", "cli"] = "sdk",
     ):
         """
         Sets a workspace by adding it to the workspace info file.
@@ -139,6 +146,7 @@ class WorkspaceRecord(object):
                     workspace_id,
                     url=url,
                     token=auth_token,
+                    client_type=client_type,
                 )
             except RuntimeError as e:
                 logger.trace(
@@ -152,6 +160,7 @@ class WorkspaceRecord(object):
                     workspace_id,
                     url=url,
                     token=auth_token,
+                    client_type=client_type,
                 )
             except RuntimeError as e:
                 logger.trace(
@@ -185,6 +194,7 @@ class WorkspaceRecord(object):
         url: Optional[str] = None,
         workspace_origin_url: Optional[str] = None,
         could_be_new_token: Optional[bool] = False,
+        client_type: Literal["sdk", "cli"] = "sdk",
     ):
         """
         Sets a workspace, and if it is not set up yet, print a message and exit.
@@ -197,6 +207,7 @@ class WorkspaceRecord(object):
                 url,
                 workspace_origin_url,
                 could_be_new_token,
+                client_type=client_type,
             )
         except WorkspaceNotCreatedYet:
             _print_workspace_not_created_yet_message(workspace_id)
@@ -226,7 +237,11 @@ class WorkspaceRecord(object):
         )
 
     @classmethod
-    def client(cls, workspace_id: Optional[str] = None) -> "APIClient":
+    def client(
+        cls,
+        workspace_id: Optional[str] = None,
+        client_type: Literal["sdk", "cli"] = "sdk",
+    ) -> "APIClient":
         """
         Creates a client that can be used to interact with the workspace.
         """
@@ -246,6 +261,7 @@ class WorkspaceRecord(object):
                 ws.auth_token,
                 ws.url,
                 ws.workspace_origin_url,
+                client_type=client_type,
             )
         else:
             raise ValueError(
@@ -301,6 +317,7 @@ class WorkspaceRecord(object):
         cls,
         workspace_id: Optional[str] = None,
         skip_if_token_exists: Optional[bool] = False,
+        client_type: Literal["sdk", "cli"] = "sdk",
     ) -> Optional[int]:
         workspace_id = workspace_id if workspace_id else cls.get_current_workspace_id()
 
@@ -321,6 +338,7 @@ class WorkspaceRecord(object):
                 workspace_id,
                 url=info.url,
                 token=info.auth_token,
+                client_type=client_type,
             )
         except Exception as e:
             logger.trace(

@@ -88,6 +88,7 @@ class TestWorkspaceLogin(unittest.TestCase):
             url=config.API_URL_BASE + "/api/v2/workspaces/stag",
             workspace_origin_url=None,
             could_be_new_token=True,
+            client_type="cli",
         )
 
 

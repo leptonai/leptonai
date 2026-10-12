@@ -17,7 +17,7 @@ from .util import (
     state_matches,
 )
 from leptonai.config import LEPTON_RESERVED_ENV_NAMES
-from ..api.v2.client import APIClient
+from .client import APIClient
 from ..api.v2.types.common import LeptonVisibility
 from ..api.v2.types.secret import SecretItem
 

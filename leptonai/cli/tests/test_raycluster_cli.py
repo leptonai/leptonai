@@ -143,7 +143,7 @@ def test_raycluster_list_jobs_applies_filters(monkeypatch):
         with patch(
             "leptonai.cli.raycluster.JobSubmissionClient",
             return_value=fake_submission,
-        ):
+        ) as submission_client:
             result = CliRunner().invoke(
                 raycluster,
                 ["list-jobs", "-n", "my-cluster", "--status", "failed"],
@@ -152,6 +152,10 @@ def test_raycluster_list_jobs_applies_filters(monkeypatch):
                 raycluster,
                 ["list-jobs", "-n", "my-cluster", "-q", "train", "-s", "failed"],
             )
+    assert all(
+        call.kwargs["headers"]["X-Lepton-Client"] == "cli"
+        for call in submission_client.call_args_list
+    )
     assert result.exit_code == 0, result.output
     assert "raysubmit_eval" in result.output
     assert "raysubmit_train" not in result.output
