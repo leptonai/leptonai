@@ -10,7 +10,6 @@ from .util import (
     asyncfy,
     asyncfy_with_semaphore,
     _is_local_url,
-    _is_valid_url,
     is_valid_url,
     find_available_port,
 )
