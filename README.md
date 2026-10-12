@@ -24,6 +24,12 @@ Install the library, which also installs the `lep` command-line tool:
 pip install -U leptonai
 ```
 
+To install the latest development version from the `main` branch (requires Git):
+
+```shell
+pip install -U "git+https://github.com/leptonai/leptonai.git@main"
+```
+
 Log in to your workspace (this opens a browser to fetch credentials if you don't pass them in):
 
 ```shell
