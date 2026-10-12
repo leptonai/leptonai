@@ -54,7 +54,7 @@ from leptonai.api.v2.types.job import (
 from leptonai.api.v2.types.deployment import (
     LeptonLog,
 )
-from leptonai.api.v2.client import APIClient
+from .client import APIClient
 from leptonai.api.v2.shell import ShellUnavailable
 from leptonai.api.v2.types.common import LeptonUserSecurityContext
 

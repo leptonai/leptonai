@@ -12,7 +12,7 @@ import click
 from requests import RequestException
 from rich.table import Table
 
-from ..api.v2.client import APIClient
+from .client import APIClient
 from ..api.v2.node_ssh import NodeSSHTarget
 from ..api.v2.slurm import SlurmClusterLookupError
 from ..api.v2.types.slurm import (

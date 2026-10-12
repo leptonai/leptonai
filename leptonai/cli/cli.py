@@ -13,7 +13,7 @@ from leptonai.api.v2.utils import (
     _get_full_workspace_api_url,
 )
 from .util import console
-from leptonai.api.v2.client import APIClient
+from .client import APIClient
 from leptonai.api.v2.workspace_record import WorkspaceRecord
 from loguru import logger
 from rich.prompt import Prompt
@@ -287,7 +287,7 @@ def login(
             pending_login.get("workspace_origin_url"),
         )
     else:
-        api_client = WorkspaceRecord.client()
+        api_client = WorkspaceRecord.client(client_type="cli")
 
     try:
         # Retry info() in case the new token is not yet propagated.
@@ -368,7 +368,7 @@ def login(
         sys.exit(1)
 
     if pending_login is not None:
-        WorkspaceRecord.set_or_exit(**pending_login)
+        WorkspaceRecord.set_or_exit(**pending_login, client_type="cli")
 
     ws_name = info.workspace_name
     tier = info.workspace_tier
@@ -376,7 +376,9 @@ def login(
     indent = " " * 17  # match logo's left margin for alignment
     console.print(f"{indent}{'Workspace':>12}: [#76B900]{ws_name}[/]")
     console.print(f"{indent}{'Tier':>12}: {tier}")
-    WorkspaceRecord.refresh_token_expires_at(skip_if_token_exists=True)
+    WorkspaceRecord.refresh_token_expires_at(
+        skip_if_token_exists=True, client_type="cli"
+    )
     version_info_list = api_client.version(info)
     if version_info_list is not None:
         version = ".".join(str(v) for v in version_info_list)
@@ -434,7 +436,11 @@ def check_lepton_version():
     try:
         import requests
 
-        resp = requests.get("https://pypi.org/pypi/leptonai/json", timeout=2)
+        resp = requests.get(
+            "https://pypi.org/pypi/leptonai/json",
+            headers={"X-Lepton-Client": "cli"},
+            timeout=2,
+        )
         resp.raise_for_status()
         latest_ver = resp.json()["info"]["version"]
     except Exception:

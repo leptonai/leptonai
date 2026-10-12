@@ -3,7 +3,7 @@ Utility functions for the Lepton AI API.
 """
 
 import requests
-from typing import Optional
+from typing import Literal, Optional
 from urllib.parse import urlsplit, urlunsplit
 
 from leptonai.config import (
@@ -97,7 +97,9 @@ def _print_workspace_not_created_yet_message(workspace_id: str):
     )
 
 
-def _get_workspace_display_name(workspace_id, url=None, token=None) -> Optional[str]:
+def _get_workspace_display_name(
+    workspace_id, url=None, token=None, client_type: Literal["sdk", "cli"] = "sdk"
+) -> Optional[str]:
     """
     Gets the workspace display name from the given workspace_id. This calls Lepton's backend server
     to get the workspace display name.
@@ -110,7 +112,9 @@ def _get_workspace_display_name(workspace_id, url=None, token=None) -> Optional[
 
     resolver_api = url or DGXC_WORKSPACE_URL_RESOLVER_API + "/" + workspace_id
 
-    headers = {"Authorization": f"Bearer {token}"} if token else {}
+    headers = {"X-Lepton-Client": client_type}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
     res = requests.get(resolver_api, headers=headers)
 
     if not res.ok:
@@ -130,7 +134,9 @@ def _get_workspace_display_name(workspace_id, url=None, token=None) -> Optional[
         return content["display_name"]
 
 
-def _get_token_expires_at(workspace_id, url=None, token=None) -> Optional[int]:
+def _get_token_expires_at(
+    workspace_id, url=None, token=None, client_type: Literal["sdk", "cli"] = "sdk"
+) -> Optional[int]:
     """
     Gets the token expires at from the given workspace_id. This calls Lepton's backend server
     to get the token expires at.
@@ -139,7 +145,9 @@ def _get_token_expires_at(workspace_id, url=None, token=None) -> Optional[int]:
     url = DGXC_WORKSPACE_URL_RESOLVER_API + "/" + workspace_id if url is None else url
     url += "/tokens"
 
-    headers = {"Authorization": f"Bearer {token}"} if token else {}
+    headers = {"X-Lepton-Client": client_type}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
     res = requests.get(url, headers=headers)
     if not res.ok:
         raise RuntimeError(

@@ -260,7 +260,8 @@ from leptonai.config import (
     DEFAULT_TIMEOUT,
     DEFAULT_RESOURCE_SHAPE,
 )
-from ..api.v2.client import APIClient, DeploymentFeatureSnapshotMismatchError
+from .client import APIClient
+from ..api.v2.client import DeploymentFeatureSnapshotMismatchError
 from ..api.v2.api_resource import APIResourse, ClientError, ServerError
 from ..api.v2.utils import (
     WorkspaceForbiddenError,

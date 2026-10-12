@@ -14,7 +14,7 @@ from .util import _get_newest_job_by_name
 from .util import click_group, console, epoch_scale
 from .util import resolve_save_path, PathResolutionError
 
-from ..api.v2.client import APIClient
+from .client import APIClient
 from ..api.v2.log import LogAPIError
 
 import json

@@ -104,7 +104,7 @@ class APIResourse(object):
         headers = {
             "User-Agent" if key.lower() == "user-agent" else key: value
             for key, value in getattr(self._client, "_header", {}).items()
-            if key.lower() in ("authorization", "user-agent")
+            if key.lower() in ("authorization", "user-agent", "x-lepton-client")
         }
         # websocket-client has no default User-Agent; the gateway WAF requires one.
         if not headers.get("User-Agent"):

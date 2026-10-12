@@ -17,7 +17,7 @@ from rich.pretty import Pretty
 from rich.table import Table
 
 from ..api.v2.api_resource import ClientError, ServerError
-from ..api.v2.client import APIClient
+from .client import APIClient
 from ..api.v2.dynamo_patch import (
     apply_merge_patch,
     build_merge_patch,

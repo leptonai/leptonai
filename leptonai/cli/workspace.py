@@ -8,7 +8,7 @@ from loguru import logger
 from rich.console import Console
 from rich.table import Table
 
-from leptonai.api.v2.client import APIClient
+from .client import APIClient
 from leptonai.api.v2.workspace_record import WorkspaceRecord
 from .util import click_group, check, sizeof_fmt
 from ..api.v2.utils import (
@@ -102,7 +102,7 @@ def login(
     # verification succeeds, so a failed login does not pollute local records
     # or switch the current workspace.
     if workspace_id is None:
-        api_client = WorkspaceRecord.client()
+        api_client = WorkspaceRecord.client(client_type="cli")
     else:
         if workspace_url is None:
             workspace_url = _get_full_workspace_api_url(workspace_id)
@@ -167,6 +167,7 @@ def login(
             url=workspace_url,
             workspace_origin_url=workspace_origin_url,
             could_be_new_token=is_new_credentials,
+            client_type="cli",
         )
 
     console.print(f"Logged in to your workspace [green]{info.workspace_name}[/].")
@@ -232,7 +233,9 @@ def list_command(debug):
         # If missing, try to refresh once from server
         if getattr(info, "token_expires_at", None) is None:
             logger.trace(f"Refreshing token expires at for workspace {info.id_}")
-            info.token_expires_at = WorkspaceRecord.refresh_token_expires_at(info.id_)
+            info.token_expires_at = WorkspaceRecord.refresh_token_expires_at(
+                info.id_, client_type="cli"
+            )
         if getattr(info, "token_expires_at", None):
             try:
                 expires_dt = datetime.fromtimestamp(info.token_expires_at / 1000)
@@ -352,7 +355,7 @@ def status():
     """
     Prints the status of the current workspace.
     """
-    api_client = WorkspaceRecord.client()
+    api_client = WorkspaceRecord.client(client_type="cli")
     info = api_client.info()
     console.print(f"id:          {info.workspace_name}")
     console.print(f"state:       {info.workspace_state}")

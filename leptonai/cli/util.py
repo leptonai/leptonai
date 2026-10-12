@@ -16,7 +16,7 @@ from leptonai.api.v2.utils import WorkspaceError, WorkspaceConfigurationError
 
 from rich.console import Console
 from leptonai.api.v2.types.job import LeptonJob, LeptonJobQueryMode
-from leptonai.api.v2.client import APIClient
+from .client import APIClient
 
 from leptonai.api.v2.types.deployment import (
     ContainerPort,

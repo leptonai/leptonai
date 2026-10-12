@@ -12,7 +12,7 @@ from .util import (
     keyword_matches,
     normalize_keyword,
 )
-from ..api.v2.client import APIClient
+from .client import APIClient
 
 # Workload types offered by the dashboard's template filter ("pod", "job"); the
 # CLI also lists endpoint templates, whose API spelling is "deployment".

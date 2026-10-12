@@ -10,7 +10,8 @@ import re
 import threading
 import time
 import requests
-from typing import Dict, Optional, Set, Tuple, Union
+from requests.structures import CaseInsensitiveDict
+from typing import Dict, Literal, Optional, Set, Tuple, Union
 
 from .log import LogAPI
 
@@ -190,6 +191,7 @@ class APIClient(object):
         auth_token: Optional[str] = None,
         url: Optional[str] = None,
         workspace_origin_url: Optional[str] = None,
+        client_type: Literal["sdk", "cli"] = "sdk",
     ):
         """
         Creates a workspace api client by identifying the workspace in the following
@@ -298,7 +300,8 @@ class APIClient(object):
                         HAS_WARNED_TOKEN_EXPIRE = True
 
         # Creates a connection for us to use.
-        self._header = {}
+        self._client_type = client_type
+        self._header = CaseInsensitiveDict({"X-Lepton-Client": client_type})
         if self.auth_token:
             self._header["Authorization"] = "Bearer " + self.auth_token
 
@@ -630,11 +633,11 @@ class APIClient(object):
         """
         Internal utility function to add default values to the kwargs.
         """
-        kwargs.setdefault("headers", self._header)
+        headers = CaseInsensitiveDict(self._header)
+        headers.update(kwargs.get("headers") or {})
+        headers["X-Lepton-Client"] = self._client_type
+        kwargs["headers"] = headers
         kwargs.setdefault("timeout", self._timeout)
-        # if kwargs does have headers, but does not have Authorization, we will add it.
-        for k, v in self._header.items():
-            kwargs["headers"].setdefault(k, v)
         return kwargs
 
     def _get(self, path: str, *args, **kwargs):

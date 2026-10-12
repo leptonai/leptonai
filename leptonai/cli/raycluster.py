@@ -25,7 +25,7 @@ from .util import (
     normalize_keyword,
     state_matches,
 )
-from ..api.v2.client import APIClient
+from .client import APIClient
 from ..api.v2.shell import ShellUnavailable
 from ..api.v2.types.common import LeptonVisibility, Metadata, LeptonUserSecurityContext
 from ..api.v2.types.raycluster import (
@@ -2035,6 +2035,7 @@ def submit_job(
         headers={
             "Authorization": f"Bearer {base_client.token()}",
             "origin": base_client.get_dashboard_base_url(),
+            "X-Lepton-Client": "cli",
         },
         verify=False,  # TODO: make this more secure
     )
@@ -2186,6 +2187,7 @@ def stop_job_command(name, job_id):
         headers={
             "Authorization": f"Bearer {base_client.token()}",
             "origin": base_client.get_dashboard_base_url(),
+            "X-Lepton-Client": "cli",
         },
         verify=False,  # TODO: make this more secure
     )
@@ -2248,6 +2250,7 @@ def list_jobs_command(name, keyword=None, statuses=()):
         headers={
             "Authorization": f"Bearer {base_client.token()}",
             "origin": base_client.get_dashboard_base_url(),
+            "X-Lepton-Client": "cli",
         },
         verify=False,
     )
