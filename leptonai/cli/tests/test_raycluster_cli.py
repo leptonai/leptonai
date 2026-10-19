@@ -1,22 +1,26 @@
-"""Tests for the `lep raycluster list` and `lep raycluster list-jobs` filters."""
+"""Tests for Ray cluster filters and authenticated job requests."""
 
+import json
 import os
 import tempfile
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 os.environ.setdefault("LEPTON_CACHE_DIR", tempfile.mkdtemp())
 
 import pytest
+import responses
 from click.testing import CliRunner
-from ray.job_submission import JobStatus
+from ray.job_submission import JobStatus, JobSubmissionClient
 
+from leptonai.api.v2.workspace_record import WorkspaceRecord, _LocalWorkspaceRecord
 from leptonai.api.v2.types.common import Metadata
 from leptonai.api.v2.types.raycluster import (
     LeptonRayCluster,
     LeptonRayClusterStatus,
     LeptonRayClusterUserSpec,
 )
+from leptonai.cli.client import APIClient
 from leptonai.cli.raycluster import (
     _filter_ray_jobs,
     _filter_rayclusters,
@@ -136,7 +140,7 @@ def test_raycluster_list_jobs_applies_filters(monkeypatch):
         raycluster=SimpleNamespace(get=lambda name: object()),
         url="https://example.com/api/v2/workspaces/ws",
         token=lambda: "token",
-        get_dashboard_base_url=lambda: "https://dashboard.example.com",
+        get_workspace_origin=lambda: "https://example.com",
     )
     fake_submission = SimpleNamespace(list_jobs=lambda: jobs)
     with patch("leptonai.cli.raycluster.APIClient", return_value=fake_client):
@@ -161,3 +165,111 @@ def test_raycluster_list_jobs_applies_filters(monkeypatch):
     assert "raysubmit_train" not in result.output
     assert no_match.exit_code == 0, no_match.output
     assert "No Ray jobs match the specified filters on this cluster." in no_match.output
+
+
+@pytest.mark.parametrize(
+    "workspace_url, configured_origin, expected_origin",
+    [
+        (
+            "https://gateway.dgxc-lepton.nvidia.com/api/v2/workspaces/ws1",
+            None,
+            "https://gateway.dgxc-lepton.nvidia.com",
+        ),
+        (
+            "https://gateway.dgxc-lepton.nvidia.com/api/v2/workspaces/ws1",
+            "https://console.example:8443/settings?source=cli#workspace",
+            "https://console.example:8443",
+        ),
+        ("https://classic.example/api/v1", None, None),
+    ],
+    ids=["workspace-origin", "custom-origin", "classic-workspace"],
+)
+@pytest.mark.parametrize(
+    "args, method, endpoint, payload",
+    [
+        (
+            ["submit-job", "-n", "my-cluster", "--no-wait", "--", "echo", "hello"],
+            "POST",
+            "/api/jobs/",
+            {"job_id": "raysubmit_test", "submission_id": "raysubmit_test"},
+        ),
+        (
+            ["stop-job", "-n", "my-cluster", "-j", "raysubmit_test"],
+            "POST",
+            "/api/jobs/raysubmit_test/stop",
+            {"stopped": True},
+        ),
+        (["list-jobs", "-n", "my-cluster"], "GET", "/api/jobs/", []),
+    ],
+    ids=["submit-job", "stop-job", "list-jobs"],
+)
+@responses.activate
+def test_ray_job_requests_use_workspace_origin(
+    monkeypatch,
+    workspace_url,
+    configured_origin,
+    expected_origin,
+    args,
+    method,
+    endpoint,
+    payload,
+):
+    for name in (
+        "LEPTON_WORKSPACE_ORIGIN_URL",
+        "LEPTON_DEBUG_HEADERS",
+        "RAY_ADDRESS",
+        "RAY_API_SERVER_ADDRESS",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(WorkspaceRecord, "_singleton_record", _LocalWorkspaceRecord())
+    client = APIClient(
+        workspace_id="ws1",
+        auth_token="token",
+        url=workspace_url,
+        workspace_origin_url=configured_origin,
+    )
+    monkeypatch.setattr("leptonai.cli.raycluster.APIClient", lambda: client)
+    submission_client = Mock(wraps=JobSubmissionClient)
+    monkeypatch.setattr(
+        "leptonai.cli.raycluster.JobSubmissionClient", submission_client
+    )
+
+    cluster_url = workspace_url + "/rayclusters/my-cluster"
+    dashboard_url = cluster_url + "/dashboard"
+    routes = {
+        ("GET", cluster_url): _cluster("my-cluster").model_dump(
+            mode="json", by_alias=True
+        ),
+        ("GET", dashboard_url + "/api/version"): {"ray_version": "2.49.2"},
+        (method, dashboard_url + endpoint): payload,
+    }
+
+    def gateway_response(request):
+        if request.headers.get("Origin") != expected_origin:
+            return 403, {}, "Invalid origin"
+        return (
+            200,
+            {"Content-Type": "application/json"},
+            json.dumps(routes[request.method, request.url]),
+        )
+
+    for route_method, route_url in routes:
+        responses.add_callback(route_method, route_url, callback=gateway_response)
+
+    result = CliRunner().invoke(raycluster, args)
+
+    assert result.exit_code == 0, result.output or repr(result.exception)
+    if expected_origin is None:
+        assert all(
+            key.lower() != "origin"
+            for key in submission_client.call_args.kwargs["headers"]
+        )
+    assert responses.calls[-1].request.method == method
+    assert responses.calls[-1].request.url == dashboard_url + endpoint
+    assert any(
+        call.request.url == dashboard_url + "/api/version" for call in responses.calls
+    )
+    for call in responses.calls:
+        assert call.request.headers.get("Origin") == expected_origin
+        assert call.request.headers["Authorization"] == "Bearer token"
+        assert call.request.headers["X-Lepton-Client"] == "cli"

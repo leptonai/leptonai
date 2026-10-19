@@ -730,6 +730,10 @@ class APIClient(object):
     def get_workspace_name(self) -> Union[str, None]:
         return WorkspaceRecord.current().display_name
 
+    def get_workspace_origin(self) -> Optional[str]:
+        """Return the normalized Origin header value, or None if not configured."""
+        return self.workspace_origin_url
+
     def get_dashboard_base_url(self) -> Optional[str]:
         """
         Returns the base dashboard URL derived from the current workspace URL.
