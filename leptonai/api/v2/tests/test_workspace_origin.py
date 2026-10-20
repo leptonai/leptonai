@@ -93,7 +93,7 @@ def test_workspace_request_origin(monkeypatch, source, origin_url, expected):
     assert request.url == f"{BASE}/workspace"
     assert request.headers["Origin"] == expected
     assert request.headers["Authorization"] == "Bearer token"
-    assert client.workspace_origin_url == expected
+    assert client.get_workspace_origin() == expected
 
 
 @responses.activate
@@ -101,9 +101,11 @@ def test_classic_workspace_has_no_default_origin():
     url = "https://classic.example/api/v1"
     responses.get(f"{url}/workspace", json=WORKSPACE_INFO)
 
-    APIClient(workspace_id="ws1", auth_token="token", url=url).info()
+    client = APIClient(workspace_id="ws1", auth_token="token", url=url)
+    client.info()
 
     assert "Origin" not in responses.calls[0].request.headers
+    assert client.get_workspace_origin() is None
 
 
 @pytest.mark.parametrize(

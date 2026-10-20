@@ -1923,6 +1923,17 @@ def update(name, worker_groups):
     )
 
 
+def _ray_job_headers(client: APIClient) -> dict[str, str]:
+    headers = {
+        "Authorization": f"Bearer {client.token()}",
+        "X-Lepton-Client": "cli",
+    }
+    origin = client.get_workspace_origin()
+    if origin:
+        headers["origin"] = origin
+    return headers
+
+
 @raycluster.command(name="submit-job")
 @click.option(
     "--name", "-n", help="The raycluster name to submit a job to.", required=True
@@ -2032,11 +2043,7 @@ def submit_job(
 
     submission_client = JobSubmissionClient(
         address=ray_head_dashboard_url,
-        headers={
-            "Authorization": f"Bearer {base_client.token()}",
-            "origin": base_client.get_dashboard_base_url(),
-            "X-Lepton-Client": "cli",
-        },
+        headers=_ray_job_headers(base_client),
         verify=False,  # TODO: make this more secure
     )
 
@@ -2184,11 +2191,7 @@ def stop_job_command(name, job_id):
 
     submission_client = JobSubmissionClient(
         address=ray_head_dashboard_url,
-        headers={
-            "Authorization": f"Bearer {base_client.token()}",
-            "origin": base_client.get_dashboard_base_url(),
-            "X-Lepton-Client": "cli",
-        },
+        headers=_ray_job_headers(base_client),
         verify=False,  # TODO: make this more secure
     )
 
@@ -2247,11 +2250,7 @@ def list_jobs_command(name, keyword=None, statuses=()):
 
     submission_client = JobSubmissionClient(
         address=ray_head_dashboard_url,
-        headers={
-            "Authorization": f"Bearer {base_client.token()}",
-            "origin": base_client.get_dashboard_base_url(),
-            "X-Lepton-Client": "cli",
-        },
+        headers=_ray_job_headers(base_client),
         verify=False,
     )
 
