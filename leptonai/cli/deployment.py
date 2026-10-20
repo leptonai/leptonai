@@ -1092,10 +1092,10 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
 )
 @click.option(
     "--ingress-timeout-seconds",
-    type=int,
+    type=click.IntRange(300, 3600),
     default=None,
     help=(
-        "Ingress request timeout in seconds (300-6000). If not specified, defaults to"
+        "Ingress request timeout in seconds (300-3600). If not specified, defaults to"
         " 300."
     ),
 )
@@ -2288,9 +2288,9 @@ def log(name, replica):
 )
 @click.option(
     "--ingress-timeout-seconds",
-    type=int,
+    type=click.IntRange(300, 3600),
     default=None,
-    help="Ingress request timeout in seconds (300-6000).",
+    help="Ingress request timeout in seconds (300-3600).",
 )
 @click.option(
     "--load-balance",

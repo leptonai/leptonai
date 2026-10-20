@@ -323,9 +323,9 @@ class LeptonDeploymentUserSpec(BaseModel):
 
     @compatible_field_validator("ingress_timeout_seconds")
     def validate_ingress_timeout_seconds(cls, v):
-        if v is not None and (v < 300 or v > 6000):
+        if v is not None and (v < 300 or v > 3600):
             raise ValueError(
-                "ingress_timeout_seconds must be between 300 and 6000 seconds."
+                "ingress_timeout_seconds must be between 300 and 3600 seconds."
             )
         return v
 

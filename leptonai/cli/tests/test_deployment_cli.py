@@ -240,6 +240,61 @@ class TestDeploymentCliLocal(unittest.TestCase):
         self.assertIsNone(_FakeAPIClient.last_instance.deployment.created_spec)
 
 
+def _invoke_endpoint_with_ingress_timeout(command, timeout):
+    args = ["endpoint", command, "--name", "test-endpoint"]
+    if command == "create":
+        args += [
+            "--container-image",
+            "nginx:latest",
+            "--container-command",
+            "python -m http.server 8080",
+            "--resource-shape",
+            config.DEFAULT_RESOURCE_SHAPE,
+            "--public",
+        ]
+    if timeout is not None:
+        args += ["--ingress-timeout-seconds", str(timeout)]
+
+    with (
+        patch("leptonai.cli.deployment.APIClient") as client_factory,
+        patch("leptonai.cli.cli.check_lepton_version"),
+    ):
+        client = client_factory.return_value
+        client.deployment.list_all.return_value = []
+        client.deployment.get.return_value = _make_existing_deployment()
+        client.deployment.create_with_response.return_value = (
+            _make_existing_deployment()
+        )
+        client.deployment.update.return_value = _make_existing_deployment()
+        result = CliRunner().invoke(cli, args)
+    return result, client_factory
+
+
+@pytest.mark.parametrize("command", ["create", "update"])
+@pytest.mark.parametrize("timeout", [299, 3601, 6000])
+def test_endpoint_rejects_invalid_ingress_timeout_before_api_call(command, timeout):
+    result, client_factory = _invoke_endpoint_with_ingress_timeout(command, timeout)
+
+    assert result.exit_code == 2, result.output
+    assert "--ingress-timeout-seconds" in result.output
+    assert "300<=x<=3600" in result.output
+    client_factory.assert_not_called()
+
+
+@pytest.mark.parametrize("command", ["create", "update"])
+@pytest.mark.parametrize("timeout", [None, 300, 600, 3600])
+def test_endpoint_preserves_valid_or_unset_ingress_timeout(command, timeout):
+    result, client_factory = _invoke_endpoint_with_ingress_timeout(command, timeout)
+
+    assert result.exit_code == 0, result.output
+    client = client_factory.return_value
+    if command == "create":
+        sent = client.deployment.create_with_response.call_args.args[0]
+    else:
+        sent = client.deployment.update.call_args.kwargs["spec"]
+    assert sent.spec.ingress_timeout_seconds == timeout
+
+
 class TestHeaderBasedRoutingValidation(unittest.TestCase):
     """Issue #3: --header-based-routing parses as a boolean and rejects typos."""
 
