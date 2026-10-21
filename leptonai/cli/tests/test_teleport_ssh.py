@@ -192,6 +192,8 @@ def test_missing_expired_or_wrong_profile_logs_in_and_rechecks(session, initial)
     result = invoke()
     assert result.exit_code == 0, result.output
     assert "Signing in" in result.output
+    assert "separate from your Lepton workspace login" in result.output
+    assert "SSH will continue after login" in result.output
     assert run.call_args_list[1].args[0] == [
         "/usr/bin/tsh",
         "login",
@@ -221,12 +223,18 @@ def test_ssh_exit_status_is_preserved(session, code):
     assert result.exit_code == (code if code > 0 else 128 - code)
 
 
-def test_failed_login_never_starts_ssh(session):
+@pytest.mark.parametrize("code", [7, 130])
+def test_failed_login_never_starts_ssh(session, code):
     http, _, _, run = session
     register(http)
-    run.side_effect = [logged_out(), completed(7)]
+    run.side_effect = [logged_out(), completed(code)]
     result = invoke()
-    assert result.exit_code == 7
+    assert result.exit_code == code
+    if code == 130:
+        assert "--teleport-auth" not in result.output
+    else:
+        assert "workspace or node group administrator" in result.output
+        assert "--teleport-auth <connector>" in result.output
     assert run.call_count == 2
 
 
@@ -237,6 +245,7 @@ def test_successful_login_without_correct_profile_never_starts_ssh(session):
     result = invoke()
     assert result.exit_code == 1
     assert "did not produce a valid profile" in result.output
+    assert "tsh status --proxy=proxy.example.com:443" in result.output
     assert run.call_count == 3
 
 
@@ -247,6 +256,10 @@ def test_missing_login_principal_does_not_retry_login_or_connect(session):
     result = invoke()
     assert result.exit_code == 1
     assert "not authorized to log in as root" in result.output
+    assert (
+        "Linux account is separate from your Teleport sign-in identity" in result.output
+    )
+    assert "administrator to verify your access" in result.output
     assert run.call_count == 1
 
 
@@ -535,11 +548,12 @@ def test_api_failure_while_rechecking_is_not_blamed_on_tsh(session):
     assert [c.args[0][1] for c in run.call_args_list] == ["status", "status"]
 
 
-def test_teleport_proxy_is_only_for_new_api_dev_pods(session):
+def test_teleport_proxy_is_rejected_when_server_provides_it(session):
     http, _, _, run = session
     result = invoke("--teleport-proxy", "proxy.example.com")
     assert result.exit_code == 2
-    assert "only applies to Dev Pods on the new DevPod API" in result.output
+    assert "The server provides this pod's Teleport proxy" in result.output
+    assert "Omit --teleport-proxy to use it" in result.output
     assert len(http.calls) == 0
     run.assert_not_called()
 

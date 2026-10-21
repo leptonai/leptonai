@@ -1597,9 +1597,15 @@ def shell(id, name, replica):
 def ssh(id, name, replica, teleport_proxy, teleport_auth):
     """SSH into a running Job replica through Teleport.
 
-    Requires an enabled Teleport agent in the Job image. Use `lep job replicas`
-    to list worker IDs. The Job API does not expose its Teleport proxy, so sign
-    in to the appropriate proxy first or specify --teleport-proxy.
+    Requires local tsh v18+ and an enabled Teleport agent in the Job image. Use
+    `lep job replicas` to list worker IDs. The CLI selects the SSH target and
+    Linux account for you.
+
+    The CLI reuses your Teleport login or starts sign-in before SSH. Teleport
+    sign-in is separate from your Lepton workspace login. If no active tsh
+    profile is available, ask your workspace or node group administrator for the
+    proxy and pass --teleport-proxy. Ask for the SSO connector name if
+    --teleport-auth is needed.
     """
     if bool(id) == bool(name):
         raise click.UsageError("Specify exactly one of --id or --name.")

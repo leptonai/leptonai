@@ -108,16 +108,36 @@ or unrecognized clients produce an actionable error. This minimum version check
 does not guarantee compatibility with every Teleport cluster version.
 
 Teleport SSH reuses your local Teleport login, or starts SSO login when needed.
-As in the dashboard, legacy Pods and Slurm Dev Pods sign in with the `Starfleet`
-connector by default, while other targets let Teleport use the cluster's default
-connector; use `--teleport-auth <connector>` to choose one. Lepton API
-credentials and Teleport login are separate. Your workspace
+The authentication connector is selected automatically; use
+`--teleport-auth <connector>` to choose one. Lepton API credentials and Teleport
+login are separate. Your workspace
 (`dev_pod_teleport`), node group, and pod must have Teleport enabled, and the
-pod must be Ready. Pods on the new DevPod API do not publish their Teleport
-proxy, so, as for Jobs below, Teleport SSH uses the active `tsh` profile or
+pod must be Ready.
+
+Pod SSH uses the server's Teleport connection details when available. Otherwise,
+as for Jobs below, it uses the active `tsh` profile or
 `--teleport-proxy <host>:443` and connects as `root` to the pod's
-`<workspace-id>-<pod-name>` node. Without `--transport teleport`, `lep pod ssh`
-continues to use direct SSH.
+`<workspace-id>-<pod-name>` node. If no profile is selected, provide
+`--teleport-proxy` to start login. Omit this option when the server provides the
+proxy. Without `--transport teleport`, `lep pod ssh` uses direct SSH.
+
+If you do not know which proxy to use, ask your workspace or node group
+administrator for the Teleport proxy (`host[:port]`) and, if required, the SSO
+connector name. Replace the placeholders below with those values:
+
+```shell
+tsh login --proxy=<proxy>
+# If your administrator specifies an SSO connector:
+tsh login --proxy=<proxy> --auth=<connector>
+```
+
+Complete the sign-in steps shown by `tsh`, then rerun your `lep ... ssh` command.
+Alternatively, pass `--teleport-proxy <proxy>` to `lep pod ssh --transport teleport`
+or `lep job ssh` to start sign-in automatically; add `--teleport-auth <connector>`
+if needed. The CLI selects the SSH target and Linux account for you. That Linux
+account (such as `root`) is separate from the identity you use to sign in to
+Teleport. If access is denied, ask your administrator to verify your access to
+the workload.
 
 Jobs can also be accessed through Teleport when their workspace has `job_teleport`
 enabled and their image/entrypoint starts a Teleport agent:
