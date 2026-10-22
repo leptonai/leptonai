@@ -12,7 +12,7 @@ from leptonai.api.v2.utils import (
     WorkspaceForbiddenError,
     _get_full_workspace_api_url,
 )
-from .util import console
+from .util import console, print_workspace_forbidden
 from .client import APIClient
 from leptonai.api.v2.workspace_record import WorkspaceRecord
 from loguru import logger
@@ -353,18 +353,7 @@ def login(
         sys.exit(1)
 
     except WorkspaceForbiddenError as e:
-        console.print("\n", e)
-
-        console.print(f"""
-        [red bold]Workspace Access Forbidden[/]
-        [red]Workspace ID:[/red] {e.workspace_id}
-        [red]Workspace URL:[/red] {e.workspace_url}
-
-        [bold]If you have access to this workspace, to resolve this issue:[/bold]
-        [yellow]Check that the workspace URL above matches the environment your token was issued from.[/yellow]
-        If not, login again with the correct workspace URL:
-           [green]lep workspace login -i <workspace_id> -t <auth_token> --workspace-url <workspace_url>[/green]
-        """)
+        print_workspace_forbidden(e)
         sys.exit(1)
 
     if pending_login is not None:

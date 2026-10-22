@@ -52,13 +52,31 @@ class WorkspaceNotFoundError(WorkspaceError):
 
 
 class WorkspaceForbiddenError(WorkspaceError):
-    def __init__(self, workspace_id=None, workspace_url=None, auth_token=None):
+    def __init__(
+        self, workspace_id=None, workspace_url=None, auth_token=None, reason=None
+    ):
         super().__init__(
             "Forbidden access to the workspace",
             workspace_id,
             workspace_url,
             auth_token,
         )
+        self.reason = reason
+
+
+def forbidden_reason(response: requests.Response) -> Optional[str]:
+    """Extracts the server-provided explanation from a 403 response, if any."""
+    try:
+        body = response.json()
+    except ValueError:
+        return None
+    if not isinstance(body, dict):
+        return None
+    for key in ("error", "message"):
+        value = body.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
 
 
 class WorkspaceNotCreatedYet(WorkspaceError):
