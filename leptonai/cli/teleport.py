@@ -204,6 +204,14 @@ def _run_interactive(args: list, operation: str) -> None:
     if result.returncode:
         code = result.returncode if result.returncode > 0 else 128 - result.returncode
         click.echo(f"Teleport {operation} exited with status {code}.", err=True)
+        if operation == "login" and code != 130:
+            click.echo(
+                "SSH was not started. Check the Teleport error above. Ask your"
+                " workspace or node group administrator to confirm the proxy and"
+                " SSO connector if you are unsure. To select a connector, retry"
+                " with --teleport-auth <connector>.",
+                err=True,
+            )
         raise click.exceptions.Exit(code)
 
 
@@ -248,7 +256,14 @@ def _connect_teleport(
         )
         profile = _profile(tsh, connection, **profile_options)
         if profile is None:
-            click.echo("Signing in to Teleport...")
+            click.echo(
+                f"Signing in to Teleport ({connection.proxy}:{connection.port})..."
+            )
+            click.echo(
+                "Teleport sign-in is separate from your Lepton workspace login."
+                " Complete the sign-in steps shown by tsh; SSH will continue"
+                " after login."
+            )
             login_args = [tsh, "login", proxy]
             # Without a connector Teleport uses the cluster's default one.
             if auth:
@@ -265,13 +280,19 @@ def _connect_teleport(
             if profile is None:
                 raise click.ClickException(
                     "Teleport login did not produce a valid profile for the target's "
-                    "proxy, cluster, and user."
+                    "proxy, cluster, and user. Run "
+                    f"tsh status --proxy={connection.proxy}:{connection.port} "
+                    "to check the login. Ask your workspace or node group "
+                    "administrator to confirm the proxy, SSO connector, and "
+                    "account to use."
                 )
         if connection.username not in profile["logins"]:
             raise click.ClickException(
                 "Your Teleport identity is not authorized to log in as"
-                f" {connection.username}. Check your Teleport access or sign in with"
-                " the correct account."
+                f" {connection.username}, the Linux account selected for this"
+                " workload. This Linux account is separate from your Teleport"
+                " sign-in identity. Ask your workspace or node group administrator"
+                " to verify your access, or sign in with the authorized identity."
             )
         if before_connect is not None and slurm_cluster is None:
             before_connect()
@@ -551,8 +572,19 @@ def _connect_workload_teleport(
             active = _status(tsh)
             if active is None:
                 raise click.ClickException(
-                    "No Teleport profile is selected. Use --teleport-proxy"
-                    " <host[:port]> or run tsh login first."
+                    "No active Teleport login was found. The server did not provide"
+                    f" a proxy for this {workload.noun}.\n\n"
+                    "Ask your workspace or node group administrator for the"
+                    " Teleport proxy (host[:port]) and, if required, the SSO"
+                    " connector name.\n\n"
+                    "Sign in first, then rerun this SSH command:\n"
+                    "  tsh login --proxy=<proxy>\n\n"
+                    "If a connector is required, add --auth=<connector>.\n\n"
+                    "Or rerun this command with --teleport-proxy <proxy> to sign in"
+                    " automatically; add --teleport-auth <connector> if required.\n\n"
+                    "Replace the placeholders with the values from your"
+                    " administrator. Teleport sign-in is separate from your Lepton"
+                    " workspace login."
                 )
             url = urlsplit(active["profile_url"])
             cluster = active.get("cluster")
@@ -576,7 +608,9 @@ def _connect_workload_teleport(
     except (ValueError, TypeError, KeyError, ValidationError):
         raise click.ClickException(
             f"Invalid Teleport proxy or {workload.noun}. Use --teleport-proxy"
-            " <host[:port]>."
+            " <host[:port]> with a hostname and optional port, without https://"
+            " or a URL path. Ask your workspace or node group administrator for"
+            " the Teleport proxy assigned to this workload."
         ) from None
     except OSError as error:
         raise click.ClickException(
