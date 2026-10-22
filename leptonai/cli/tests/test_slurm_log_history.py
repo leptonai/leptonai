@@ -1,7 +1,6 @@
 """Slurm history uses the same time-window retrieval as other workloads."""
 
 import importlib
-import json
 from datetime import datetime, timezone
 from unittest.mock import Mock, patch
 
@@ -50,7 +49,9 @@ def _invoke(*args, selector=("--id", "42")):
 
 def _lines(result):
     return [
-        json.loads(line) for line in result.output.splitlines() if line.startswith('"')
+        line
+        for line in result.output.splitlines()
+        if line.startswith(("line-", "boundary"))
     ]
 
 
@@ -168,14 +169,42 @@ def test_history_rejects_invalid_window(history_client, start, end):
     api.get_logs.assert_not_called()
 
 
-def test_history_timestamps_are_opt_in(history_client):
+@pytest.mark.parametrize("args", [[], ["--limit", "2"]])
+def test_history_timestamps_are_opt_in(history_client, args):
     client, _ = history_client
     _serve(client, [(START, "first", {}), (START + 1, "second", {})])
-    result = _invoke("--start", str(START), "--end", str(END), "--timestamps")
+    result = _invoke("--start", str(START), "--end", str(END), "--timestamps", *args)
 
     assert result.exit_code == 0, result.output
-    assert '2024-01-01 00:00:00.000000|"first"' in result.output
-    assert result.output.index('"first"') < result.output.index('"second"')
+    assert "2024-01-01 00:00:00 UTC first" in result.output
+    assert result.output.index("UTC first") < result.output.index("UTC second")
+
+
+@pytest.mark.parametrize("earlier_count", [0, 9998])
+def test_history_preserves_identical_lines_within_and_across_pages(
+    history_client, earlier_count
+):
+    client, _ = history_client
+    entries = [(START + i, f"line-{i}", {}) for i in range(earlier_count)]
+    entries += [(START + 15_000, "repeated", {"node": "a"})] * 3
+    entries += [(START + 15_000, "repeated", {"node": "b"})]
+    _serve(client, entries)
+    result = _invoke("--start", str(START), "--end", str(END))
+
+    assert result.exit_code == 0, result.output
+    assert result.output.splitlines().count("repeated") == 4
+
+
+@pytest.mark.parametrize("args", [[], ["--limit", "2"]])
+def test_history_preserves_slurm_log_text(history_client, args):
+    client, _ = history_client
+    lines = ['hello "world" [red]', '{"message":"hello"}']
+    _serve(client, [(START + i, line, {}) for i, line in enumerate(lines)])
+    result = _invoke("--start", str(START), "--end", str(END), *args)
+
+    assert result.exit_code == 0, result.output
+    for line in lines:
+        assert line in result.output.splitlines()
 
 
 def test_history_reports_failed_windows_after_shared_retries(history_client):
@@ -188,6 +217,18 @@ def test_history_reports_failed_windows_after_shared_retries(history_client):
     assert "Partial result" in result.output
     assert client.log.get_log.call_count == 5
     api.get_logs.assert_not_called()
+
+
+def test_history_reports_output_failure(history_client):
+    client, _ = history_client
+    _serve(client, [(START, "first", {})])
+    with patch(
+        "leptonai.cli.slurm._print_log_line", side_effect=OSError("sink failed")
+    ):
+        result = _invoke("--start", str(START), "--end", str(END))
+
+    assert result.exit_code == 1, result.output
+    assert "Failed to write logs" in result.output
 
 
 def test_follow_keeps_its_default_tail_and_polling(history_client):

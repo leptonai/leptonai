@@ -954,16 +954,14 @@ class TestSameTimestampCaseBContinuation(unittest.TestCase):
         self.assertTrue(progress_advance)
         self.assertEqual(sched.pending, [])
 
-    def test_case_a_duplicated_entries_survive_scheduler_dedup(self):
+    def test_case_a_preserves_repeated_records_within_a_response(self):
         """Case A (terminal, 1ns remainder): unlike
         `test_case_a_terminal_enqueues_no_children_even_when_min_ts_equals_t`
         above (which only checks the branching decision via a direct
         `_handle_result` call), this drives the scheduler with
-        every line duplicated in the raw response -- proving flush-time
-        dedup, not just the child-count decision, on the terminal Case A
-        path: each *distinct* line still survives exactly once despite
-        10000 raw (5000 distinct x2) entries, and no further request is
-        ever made.
+        every line repeated in the raw response. Both records survive on
+        the terminal Case A path: there are 10000 records (5000 distinct
+        lines x2), and no further request is ever made.
         """
         S, E = 0, 2
         T = E - 1  # remaining range [T, E) is exactly 1ns wide
@@ -996,7 +994,7 @@ class TestSameTimestampCaseBContinuation(unittest.TestCase):
         with open(outpath, encoding="utf-8") as f:
             lines = f.read().splitlines()
         for i in (0, 1, 2499, 4999):
-            self.assertEqual(sum(1 for ln in lines if ln.endswith(f"same-ts-{i}")), 1)
+            self.assertEqual(sum(1 for ln in lines if ln.endswith(f"same-ts-{i}")), 2)
         # A trace diagnostic mentioning the same-timestamp safeguard was
         # emitted, and it must be Case A's terminal message, not Case B's
         # "continuing scan at T+1".
@@ -1013,10 +1011,10 @@ class TestSameTimestampCaseBContinuation(unittest.TestCase):
             same_ts_records,
         )
 
-    def test_case_b_duplicated_entries_survive_scheduler_dedup(self):
+    def test_case_b_preserves_repeated_records_within_a_response(self):
         """Case B, with every same-timestamp line duplicated in
-        the raw response: flush-time dedup survives alongside the later,
-        genuinely distinct record fetched by the `[T+1, E)` child, and the
+        the raw response: both records survive alongside the later,
+        distinct record fetched by the `[T+1, E)` child, and the
         Case B trace diagnostic is emitted.
         """
         S, E = 0, 100000
@@ -1056,7 +1054,7 @@ class TestSameTimestampCaseBContinuation(unittest.TestCase):
         with open(outpath, encoding="utf-8") as f:
             lines = f.read().splitlines()
         for i in (0, 1, 2499, 4999):
-            self.assertEqual(sum(1 for ln in lines if ln.endswith(f"same-ts-{i}")), 1)
+            self.assertEqual(sum(1 for ln in lines if ln.endswith(f"same-ts-{i}")), 2)
         self.assertEqual(sum(1 for ln in lines if ln.endswith("later-distinct")), 1)
         same_ts_records = [rec for rec in records if "same-timestamp" in rec]
         self.assertTrue(

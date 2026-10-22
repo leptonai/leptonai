@@ -6,6 +6,7 @@ import re
 import sys
 import threading
 import traceback
+from collections import Counter
 from dataclasses import dataclass
 from typing import Callable, List, NoReturn, Optional, Tuple
 
@@ -310,6 +311,7 @@ class _RateLimitSignal:
 # A sink consumes entries in chronological order, as released by the commit
 # watermark; it must propagate any write failure by raising.
 EmitFn = Callable[[List[LogEntry]], None]
+LineEmitter = Callable[[int, str], None]
 
 
 _HASHABLE_SCALAR_TYPES = (str, int, float, bool, type(None))
@@ -783,16 +785,23 @@ class _LazyFileSink:
         _quiet_close(self._f)
 
 
-def _make_stdout_sink(without_timestamp: bool, bookkeeping: _EmitBookkeeping) -> EmitFn:
-    """Build the no-`--path` sink: prints each entry via the shared `console`."""
+def _make_stdout_sink(
+    without_timestamp: bool,
+    bookkeeping: _EmitBookkeeping,
+    emit_line: Optional[LineEmitter] = None,
+) -> EmitFn:
+    """Print entries using the caller's renderer or the shared `console`."""
 
     def emit(entries: List[LogEntry]) -> None:
         for entry in entries:
             utc_time = _epoch_to_time_str(entry.timestamp_ns)
-            cur_line = safe_load_json(entry.line)
-            if not without_timestamp:
-                console.print(f"[green]{utc_time}|[/]", end="")
-            console.print(json.dumps(cur_line, ensure_ascii=False), markup=False)
+            if emit_line is not None:
+                emit_line(entry.timestamp_ns, entry.line)
+            else:
+                cur_line = safe_load_json(entry.line)
+                if not without_timestamp:
+                    console.print(f"[green]{utc_time}|[/]", end="")
+                console.print(json.dumps(cur_line, ensure_ascii=False), markup=False)
             bookkeeping.record(utc_time)
 
     return emit
@@ -823,6 +832,7 @@ class _AdaptiveLogScheduler:
         without_timestamp: bool,
         path: Optional[str],
         log_options: Optional[dict] = None,
+        emit_line: Optional[LineEmitter] = None,
     ):
         """
         Args:
@@ -843,6 +853,7 @@ class _AdaptiveLogScheduler:
         self.unix_end = unix_end
         self.effective_workers = workers if workers is not None else 32
         self.without_timestamp = without_timestamp
+        self.emit_line = emit_line
 
         self.bookkeeping = _EmitBookkeeping()
         # Prefer the workload identifier when naming the output file.
@@ -1085,15 +1096,19 @@ class _AdaptiveLogScheduler:
 
     def _drain_and_emit(self, watermark: int, emit_fn: EmitFn) -> None:
         """Pop and emit all buffered entries strictly below `watermark`,
-        de-duplicating exact `LogEntry` repeats at flush time.
+        removing overlap between responses while preserving repeated records
+        within each response. For each entry, emit the largest count observed
+        in any one unit; a replayed boundary must not add that count again.
         """
         to_emit: List[LogEntry] = []
-        seen = set()
+        occurrences = Counter()
+        emitted = Counter()
         while self.buffer and self.buffer[0][0] < watermark:
-            _, _, _, entry = heapq.heappop(self.buffer)
-            if entry in seen:
+            _, unit_seq, _, entry = heapq.heappop(self.buffer)
+            occurrences[unit_seq, entry] += 1
+            if occurrences[unit_seq, entry] <= emitted[entry]:
                 continue
-            seen.add(entry)
+            emitted[entry] += 1
             to_emit.append(entry)
         if to_emit:
             emit_fn(to_emit)
@@ -1117,7 +1132,9 @@ class _AdaptiveLogScheduler:
         emit_fn = (
             self.sink.emit
             if self.sink
-            else _make_stdout_sink(self.without_timestamp, self.bookkeeping)
+            else _make_stdout_sink(
+                self.without_timestamp, self.bookkeeping, self.emit_line
+            )
         )
 
         progress_cm = Progress() if self.sink else contextlib.nullcontext()
@@ -1330,6 +1347,7 @@ def fetch_logs_adaptive_parallel(
     without_timestamp: bool,
     path: Optional[str],
     log_options: Optional[dict] = None,
+    emit_line: Optional[LineEmitter] = None,
 ) -> NoReturn:
     """Construct and run an `_AdaptiveLogScheduler` for one fetch.
 
@@ -1351,6 +1369,7 @@ def fetch_logs_adaptive_parallel(
         without_timestamp,
         path,
         log_options=log_options,
+        emit_line=emit_line,
     ).run()
 
 
@@ -1771,6 +1790,7 @@ def query_historical_logs(
     workers: Optional[int] = None,
     log_options: Optional[dict] = None,
     interactive: bool = False,
+    emit_line: Optional[LineEmitter] = None,
 ) -> None:
     """Query and print history using the shared window and pagination rules.
 
@@ -1779,6 +1799,8 @@ def query_historical_logs(
     the latest entries unless log_options requests the forward direction.
     Only the legacy `log get` command opts into interactive navigation.
     The adaptive scheduler terminates with its success/partial-failure status.
+    An optional `emit_line(timestamp_ns, text)` preserves a caller's stdout
+    format; file output and query summaries use the shared format.
     """
     log_options = dict(log_options or {})
     direction = log_options.setdefault("direction", "backward")
@@ -1845,6 +1867,7 @@ def query_historical_logs(
                 without_timestamp,
                 path,
                 log_options=log_options,
+                emit_line=emit_line,
             )
 
         # ======================================================================
@@ -1966,11 +1989,16 @@ def query_historical_logs(
             sys.exit(0)
         else:
             for log in reversed(log_list):
-                utc_time = _epoch_to_time_str(log[0])
-                cur_line = safe_load_json(log[1])
-                if not without_timestamp:
-                    console.print(f"[green]{utc_time}|[/]", end="")
-                console.print(json.dumps(cur_line, ensure_ascii=False), markup=False)
+                if emit_line is not None:
+                    emit_line(log[0], log[1])
+                else:
+                    utc_time = _epoch_to_time_str(log[0])
+                    cur_line = safe_load_json(log[1])
+                    if not without_timestamp:
+                        console.print(f"[green]{utc_time}|[/]", end="")
+                    console.print(
+                        json.dumps(cur_line, ensure_ascii=False), markup=False
+                    )
 
             console.print(
                 f"\n👆Time range: [blue]UTC|{first_utc_time}[/] →"
