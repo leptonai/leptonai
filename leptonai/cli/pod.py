@@ -921,22 +921,31 @@ def shell(name, replica):
     "--teleport-auth",
     default=None,
     help=(
-        "Teleport SSO connector for login. Legacy Pods default to Starfleet; Pods on"
-        " the new DevPod API use the cluster's default. Requires --transport"
-        " teleport."
+        "Teleport SSO connector for login; selected automatically when omitted."
+        " Requires --transport teleport."
     ),
 )
 @click.option(
     "--teleport-proxy",
     default=None,
     help=(
-        "Teleport proxy host[:port] for Dev Pods on the new DevPod API, which does"
-        " not publish it; defaults to the active tsh profile. Requires --transport"
-        " teleport."
+        "Teleport proxy host[:port] when not provided by the server. If omitted,"
+        " the CLI uses the server's proxy or the active tsh profile. Requires"
+        " --transport teleport."
     ),
 )
 def ssh(name, transport, teleport_auth, teleport_proxy):
-    """SSH into a running pod."""
+    """SSH into a running pod.
+
+    With --transport teleport, install tsh v18+ on your local computer. The CLI
+    reuses your Teleport login or starts sign-in before SSH. Teleport sign-in is
+    separate from your Lepton workspace login.
+
+    If the proxy cannot be determined automatically, ask your workspace or node
+    group administrator for it and pass --teleport-proxy. Ask for the SSO
+    connector name if --teleport-auth is needed. The CLI selects the SSH target
+    and Linux account for you.
+    """
     if teleport_auth is not None and transport != "teleport":
         raise click.UsageError("--teleport-auth requires --transport teleport.")
     if teleport_proxy is not None and transport != "teleport":
@@ -950,8 +959,8 @@ def ssh(name, transport, teleport_auth, teleport_proxy):
             return
         if teleport_proxy is not None:
             raise click.UsageError(
-                "--teleport-proxy only applies to Dev Pods on the new DevPod API;"
-                " this workspace publishes the pod's Teleport proxy."
+                "The server provides this pod's Teleport proxy."
+                " Omit --teleport-proxy to use it."
             )
         try:
             connection = client.pod.get_teleport_connection(name)
