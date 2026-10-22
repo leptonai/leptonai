@@ -1060,7 +1060,7 @@ def shell_cluster(name: Optional[str], id: Optional[str]) -> None:
 @click.option(
     "--teleport-auth",
     default=None,
-    help="Teleport SSO connector; by default Teleport uses the cluster's default.",
+    help="Teleport SSO connector for login; selected automatically when omitted.",
 )
 def ssh_cluster(
     name: Optional[str],
@@ -1070,10 +1070,14 @@ def ssh_cluster(
 ) -> None:
     """SSH into a Slurm login node through Teleport.
 
-    Requires a personal workspace user/admin token and local tsh v18 or newer.
-    The cluster must be Ready with Teleport enabled for its login nodes; you
-    log in as your mapped Slurm Linux account. `lep slurm cluster shell`
-    opens a login-node shell without Teleport.
+    Requires local tsh v18+ and a Ready cluster with Teleport enabled for its
+    login nodes. The CLI finds the cluster's Teleport proxy and connects as
+    your Slurm Linux account. `lep slurm cluster shell` opens a login-node
+    shell without Teleport.
+
+    The CLI reuses your Teleport login or runs tsh login for you. Teleport
+    sign-in must use the same user as your Lepton login, so Service Account
+    Tokens are not supported; that user needs workspace user or admin access.
     """
     _validate_name_id_selector(name, id)
     client = APIClient()
@@ -1346,7 +1350,7 @@ def job_log(
 @click.option(
     "--teleport-auth",
     default=None,
-    help="Teleport SSO connector; by default Teleport uses the cluster's default.",
+    help="Teleport SSO connector for login; selected automatically when omitted.",
 )
 def ssh_job(
     name: Optional[str],
@@ -1357,10 +1361,14 @@ def ssh_job(
 ) -> None:
     """SSH into a node allocated to your running Slurm job through Teleport.
 
-    Requires a personal workspace user/admin token and local tsh v18 or newer.
-    The job must run under your mapped Slurm account on a cluster whose
-    compute node groups enable Teleport. This opens a new shell on the node;
-    it does not attach to the job.
+    Requires local tsh v18+ and a running job owned by your Slurm account, on a
+    cluster whose compute node groups enable Teleport. The CLI finds the
+    cluster's Teleport proxy and connects as your Slurm Linux account. This
+    opens a new shell on the node; it does not attach to the job.
+
+    The CLI reuses your Teleport login or runs tsh login for you. Teleport
+    sign-in must use the same user as your Lepton login, so Service Account
+    Tokens are not supported; that user needs workspace user or admin access.
     """
     _validate_name_id_selector(name, id)
     client = APIClient()
@@ -1495,14 +1503,14 @@ def remove_devpod(
     type=click.Choice(["bastion", "teleport"]),
     default="bastion",
     show_default=True,
-    help="Connect through the cluster bastion, or Teleport (requires local tsh).",
+    help="Connect through the cluster bastion or Teleport (requires local tsh v18+).",
 )
 @click.option(
     "--teleport-auth",
     default=None,
     help=(
-        "Teleport SSO connector for login (default: Starfleet, as the dashboard"
-        " uses for Slurm Dev Pods). Requires --transport teleport."
+        "Teleport SSO connector for login; selected automatically when omitted."
+        " Requires --transport teleport."
     ),
 )
 def ssh_devpod(
@@ -1514,14 +1522,18 @@ def ssh_devpod(
     transport: str,
     teleport_auth: Optional[str],
 ) -> None:
-    """Connect to a Slurm Dev Pod via its cluster bastion or Teleport.
+    """Connect to your Slurm Dev Pod through its cluster bastion or Teleport.
 
-    By default runs the exact bastion SSH command reported by the platform;
-    extra SSH options can be passed after ``--``. With --transport teleport,
-    connects through Teleport as the Dev Pod's Linux account (requires a
-    personal workspace token and local tsh v18 or newer). Select the pod by
-    --name or --id, optionally scoped by --cluster; the owning --cluster may
-    also be used alone.
+    Select the pod by --name or --id, optionally scoped by --cluster; the
+    owning --cluster may also be used alone. By default, runs the bastion SSH
+    command reported by the platform; pass extra SSH options after `--`.
+
+    With --transport teleport, requires local tsh v18+ and a Ready Dev Pod.
+    The CLI finds the Teleport proxy and connects as the Dev Pod's Linux
+    account. The CLI reuses your Teleport login or runs tsh login for you.
+    Teleport sign-in must use the same user as your Lepton login, so Service
+    Account Tokens are not supported; that user needs workspace user or admin
+    access.
     """
     _validate_devpod_selector(name, id, cluster)
     if teleport_auth is not None and transport != "teleport":
