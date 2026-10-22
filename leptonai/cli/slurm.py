@@ -6,6 +6,7 @@ import subprocess
 import sys
 import time
 from datetime import datetime, timezone
+from functools import partial
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 import click
@@ -637,12 +638,16 @@ def _print_devpod_detail(
     )
 
 
+def _print_log_line(timestamp: Optional[int], line: str, *, timestamps: bool) -> None:
+    if timestamps and timestamp is not None:
+        click.echo(f"{_format_time(timestamp)} {line}")
+    else:
+        click.echo(line)
+
+
 def _print_log_entries(entries: Iterable[SlurmLogEntry], *, timestamps: bool) -> None:
     for entry in entries:
-        if timestamps and entry.timestamp is not None:
-            click.echo(f"{_format_time(entry.timestamp)} {entry.line}")
-        else:
-            click.echo(entry.line)
+        _print_log_line(entry.timestamp, entry.line, timestamps=timestamps)
 
 
 _FOLLOW_LOOKBACK_NS = 5 * 60 * 1_000_000_000
@@ -1349,6 +1354,7 @@ def job_logs(
             query=query or "",
             without_timestamp=not timestamps,
             workers=workers,
+            emit_line=partial(_print_log_line, timestamps=timestamps),
             log_options={
                 "slurm_namespace": namespace,
                 "slurm_cluster": cluster_name,
