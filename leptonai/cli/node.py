@@ -95,14 +95,19 @@ def node():
 @click.option(
     "--teleport-auth",
     default=None,
-    help="Teleport SSO connector; by default Teleport uses the cluster's default.",
+    help="Teleport SSO connector for login; selected automatically when omitted.",
 )
 def ssh(id, node_group, teleport_auth):
     """SSH into a Slurm compute container through Teleport.
 
-    Requires a personal workspace user/admin token and local tsh v18 or newer.
-    The compute group must enable Teleport and use host networking. Slurm account
-    access can depend on running jobs and node maintenance status.
+    Requires local tsh v18+. The compute group must enable Teleport and use host
+    networking. The CLI finds the cluster's Teleport proxy and connects as your
+    Slurm Linux account; access can depend on running jobs and node maintenance
+    status.
+
+    The CLI reuses your Teleport login or runs tsh login for you. Teleport
+    sign-in must use the same user as your Lepton login, so Service Account
+    Tokens are not supported; that user needs workspace user or admin access.
     """
     client = get_client()
     try:

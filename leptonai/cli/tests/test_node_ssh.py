@@ -186,8 +186,26 @@ def test_login_with_wrong_user_cannot_connect(session):
     ]
     result = invoke()
     assert result.exit_code == 1
-    assert "did not produce a valid profile" in result.output
+    assert "did not sign you in as alice@example.com" in result.output
+    assert (
+        "tsh login --proxy=proxy.example.com:443 --user=alice@example.com"
+        in result.output
+    )
     assert run.call_count == 3
+
+
+def test_failed_login_names_the_required_teleport_user(session):
+    _, run, _ = session
+    run.side_effect = [completed(code=1, stderr="not logged in"), completed(code=7)]
+    result = invoke()
+    assert result.exit_code == 7
+    assert (
+        "tsh login --proxy=proxy.example.com:443 --user=alice@example.com"
+        in result.output
+    )
+    assert "Slurm cluster administrator" in result.output
+    assert "confirm the proxy" not in result.output
+    assert run.call_count == 2
 
 
 def test_missing_slurm_principal_cannot_connect(session):
@@ -195,7 +213,9 @@ def test_missing_slurm_principal_cannot_connect(session):
     run.side_effect = [profile(logins=["root"])]
     result = invoke()
     assert result.exit_code == 1
-    assert "not authorized to log in as alice_corp" in result.output
+    assert "not allowed to log in as alice_corp" in result.output
+    assert "Slurm cluster administrator" in result.output
+    assert "sign in with the authorized identity" not in result.output
     assert run.call_count == 1
 
 
@@ -206,6 +226,7 @@ def test_requires_workspace_user_or_admin(session, role):
     result = invoke()
     assert result.exit_code == 1
     assert "user or admin" in result.output
+    assert "lep login" in result.output
     run.assert_not_called()
 
 
@@ -384,8 +405,8 @@ def test_revalidates_after_sso_and_rejects_changed_target(session, kind):
 @pytest.mark.parametrize(
     "inventory, message",
     [
-        ([], "No Teleport node"),
-        (INVENTORY * 2, "Multiple Teleport nodes"),
+        ([], "No Teleport node for physical-1"),
+        (INVENTORY * 2, "Multiple Teleport nodes are registered for physical-1"),
         ({}, "invalid node list"),
     ],
 )
@@ -414,7 +435,7 @@ def test_rechecks_labels_even_if_tsh_returns_out_of_scope_nodes(session, label):
 @pytest.mark.parametrize(
     "failure, message",
     [
-        (completed(code=1), "Could not list"),
+        (completed(code=1), "tsh status --proxy=proxy.example.com:443"),
         (completed("invalid json"), "invalid node list"),
         (subprocess.TimeoutExpired("tsh", 15), "Timed out"),
     ],
