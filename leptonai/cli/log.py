@@ -1736,8 +1736,56 @@ def log_command(
             raise click.ClickException(str(exc)) from exc
         return
 
+    log_options.update(name_or_dynamo=dynamo, dynamo_service=dynamo_service)
+    query_historical_logs(
+        client,
+        deployment=deployment,
+        job=job,
+        replica=replica,
+        job_history_name=job_history_name,
+        start=start,
+        end=end,
+        limit=limit,
+        path=path,
+        query=query,
+        without_timestamp=without_timestamp,
+        workers=workers,
+        log_options=log_options,
+        interactive=True,
+    )
+
+
+def query_historical_logs(
+    client,
+    *,
+    deployment=None,
+    job=None,
+    replica=None,
+    job_history_name=None,
+    start=None,
+    end=None,
+    limit: Optional[int] = None,
+    path: Optional[str] = None,
+    query="",
+    without_timestamp: bool = False,
+    workers: Optional[int] = None,
+    log_options: Optional[dict] = None,
+    interactive: bool = False,
+) -> None:
+    """Query and print history using the shared window and pagination rules.
+
+    Missing bounds use the Job's lifetime when available, then today/now in
+    UTC. Unlimited queries use the adaptive scheduler; a finite limit selects
+    the latest entries unless log_options requests the forward direction.
+    Only the legacy `log get` command opts into interactive navigation.
+    The adaptive scheduler terminates with its success/partial-failure status.
+    """
+    log_options = dict(log_options or {})
+    direction = log_options.setdefault("direction", "backward")
     if (not start or not end) and job:
-        job_obj = client.job.get(job, job_query_mode=log_options["job_query_mode"])
+        job_obj = client.job.get(
+            job, job_query_mode=log_options.get("job_query_mode", "alive_and_archive")
+        )
         logger.trace(json.dumps(job_obj.model_dump(), indent=4))
         if job_obj.status is not None:
             start = start or job_obj.status.creation_time
@@ -1752,8 +1800,6 @@ def log_command(
             " 00:00:00)"
         )
         start = "today"
-
-    log_options.update(name_or_dynamo=dynamo, dynamo_service=dynamo_service)
 
     def fetch_log(start, end, limit, path=None):
         unix_start = _preprocess_time(start, epoch=True)
@@ -1966,7 +2012,7 @@ def log_command(
             sys.exit(1)
 
         first_utc_time, last_utc_time = fetch_and_print_logs(start, end, limit, path)
-        while True and sys.stdin.isatty():
+        while interactive and sys.stdin.isatty():
             console.print(
                 "Enter a command [yellow](e.g., `next 10`, `last 20`, `time+ 30.5s`,"
                 " `time- 2.1s`, `quit`)[/]:"
