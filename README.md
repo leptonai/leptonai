@@ -181,7 +181,7 @@ lep slurm cluster list --name prod --status Ready
 lep slurm cluster shell -n production
 lep slurm job list --cluster production --status Running --include-archived
 lep slurm job attempts -i 12345 --steps
-lep slurm job logs -n my-training-job --follow
+lep slurm job log -n my-training-job --follow
 lep slurm devpod get --cluster production
 lep slurm devpod ssh --cluster production
 ```

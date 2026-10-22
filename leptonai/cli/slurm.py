@@ -1222,7 +1222,7 @@ def job_attempts(
         _print_attempts_table(events.jobs, include_steps=steps)
 
 
-@job.command(name="logs")
+@job.command(name="log")
 @_job_resolution_options
 @click.option("--attempt", type=click.IntRange(min=0), help="Zero-based attempt.")
 @click.option("--step", help="Full Slurm step ID.")
@@ -1252,7 +1252,7 @@ def job_attempts(
     show_default=True,
     help="Seconds between requests when following.",
 )
-def job_logs(
+def job_log(
     name: Optional[str],
     id: Optional[str],
     cluster: Optional[str],
