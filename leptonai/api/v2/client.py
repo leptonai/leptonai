@@ -46,6 +46,7 @@ from .utils import (
     _get_workspace_origin_url,
     _normalize_workspace_origin_url,
     WorkspaceConfigurationError,
+    forbidden_reason,
 )
 from .workspace_record import WorkspaceRecord
 from loguru import logger
@@ -696,6 +697,7 @@ class APIClient(object):
                 workspace_id=self.workspace_id,
                 workspace_url=self.url,
                 auth_token=auth_token_hint,
+                reason=forbidden_reason(response),
             )
 
         return ws_api.ensure_type(response, WorkspaceInfo)
