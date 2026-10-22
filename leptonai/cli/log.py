@@ -15,6 +15,7 @@ from .util import click_group, console, epoch_scale
 from .util import resolve_save_path, PathResolutionError
 
 from .client import APIClient
+from .log_pagination import MAX_LOG_PAGE_LIMIT, complete_log_page
 from ..api.v2.log import LogAPIError
 
 import json
@@ -1814,6 +1815,7 @@ def log_command(
         with Progress() as progress:
             task = progress.add_task("Fetching logs...", total=time_total_ns)
             while cur_limit > 0:
+                request_limit = min(cur_limit, MAX_LOG_PAGE_LIMIT)
                 log_dict = client.log.get_log(
                     name_or_deployment=deployment,
                     name_or_job=job,
@@ -1821,7 +1823,7 @@ def log_command(
                     job_history_name=job_history_name,
                     start=cur_unix_start,
                     end=cur_unix_end,
-                    limit=cur_limit if cur_limit < 10000 else 10000,
+                    limit=request_limit,
                     q=query,
                     **log_options,
                 )
@@ -1837,27 +1839,35 @@ def log_command(
                 if len(cur_log_list) == 0:
                     progress.update(task, completed=True)
                     break
-                # Use the oldest/newest timestamps to advance the chosen cursor.
-                cur_log_list.sort(key=lambda x: x[0], reverse=True)
+                cur_log_list.sort(key=lambda x: x[0], reverse=direction == "backward")
+                # Once the requested total is satisfied, truncation is intentional.
+                if len(cur_log_list) >= cur_limit:
+                    log_list.extend(cur_log_list[:cur_limit])
+                    break
 
-                cur_limit -= len(cur_log_list)
+                complete, _ = complete_log_page(
+                    [timestamp for timestamp, _ in cur_log_list], request_limit
+                )
+                log_list.extend(cur_log_list[:complete])
+                cur_limit -= complete
+                boundary = cur_log_list[-1][0]
+                partial_boundary = complete < len(cur_log_list)
                 if direction == "forward":
-                    next_start = cur_log_list[0][0] + 1
+                    next_start = boundary if partial_boundary else boundary + 1
                     if next_start <= cur_unix_start:
                         raise RuntimeError("Log pagination did not advance.")
                     progress.update(task, advance=next_start - cur_unix_start)
                     cur_unix_start = next_start
                 else:
-                    next_end = cur_log_list[-1][0]
+                    # The API's end bound is exclusive; include the boundary
+                    # again until its timestamp group has been fully retrieved.
+                    next_end = boundary + 1 if partial_boundary else boundary
                     if next_end >= cur_unix_end:
                         raise RuntimeError("Log pagination did not advance.")
                     progress.update(task, advance=cur_unix_end - next_end)
                     cur_unix_end = next_end
                 if cur_unix_start >= cur_unix_end:
-                    log_list.extend(cur_log_list)
                     break
-
-                log_list.extend(cur_log_list)
 
         return sorted(log_list, key=lambda item: item[0], reverse=True)
 

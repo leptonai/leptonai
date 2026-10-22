@@ -22,11 +22,11 @@ from ..api.v2.types.slurm import (
     SlurmJobAttempt,
     SlurmJobStatus,
     SlurmLogEntry,
-    SlurmLogs,
     WorkspaceSlurmJob,
     WorkspaceSlurmJobList,
 )
 from .log import _preprocess_time
+from .log_pagination import MAX_LOG_PAGE_LIMIT, complete_log_page
 from .teleport import connect_node_teleport
 from .util import (
     LooseChoice,
@@ -661,51 +661,57 @@ def _follow_logs(
 
     Without ``--start`` the first request fetches the newest page (like
     ``tail -f``) instead of replaying the look-back window oldest-first.
-    Afterwards the loop polls forward from the last timestamp seen; a full
-    page means more lines are waiting, so it re-requests immediately and only
-    sleeps once a poll comes back short.
+    Forward pages defer their last timestamp group until it is complete,
+    retrying it inclusively and enlarging the page if necessary. A full page
+    is drained immediately; polling sleeps only after a short page.
     """
-    limit = common["limit"]
-
-    def emit(logs: SlurmLogs) -> Tuple[int, Optional[int]]:
-        entries = logs.entries()
-        _print_log_entries(entries, timestamps=timestamps)
-        seen = [entry.timestamp for entry in entries if entry.timestamp is not None]
-        return len(entries), (max(seen) + 1 if seen else None)
+    options = dict(common)
+    limit = min(options.pop("limit"), MAX_LOG_PAGE_LIMIT)
 
     cursor = start_ns
     try:
         if cursor is None:
             cursor = time.time_ns() - _FOLLOW_LOOKBACK_NS
-            _, newest = emit(
-                api.get_logs(
-                    cluster_id,
-                    start=cursor,
-                    end=time.time_ns(),
-                    direction="backward",
-                    **common,
-                )
-            )
-            if newest is not None:
-                cursor = newest
+            entries = api.get_logs(
+                cluster_id,
+                start=cursor,
+                end=time.time_ns(),
+                direction="backward",
+                limit=limit,
+                **options,
+            ).entries()
+            _print_log_entries(entries, timestamps=timestamps)
+            seen = [entry.timestamp for entry in entries if entry.timestamp is not None]
+            if seen:
+                # The initial tail is intentionally limited; forward draining
+                # begins after it rather than replaying older log history.
+                cursor = max(seen) + 1
         while True:
             window_end = time.time_ns()
+            request_limit = limit
             # A remote timestamp can run ahead of the local clock; skip the
             # poll rather than send a window the server rejects.
             while window_end > cursor:
-                count, newest = emit(
-                    api.get_logs(
-                        cluster_id,
-                        start=cursor,
-                        end=window_end,
-                        direction="forward",
-                        **common,
-                    )
-                )
-                if newest is not None:
-                    cursor = newest
-                if newest is None or count < limit:
+                entries = api.get_logs(
+                    cluster_id,
+                    start=cursor,
+                    end=window_end,
+                    direction="forward",
+                    limit=request_limit,
+                    **options,
+                ).entries()
+                if not entries:
                     break
+                complete, next_limit = complete_log_page(
+                    [entry.timestamp for entry in entries], request_limit
+                )
+                _print_log_entries(entries[:complete], timestamps=timestamps)
+                cursor = entries[-1].timestamp
+                if complete == len(entries):
+                    cursor += 1
+                if len(entries) < request_limit:
+                    break
+                request_limit = next_limit
             time.sleep(poll_interval)
     except KeyboardInterrupt:
         console.print("[dim]Stopped following Slurm logs.[/dim]")
