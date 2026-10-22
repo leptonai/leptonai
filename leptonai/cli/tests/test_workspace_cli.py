@@ -110,6 +110,28 @@ class TestLepLogin(unittest.TestCase):
         self.assertIn("Workspace Access Forbidden", result.output)
         set_or_exit.assert_not_called()
 
+    def test_login_forbidden_prints_server_reason(self):
+        runner = CliRunner()
+        fake_client = mock.Mock()
+        fake_client.info.side_effect = WorkspaceForbiddenError(
+            workspace_id="stag",
+            workspace_url=config.API_URL_BASE + "/api/v2/workspaces/stag",
+            auth_token="nv****98",
+            reason="Access restricted to [corpnet] IPs only.",
+        )
+        with (
+            mock.patch.object(WorkspaceRecord, "set_or_exit") as set_or_exit,
+            mock.patch("leptonai.cli.cli.APIClient", return_value=fake_client),
+        ):
+            result = runner.invoke(cli, ["login", "-c", "stag:nvapi-faketoken"])
+        self.assertEqual(result.exit_code, 1)
+        self.assertIn(
+            "Server response: Access restricted to [corpnet] IPs only.", result.output
+        )
+        self.assertIn("NO_PROXY", result.output)
+        self.assertIn("--workspace-url", result.output)
+        set_or_exit.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
