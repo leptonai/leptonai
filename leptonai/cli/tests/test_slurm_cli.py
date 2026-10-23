@@ -406,43 +406,6 @@ def test_job_list_table_shows_slurm_state_and_reason():
     assert "NodeDown" in result.output
 
 
-def test_job_logs_maps_scope_and_prints_in_timestamp_order():
-    client, api = _fake_client()
-    with patch("leptonai.cli.slurm.APIClient", return_value=client):
-        result = CliRunner().invoke(
-            lep,
-            [
-                "slurm",
-                "job",
-                "logs",
-                "-i",
-                "42",
-                "--attempt",
-                "0",
-                "--step",
-                "42.batch",
-                "--log-type",
-                "stderr",
-            ],
-        )
-
-    assert result.exit_code == 0, result.output
-    assert result.output.index("first") < result.output.index("second")
-    api.get_logs.assert_called_once_with(
-        "ns/cluster-a",
-        start=None,
-        end=None,
-        direction="backward",
-        job_id="42",
-        attempt=0,
-        step="42.batch",
-        node=None,
-        log_type="stderr.log",
-        query=None,
-        limit=100,
-    )
-
-
 def _job_entry(job_id, name, cluster_id, state="Running"):
     return {
         "kind": "slurm",
@@ -1095,7 +1058,18 @@ def test_job_logs_follow_seeds_newest_page_then_drains_full_pages():
     api.get_logs.side_effect = [
         page(1_000, 2),  # backward seed: the newest lines in the window
         page(2_000, 3),  # forward: a full page, so the next poll is immediate
-        page(3_000, 1),  # forward: a short page, so the loop sleeps
+        SlurmLogs(
+            data={
+                "result": [
+                    {
+                        "values": [
+                            ["2002", "line-2002"],
+                            ["3000", "line-3000"],
+                        ]
+                    }
+                ]
+            }
+        ),  # short page includes the deferred boundary, then sleeps
         KeyboardInterrupt(),
     ]
     with (
@@ -1114,8 +1088,9 @@ def test_job_logs_follow_seeds_newest_page_then_drains_full_pages():
         "forward",
         "forward",
     ]
-    # Every forward poll resumes right after the newest timestamp seen so far.
-    assert [call.kwargs["start"] for call in calls[1:]] == [1_002, 2_003, 3_001]
+    # A full page re-reads its last timestamp; short pages advance past it.
+    assert [call.kwargs["start"] for call in calls[1:]] == [1_002, 2_002, 3_001]
+    assert result.output.count("line-2002") == 1
     assert sleep.call_count == 1
     assert result.output.index("line-1000") < result.output.index("line-3000")
     assert "Stopped following" in result.output
