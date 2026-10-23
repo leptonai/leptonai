@@ -399,6 +399,17 @@ def test_list_renders_and_filters(fake):
     assert "No Dynamo deployments found" in result.output
 
 
+def test_list_accepts_shared_filter_names(fake):
+    result = run("list", "--search", "dynamo")
+    assert "my-dynamo" in result.output and "solo" not in result.output
+
+    result = run("list", "-s", "ready")
+    assert "my-dynamo" in result.output and "solo" not in result.output
+
+    result = run("list", "-u", "bob")
+    assert "solo" in result.output and "my-dynamo" not in result.output
+
+
 def test_get_prints_json_and_saves_spec(fake, tmp_path):
     result = run("get", "-n", "my-dynamo", "-p", str(tmp_path))
     assert result.exit_code == 0, result.output
@@ -439,6 +450,14 @@ def test_service_list_and_get(fake):
     assert "frontend" in result.output and "worker" in result.output
     assert "2 nodes" in result.output
 
+    result = run("service", "list", "-n", "my-dynamo", "-q", "WORK")
+    assert result.exit_code == 0, result.output
+    assert "worker" in result.output and "frontend" not in result.output
+
+    result = run("service", "list", "-n", "my-dynamo", "--search", "nope")
+    assert result.exit_code == 0, result.output
+    assert "No services match the specified filters." in result.output
+
     result = run("service", "get", "-n", "my-dynamo", "-s", "worker")
     assert result.exit_code == 0, result.output
     assert "Shape:        gpu.a100-1" in result.output
@@ -464,6 +483,15 @@ def test_replicas_filters(fake):
 
     result = run("replica", "list", "-n", "my-dynamo", "--state", "ready")
     assert "frontend-abc" in result.output and "worker-xyz" not in result.output
+
+    result = run("replica", "list", "-n", "my-dynamo", "--status", "ready")
+    assert "frontend-abc" in result.output and "worker-xyz" not in result.output
+
+    result = run("replica", "list", "-n", "my-dynamo", "-q", "XYZ")
+    assert "worker-xyz" in result.output and "frontend-abc" not in result.output
+
+    result = run("replica", "list", "-n", "my-dynamo", "--search", "nope")
+    assert "No replicas match the specified filters." in result.output
 
     result = run("replica", "list", "-n", "my-dynamo", "-s", "nope")
     assert result.exit_code == 1
