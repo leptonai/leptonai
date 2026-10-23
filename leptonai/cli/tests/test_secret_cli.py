@@ -40,6 +40,12 @@ def test_filter_secrets_keyword_matches_name_case_insensitively(secrets):
     assert _filter_secrets(secrets, keyword="hf", owners=["bob"]) == []
 
 
+def test_filter_secrets_keyword_matches_tags(secrets):
+    assert _names(_filter_secrets(secrets, keyword="HF")) == ["HF_TOKEN"]
+    secrets[1].tags = ["github"]
+    assert _names(_filter_secrets(secrets, keyword="git")) == ["SSH_PUBLIC_KEY.alice"]
+
+
 def test_filter_secrets_owner_prefix_and_visibility(secrets):
     assert _names(_filter_secrets(secrets, owners=["ALICE"])) == [
         "HF_TOKEN",

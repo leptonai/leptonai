@@ -1685,3 +1685,66 @@ def test_list_reservations_command_rejects_unknown_status():
     )
     assert result.exit_code == 2
     assert "Invalid value for '--status'" in result.output
+
+
+def _invoke_node_group_list(args, node_groups):
+    client = SimpleNamespace(
+        nodegroup=SimpleNamespace(
+            list_all=Mock(return_value=list(node_groups)),
+            batch_fetch_nodes=Mock(
+                side_effect=lambda groups, **_: [[] for _ in groups]
+            ),
+        )
+    )
+    with patch("leptonai.cli.node.get_client", return_value=client):
+        with patch(
+            "leptonai.cli.node.resolve_node_groups",
+            side_effect=lambda terms, **_: [
+                ng for ng in node_groups if any(t in ng.metadata.name for t in terms)
+            ],
+        ):
+            return CliRunner().invoke(node, ["list", *args])
+
+
+@pytest.fixture
+def node_groups():
+    return [
+        SimpleNamespace(
+            metadata=SimpleNamespace(name="h100-train", id_="ng-aaa"), spec=None
+        ),
+        SimpleNamespace(
+            metadata=SimpleNamespace(name="h100-infer", id_="ng-bbb"), spec=None
+        ),
+        SimpleNamespace(
+            metadata=SimpleNamespace(name="a100-train", id_="ng-ccc"), spec=None
+        ),
+    ]
+
+
+def test_node_group_list_search_matches_name_and_id(node_groups, monkeypatch):
+    monkeypatch.setattr(node_console, "width", 240)
+    result = _invoke_node_group_list(["--search", "TRAIN"], node_groups)
+    assert result.exit_code == 0, result.output
+    assert "h100-train" in result.output
+    assert "a100-train" in result.output
+    assert "h100-infer" not in result.output
+
+    result = _invoke_node_group_list(["-q", "ng-bbb"], node_groups)
+    assert result.exit_code == 0, result.output
+    assert "h100-infer" in result.output
+    assert "h100-train" not in result.output
+
+
+def test_node_group_list_search_combines_with_node_group(node_groups, monkeypatch):
+    monkeypatch.setattr(node_console, "width", 240)
+    result = _invoke_node_group_list(["-ng", "h100", "-q", "train"], node_groups)
+    assert result.exit_code == 0, result.output
+    assert "h100-train" in result.output
+    assert "h100-infer" not in result.output
+    assert "a100-train" not in result.output
+
+
+def test_node_group_list_reports_when_nothing_matches(node_groups):
+    result = _invoke_node_group_list(["--keyword", "missing"], node_groups)
+    assert result.exit_code == 0, result.output
+    assert "No node groups match the specified filters." in result.output
