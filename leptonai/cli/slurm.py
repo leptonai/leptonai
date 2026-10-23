@@ -35,7 +35,9 @@ from .util import (
     console,
     epoch_to_seconds,
     format_epoch_cell,
+    keyword_matches,
     make_name_id_cell,
+    normalize_keyword,
 )
 
 
@@ -947,8 +949,11 @@ def cluster():
 @cluster.command(name="list")
 @click.option(
     "--name",
+    "--search",
+    "--keyword",
     "names",
     "-n",
+    "-q",
     multiple=True,
     help="Filter by cluster name substring (case-insensitive; repeatable).",
 )
@@ -1120,8 +1125,22 @@ def job():
     default=False,
     help="Include archived jobs in the list.",
 )
-@click.option("--query", "q", "-q", help="Filter by job name substring or job ID.")
-@click.option("--created-by", multiple=True, help="Creator email; repeatable.")
+@click.option(
+    "--search",
+    "--keyword",
+    "--query",
+    "q",
+    "-q",
+    help="Filter by job name substring or job ID.",
+)
+@click.option(
+    "--created-by",
+    "--user",
+    "-u",
+    "created_by",
+    multiple=True,
+    help="Creator email; repeatable.",
+)
 @click.option("--output", "output_format", "-o", type=OUTPUT_FORMAT, default="table")
 def list_jobs(
     cluster_names: Tuple[str, ...],
@@ -1401,8 +1420,19 @@ def devpod():
     multiple=True,
     help="Filter by cluster NAME or NAMESPACE/NAME; repeatable.",
 )
+@click.option(
+    "--search",
+    "--keyword",
+    "-q",
+    "keyword",
+    help="Case-insensitive substring search across Dev Pod name and ID.",
+)
 @click.option("--output", "output_format", "-o", type=OUTPUT_FORMAT, default="table")
-def list_devpods(cluster_names: Tuple[str, ...], output_format: str) -> None:
+def list_devpods(
+    cluster_names: Tuple[str, ...],
+    output_format: str,
+    keyword: Optional[str] = None,
+) -> None:
     """List Slurm Dev Pods owned by the current user."""
     api = APIClient().slurm
     clusters: List[LeptonSlurmCluster] = []
@@ -1414,6 +1444,12 @@ def list_devpods(cluster_names: Tuple[str, ...], output_format: str) -> None:
         _resolve_cluster_id(api, value, clusters=clusters) for value in cluster_names
     ]
     devpods = api.list_devpods(cluster_names=selected or None)
+    normalized_keyword = normalize_keyword(keyword)
+    devpods = [
+        item
+        for item in devpods
+        if keyword_matches(normalized_keyword, item.metadata.name, item.metadata.id_)
+    ]
     if output_format == "json":
         _print_json(devpods)
     else:

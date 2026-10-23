@@ -152,6 +152,28 @@ class TestJobListFilters(unittest.TestCase):
         self.assertEqual(kwargs["created_by"], ["alice"])
         self.assertIn("No jobs matched your filters.", result.output)
 
+    def test_job_list_accepts_shared_filter_names(self):
+        result, list_all = self._invoke(
+            ["--status", "Running", "--created-by", "alice", "--search", "train"]
+        )
+        self.assertEqual(result.exit_code, 0, result.output)
+        kwargs = list_all.call_args.kwargs
+        self.assertEqual(kwargs["status"], ["Running"])
+        self.assertEqual(kwargs["created_by"], ["alice"])
+        self.assertEqual(kwargs["q"], "train")
+
+    def test_job_list_keeps_legacy_filter_names(self):
+        result, list_all = self._invoke(
+            ["--state", "Running", "--user", "alice", "--name-or-id", "train"]
+        )
+        self.assertEqual(result.exit_code, 0, result.output)
+        kwargs = list_all.call_args.kwargs
+        self.assertEqual(kwargs["status"], ["Running"])
+        self.assertEqual(kwargs["created_by"], ["alice"])
+        self.assertEqual(kwargs["q"], "train")
+        result, list_all = self._invoke(["-q", "train"])
+        self.assertEqual(list_all.call_args.kwargs["q"], "train")
+
     def test_job_list_state_help_is_derived_from_the_enum(self):
         result = CliRunner().invoke(cli, ["job", "list", "--help"])
         self.assertEqual(result.exit_code, 0)
