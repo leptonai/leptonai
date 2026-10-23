@@ -101,7 +101,11 @@ def _filter_secrets(secrets, *, keyword=None, owners=(), visibility=None):
     wanted_visibility = (visibility,) if visibility else ()
 
     def matches(secret):
-        if not keyword_matches(normalized_keyword, getattr(secret, "name", None)):
+        if not keyword_matches(
+            normalized_keyword,
+            getattr(secret, "name", None),
+            *(getattr(secret, "tags", None) or ()),
+        ):
             return False
         if not prefix_matches(getattr(secret, "owner", None), owners):
             return False
@@ -117,7 +121,7 @@ def _filter_secrets(secrets, *, keyword=None, owners=(), visibility=None):
     "-q",
     "keyword",
     type=str,
-    help="Case-insensitive substring search on the secret name.",
+    help="Case-insensitive substring search on the secret name and tags.",
 )
 @click.option(
     "--owner",
@@ -142,7 +146,7 @@ def list_command(keyword=None, owners=(), visibility=None):
     Lists all secrets in the current workspace. Note that the secret values are
     always hidden.
 
-    --search matches the secret name and --owner the owner (as in the
+    --search matches the secret name or tags and --owner the owner (as in the
     dashboard); --visibility narrows to public or private secrets. Different
     filters are combined with AND.
     """
