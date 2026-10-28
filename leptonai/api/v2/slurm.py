@@ -486,7 +486,7 @@ class SlurmAPI(APIResourse):
             return cluster_base + cluster_views[view]
 
         job = quote(str(job_id), safe="")
-        job_base = f"{cluster_base}/jobs/detail/{job}"
+        job_base = f"{base}/compute/jobs/slurm/detail/{cluster}/{job}"
         if view in ("detail", "overview"):
             return f"{job_base}/overview"
         if view == "attempts":

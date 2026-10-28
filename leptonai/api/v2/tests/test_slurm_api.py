@@ -75,8 +75,11 @@ def test_composite_cluster_id_and_dashboard_routes():
     assert api.dashboard_url("clusters").endswith("/clusters/slurm/list")
     assert api.dashboard_url("jobs").endswith("/compute/jobs/slurm-list")
     assert api.dashboard_url(
+        "overview", cluster_id="namespace/cluster", job_id="42"
+    ).endswith("/compute/jobs/slurm/detail/namespace%2Fcluster/42/overview")
+    assert api.dashboard_url(
         "attempts", cluster_id="namespace/cluster", job_id="42"
-    ).endswith("/clusters/slurm/detail/namespace%2Fcluster/jobs/detail/42/attempts")
+    ).endswith("/compute/jobs/slurm/detail/namespace%2Fcluster/42/attempts")
     assert api.dashboard_url(
         "logs", cluster_id="namespace/cluster", job_id="42"
     ).endswith("#/slurm-cluster/namespace%2Fcluster/jobs/42/logs")
