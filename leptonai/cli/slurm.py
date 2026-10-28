@@ -6,6 +6,7 @@ import subprocess
 import sys
 import time
 from datetime import datetime, timezone
+from functools import partial
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 import click
@@ -22,11 +23,11 @@ from ..api.v2.types.slurm import (
     SlurmJobAttempt,
     SlurmJobStatus,
     SlurmLogEntry,
-    SlurmLogs,
     WorkspaceSlurmJob,
     WorkspaceSlurmJobList,
 )
-from .log import _preprocess_time
+from .log import _preprocess_time, query_historical_logs
+from .log_pagination import MAX_LOG_PAGE_LIMIT, complete_log_page
 from .teleport import connect_node_teleport
 from .util import (
     LooseChoice,
@@ -639,12 +640,16 @@ def _print_devpod_detail(
     )
 
 
+def _print_log_line(timestamp: Optional[int], line: str, *, timestamps: bool) -> None:
+    if timestamps and timestamp is not None:
+        click.echo(f"{_format_time(timestamp)} {line}")
+    else:
+        click.echo(line)
+
+
 def _print_log_entries(entries: Iterable[SlurmLogEntry], *, timestamps: bool) -> None:
     for entry in entries:
-        if timestamps and entry.timestamp is not None:
-            click.echo(f"{_format_time(entry.timestamp)} {entry.line}")
-        else:
-            click.echo(entry.line)
+        _print_log_line(entry.timestamp, entry.line, timestamps=timestamps)
 
 
 _FOLLOW_LOOKBACK_NS = 5 * 60 * 1_000_000_000
@@ -663,51 +668,57 @@ def _follow_logs(
 
     Without ``--start`` the first request fetches the newest page (like
     ``tail -f``) instead of replaying the look-back window oldest-first.
-    Afterwards the loop polls forward from the last timestamp seen; a full
-    page means more lines are waiting, so it re-requests immediately and only
-    sleeps once a poll comes back short.
+    Forward pages defer their last timestamp group until it is complete,
+    retrying it inclusively and enlarging the page if necessary. A full page
+    is drained immediately; polling sleeps only after a short page.
     """
-    limit = common["limit"]
-
-    def emit(logs: SlurmLogs) -> Tuple[int, Optional[int]]:
-        entries = logs.entries()
-        _print_log_entries(entries, timestamps=timestamps)
-        seen = [entry.timestamp for entry in entries if entry.timestamp is not None]
-        return len(entries), (max(seen) + 1 if seen else None)
+    options = dict(common)
+    limit = min(options.pop("limit"), MAX_LOG_PAGE_LIMIT)
 
     cursor = start_ns
     try:
         if cursor is None:
             cursor = time.time_ns() - _FOLLOW_LOOKBACK_NS
-            _, newest = emit(
-                api.get_logs(
-                    cluster_id,
-                    start=cursor,
-                    end=time.time_ns(),
-                    direction="backward",
-                    **common,
-                )
-            )
-            if newest is not None:
-                cursor = newest
+            entries = api.get_logs(
+                cluster_id,
+                start=cursor,
+                end=time.time_ns(),
+                direction="backward",
+                limit=limit,
+                **options,
+            ).entries()
+            _print_log_entries(entries, timestamps=timestamps)
+            seen = [entry.timestamp for entry in entries if entry.timestamp is not None]
+            if seen:
+                # The initial tail is intentionally limited; forward draining
+                # begins after it rather than replaying older log history.
+                cursor = max(seen) + 1
         while True:
             window_end = time.time_ns()
+            request_limit = limit
             # A remote timestamp can run ahead of the local clock; skip the
             # poll rather than send a window the server rejects.
             while window_end > cursor:
-                count, newest = emit(
-                    api.get_logs(
-                        cluster_id,
-                        start=cursor,
-                        end=window_end,
-                        direction="forward",
-                        **common,
-                    )
-                )
-                if newest is not None:
-                    cursor = newest
-                if newest is None or count < limit:
+                entries = api.get_logs(
+                    cluster_id,
+                    start=cursor,
+                    end=window_end,
+                    direction="forward",
+                    limit=request_limit,
+                    **options,
+                ).entries()
+                if not entries:
                     break
+                complete, next_limit = complete_log_page(
+                    [entry.timestamp for entry in entries], request_limit
+                )
+                _print_log_entries(entries[:complete], timestamps=timestamps)
+                cursor = entries[-1].timestamp
+                if complete == len(entries):
+                    cursor += 1
+                if len(entries) < request_limit:
+                    break
+                request_limit = next_limit
             time.sleep(poll_interval)
     except KeyboardInterrupt:
         console.print("[dim]Stopped following Slurm logs.[/dim]")
@@ -1257,9 +1268,38 @@ def job_attempts(
     show_default=True,
 )
 @click.option("--query", "query", "-q", help="Filter log lines.")
-@click.option("--start", help="UTC time or epoch (seconds/ms/us/ns).")
-@click.option("--end", help="UTC time or epoch (seconds/ms/us/ns).")
-@click.option("--limit", type=click.IntRange(min=1), default=100, show_default=True)
+@click.option(
+    "--start",
+    help=(
+        "UTC time or epoch (seconds/ms/us/ns). History defaults to today at 00:00 UTC."
+    ),
+)
+@click.option(
+    "--end",
+    help=(
+        "UTC time or epoch (seconds/ms/us/ns). History defaults to now."
+        " Cannot be used with --follow."
+    ),
+)
+@click.option(
+    "--limit",
+    type=click.IntRange(min=1),
+    default=None,
+    help=(
+        "Show the latest N historical lines (default: all); with --follow,"
+        " set the page size (default: 100)."
+    ),
+)
+@click.option(
+    "--workers",
+    "-w",
+    type=click.IntRange(1, 128),
+    default=None,
+    help=(
+        "Concurrent historical requests (default: 32), effective without --limit."
+        " Cannot be used with --follow."
+    ),
+)
 @click.option(
     "--follow",
     "follow",
@@ -1287,7 +1327,8 @@ def job_log(
     query: Optional[str],
     start: Optional[str],
     end: Optional[str],
-    limit: int,
+    limit: Optional[int],
+    workers: Optional[int],
     follow: bool,
     timestamps: bool,
     poll_interval: float,
@@ -1295,23 +1336,24 @@ def job_log(
     """Print or follow stdout/stderr logs for a Slurm job.
 
     Select the job by --id or --name; the owning cluster is resolved
-    automatically.
+    automatically. Historical queries use the same adaptive windows as
+    `lep log get`, retrieving the full time range unless --limit is set.
+    With --follow, poll for new lines after an initial tail from the last
+    five minutes, or start at --start when supplied.
     """
     _validate_name_id_selector(name, id)
-    start_ns = _preprocess_time(start, epoch=True) if start else None
-    end_ns = _preprocess_time(end, epoch=True) if end else None
-    if start_ns is None and end_ns is not None:
-        start_ns = end_ns - 5 * 60 * 1_000_000_000
-    if start_ns is not None and end_ns is not None and end_ns <= start_ns:
-        raise click.UsageError("--end must be later than --start.")
-    if follow and end_ns is not None:
+    if follow and end is not None:
         raise click.UsageError("--end cannot be used together with --follow.")
+    if follow and workers is not None:
+        raise click.UsageError("--workers cannot be used together with --follow.")
+    start_ns = _preprocess_time(start, epoch=True) if follow and start else None
     resolved_log_type = {
         "all": None,
         "stdout": "stdout.log",
         "stderr": "stderr.log",
     }[log_type]
-    api = APIClient().slurm
+    client = APIClient()
+    api = client.slurm
     resolved_cluster = _resolve_cluster_id(api, cluster) if cluster else None
     if id and resolved_cluster:
         cluster_id, job_id = resolved_cluster, id
@@ -1325,6 +1367,29 @@ def job_log(
         )
         cluster_id, job_id = owner, _job_identifier(item)
 
+    if not follow:
+        namespace, cluster_name = api.split_cluster_id(cluster_id)
+        query_historical_logs(
+            client,
+            start=start,
+            end=end,
+            limit=limit,
+            query=query or "",
+            without_timestamp=not timestamps,
+            workers=workers,
+            emit_line=partial(_print_log_line, timestamps=timestamps),
+            log_options={
+                "slurm_namespace": namespace,
+                "slurm_cluster": cluster_name,
+                "slurm_job": job_id,
+                "slurm_attempt": str(attempt) if attempt is not None else None,
+                "slurm_step": step,
+                "slurm_node": node,
+                "slurm_log_type": resolved_log_type,
+            },
+        )
+        return
+
     common = dict(
         job_id=job_id,
         attempt=attempt,
@@ -1332,18 +1397,8 @@ def job_log(
         node=node,
         log_type=resolved_log_type,
         query=query,
-        limit=limit,
+        limit=limit if limit is not None else 100,
     )
-    if not follow:
-        logs = api.get_logs(
-            cluster_id,
-            start=start_ns,
-            end=end_ns,
-            direction="backward",
-            **common,
-        )
-        _print_log_entries(logs.entries(), timestamps=timestamps)
-        return
     _follow_logs(
         api,
         cluster_id,

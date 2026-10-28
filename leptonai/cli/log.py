@@ -6,6 +6,7 @@ import re
 import sys
 import threading
 import traceback
+from collections import Counter
 from dataclasses import dataclass
 from typing import Callable, List, NoReturn, Optional, Tuple
 
@@ -15,6 +16,7 @@ from .util import click_group, console, epoch_scale
 from .util import resolve_save_path, PathResolutionError
 
 from .client import APIClient
+from .log_pagination import MAX_LOG_PAGE_LIMIT, complete_log_page
 from ..api.v2.log import LogAPIError
 
 import json
@@ -309,6 +311,7 @@ class _RateLimitSignal:
 # A sink consumes entries in chronological order, as released by the commit
 # watermark; it must propagate any write failure by raising.
 EmitFn = Callable[[List[LogEntry]], None]
+LineEmitter = Callable[[int, str], None]
 
 
 _HASHABLE_SCALAR_TYPES = (str, int, float, bool, type(None))
@@ -782,16 +785,23 @@ class _LazyFileSink:
         _quiet_close(self._f)
 
 
-def _make_stdout_sink(without_timestamp: bool, bookkeeping: _EmitBookkeeping) -> EmitFn:
-    """Build the no-`--path` sink: prints each entry via the shared `console`."""
+def _make_stdout_sink(
+    without_timestamp: bool,
+    bookkeeping: _EmitBookkeeping,
+    emit_line: Optional[LineEmitter] = None,
+) -> EmitFn:
+    """Print entries using the caller's renderer or the shared `console`."""
 
     def emit(entries: List[LogEntry]) -> None:
         for entry in entries:
             utc_time = _epoch_to_time_str(entry.timestamp_ns)
-            cur_line = safe_load_json(entry.line)
-            if not without_timestamp:
-                console.print(f"[green]{utc_time}|[/]", end="")
-            console.print(json.dumps(cur_line, ensure_ascii=False), markup=False)
+            if emit_line is not None:
+                emit_line(entry.timestamp_ns, entry.line)
+            else:
+                cur_line = safe_load_json(entry.line)
+                if not without_timestamp:
+                    console.print(f"[green]{utc_time}|[/]", end="")
+                console.print(json.dumps(cur_line, ensure_ascii=False), markup=False)
             bookkeeping.record(utc_time)
 
     return emit
@@ -822,6 +832,7 @@ class _AdaptiveLogScheduler:
         without_timestamp: bool,
         path: Optional[str],
         log_options: Optional[dict] = None,
+        emit_line: Optional[LineEmitter] = None,
     ):
         """
         Args:
@@ -842,6 +853,7 @@ class _AdaptiveLogScheduler:
         self.unix_end = unix_end
         self.effective_workers = workers if workers is not None else 32
         self.without_timestamp = without_timestamp
+        self.emit_line = emit_line
 
         self.bookkeeping = _EmitBookkeeping()
         # Prefer the workload identifier when naming the output file.
@@ -1084,15 +1096,19 @@ class _AdaptiveLogScheduler:
 
     def _drain_and_emit(self, watermark: int, emit_fn: EmitFn) -> None:
         """Pop and emit all buffered entries strictly below `watermark`,
-        de-duplicating exact `LogEntry` repeats at flush time.
+        removing overlap between responses while preserving repeated records
+        within each response. For each entry, emit the largest count observed
+        in any one unit; a replayed boundary must not add that count again.
         """
         to_emit: List[LogEntry] = []
-        seen = set()
+        occurrences = Counter()
+        emitted = Counter()
         while self.buffer and self.buffer[0][0] < watermark:
-            _, _, _, entry = heapq.heappop(self.buffer)
-            if entry in seen:
+            _, unit_seq, _, entry = heapq.heappop(self.buffer)
+            occurrences[unit_seq, entry] += 1
+            if occurrences[unit_seq, entry] <= emitted[entry]:
                 continue
-            seen.add(entry)
+            emitted[entry] += 1
             to_emit.append(entry)
         if to_emit:
             emit_fn(to_emit)
@@ -1116,7 +1132,9 @@ class _AdaptiveLogScheduler:
         emit_fn = (
             self.sink.emit
             if self.sink
-            else _make_stdout_sink(self.without_timestamp, self.bookkeeping)
+            else _make_stdout_sink(
+                self.without_timestamp, self.bookkeeping, self.emit_line
+            )
         )
 
         progress_cm = Progress() if self.sink else contextlib.nullcontext()
@@ -1329,6 +1347,7 @@ def fetch_logs_adaptive_parallel(
     without_timestamp: bool,
     path: Optional[str],
     log_options: Optional[dict] = None,
+    emit_line: Optional[LineEmitter] = None,
 ) -> NoReturn:
     """Construct and run an `_AdaptiveLogScheduler` for one fetch.
 
@@ -1350,6 +1369,7 @@ def fetch_logs_adaptive_parallel(
         without_timestamp,
         path,
         log_options=log_options,
+        emit_line=emit_line,
     ).run()
 
 
@@ -1735,8 +1755,59 @@ def log_command(
             raise click.ClickException(str(exc)) from exc
         return
 
+    log_options.update(name_or_dynamo=dynamo, dynamo_service=dynamo_service)
+    query_historical_logs(
+        client,
+        deployment=deployment,
+        job=job,
+        replica=replica,
+        job_history_name=job_history_name,
+        start=start,
+        end=end,
+        limit=limit,
+        path=path,
+        query=query,
+        without_timestamp=without_timestamp,
+        workers=workers,
+        log_options=log_options,
+        interactive=True,
+    )
+
+
+def query_historical_logs(
+    client,
+    *,
+    deployment=None,
+    job=None,
+    replica=None,
+    job_history_name=None,
+    start=None,
+    end=None,
+    limit: Optional[int] = None,
+    path: Optional[str] = None,
+    query="",
+    without_timestamp: bool = False,
+    workers: Optional[int] = None,
+    log_options: Optional[dict] = None,
+    interactive: bool = False,
+    emit_line: Optional[LineEmitter] = None,
+) -> None:
+    """Query and print history using the shared window and pagination rules.
+
+    Missing bounds use the Job's lifetime when available, then today/now in
+    UTC. Unlimited queries use the adaptive scheduler; a finite limit selects
+    the latest entries unless log_options requests the forward direction.
+    Only the legacy `log get` command opts into interactive navigation.
+    The adaptive scheduler terminates with its success/partial-failure status.
+    An optional `emit_line(timestamp_ns, text)` preserves a caller's stdout
+    format; file output and query summaries use the shared format.
+    """
+    log_options = dict(log_options or {})
+    direction = log_options.setdefault("direction", "backward")
     if (not start or not end) and job:
-        job_obj = client.job.get(job, job_query_mode=log_options["job_query_mode"])
+        job_obj = client.job.get(
+            job, job_query_mode=log_options.get("job_query_mode", "alive_and_archive")
+        )
         logger.trace(json.dumps(job_obj.model_dump(), indent=4))
         if job_obj.status is not None:
             start = start or job_obj.status.creation_time
@@ -1751,8 +1822,6 @@ def log_command(
             " 00:00:00)"
         )
         start = "today"
-
-    log_options.update(name_or_dynamo=dynamo, dynamo_service=dynamo_service)
 
     def fetch_log(start, end, limit, path=None):
         unix_start = _preprocess_time(start, epoch=True)
@@ -1798,6 +1867,7 @@ def log_command(
                 without_timestamp,
                 path,
                 log_options=log_options,
+                emit_line=emit_line,
             )
 
         # ======================================================================
@@ -1814,6 +1884,7 @@ def log_command(
         with Progress() as progress:
             task = progress.add_task("Fetching logs...", total=time_total_ns)
             while cur_limit > 0:
+                request_limit = min(cur_limit, MAX_LOG_PAGE_LIMIT)
                 log_dict = client.log.get_log(
                     name_or_deployment=deployment,
                     name_or_job=job,
@@ -1821,7 +1892,7 @@ def log_command(
                     job_history_name=job_history_name,
                     start=cur_unix_start,
                     end=cur_unix_end,
-                    limit=cur_limit if cur_limit < 10000 else 10000,
+                    limit=request_limit,
                     q=query,
                     **log_options,
                 )
@@ -1837,27 +1908,35 @@ def log_command(
                 if len(cur_log_list) == 0:
                     progress.update(task, completed=True)
                     break
-                # Use the oldest/newest timestamps to advance the chosen cursor.
-                cur_log_list.sort(key=lambda x: x[0], reverse=True)
+                cur_log_list.sort(key=lambda x: x[0], reverse=direction == "backward")
+                # Once the requested total is satisfied, truncation is intentional.
+                if len(cur_log_list) >= cur_limit:
+                    log_list.extend(cur_log_list[:cur_limit])
+                    break
 
-                cur_limit -= len(cur_log_list)
+                complete, _ = complete_log_page(
+                    [timestamp for timestamp, _ in cur_log_list], request_limit
+                )
+                log_list.extend(cur_log_list[:complete])
+                cur_limit -= complete
+                boundary = cur_log_list[-1][0]
+                partial_boundary = complete < len(cur_log_list)
                 if direction == "forward":
-                    next_start = cur_log_list[0][0] + 1
+                    next_start = boundary if partial_boundary else boundary + 1
                     if next_start <= cur_unix_start:
                         raise RuntimeError("Log pagination did not advance.")
                     progress.update(task, advance=next_start - cur_unix_start)
                     cur_unix_start = next_start
                 else:
-                    next_end = cur_log_list[-1][0]
+                    # The API's end bound is exclusive; include the boundary
+                    # again until its timestamp group has been fully retrieved.
+                    next_end = boundary + 1 if partial_boundary else boundary
                     if next_end >= cur_unix_end:
                         raise RuntimeError("Log pagination did not advance.")
                     progress.update(task, advance=cur_unix_end - next_end)
                     cur_unix_end = next_end
                 if cur_unix_start >= cur_unix_end:
-                    log_list.extend(cur_log_list)
                     break
-
-                log_list.extend(cur_log_list)
 
         return sorted(log_list, key=lambda item: item[0], reverse=True)
 
@@ -1910,11 +1989,16 @@ def log_command(
             sys.exit(0)
         else:
             for log in reversed(log_list):
-                utc_time = _epoch_to_time_str(log[0])
-                cur_line = safe_load_json(log[1])
-                if not without_timestamp:
-                    console.print(f"[green]{utc_time}|[/]", end="")
-                console.print(json.dumps(cur_line, ensure_ascii=False), markup=False)
+                if emit_line is not None:
+                    emit_line(log[0], log[1])
+                else:
+                    utc_time = _epoch_to_time_str(log[0])
+                    cur_line = safe_load_json(log[1])
+                    if not without_timestamp:
+                        console.print(f"[green]{utc_time}|[/]", end="")
+                    console.print(
+                        json.dumps(cur_line, ensure_ascii=False), markup=False
+                    )
 
             console.print(
                 f"\n👆Time range: [blue]UTC|{first_utc_time}[/] →"
@@ -1956,7 +2040,7 @@ def log_command(
             sys.exit(1)
 
         first_utc_time, last_utc_time = fetch_and_print_logs(start, end, limit, path)
-        while True and sys.stdin.isatty():
+        while interactive and sys.stdin.isatty():
             console.print(
                 "Enter a command [yellow](e.g., `next 10`, `last 20`, `time+ 30.5s`,"
                 " `time- 2.1s`, `quit`)[/]:"
