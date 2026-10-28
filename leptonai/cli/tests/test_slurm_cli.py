@@ -406,7 +406,7 @@ def test_job_list_table_shows_slurm_state_and_reason():
     assert "NodeDown" in result.output
 
 
-def test_job_logs_maps_scope_and_prints_in_timestamp_order():
+def test_job_log_maps_scope_and_prints_in_timestamp_order():
     client, api = _fake_client()
     with patch("leptonai.cli.slurm.APIClient", return_value=client):
         result = CliRunner().invoke(
@@ -414,7 +414,7 @@ def test_job_logs_maps_scope_and_prints_in_timestamp_order():
             [
                 "slurm",
                 "job",
-                "logs",
+                "log",
                 "-i",
                 "42",
                 "--attempt",
@@ -1085,7 +1085,7 @@ def test_devpod_shell_needs_a_ready_dev_pod(metadata, status, message):
     bridge.assert_not_called()
 
 
-def test_job_logs_follow_seeds_newest_page_then_drains_full_pages():
+def test_job_log_follow_seeds_newest_page_then_drains_full_pages():
     client, api = _fake_client()
 
     def page(first, count):
@@ -1103,7 +1103,7 @@ def test_job_logs_follow_seeds_newest_page_then_drains_full_pages():
         patch("leptonai.cli.slurm.time.sleep") as sleep,
     ):
         result = CliRunner().invoke(
-            lep, ["slurm", "job", "logs", "-i", "42", "--follow", "--limit", "3"]
+            lep, ["slurm", "job", "log", "-i", "42", "--follow", "--limit", "3"]
         )
 
     assert result.exit_code == 0, result.output
