@@ -95,7 +95,7 @@ def test_slurm_follow_finishes_boundary_before_advancing(entries):
             [
                 "slurm",
                 "job",
-                "logs",
+                "log",
                 "-i",
                 "42",
                 "--follow",
@@ -166,7 +166,7 @@ def test_slurm_follow_reports_a_full_single_timestamp_at_the_api_limit():
             [
                 "slurm",
                 "job",
-                "logs",
+                "log",
                 "-i",
                 "42",
                 "--follow",

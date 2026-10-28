@@ -909,6 +909,7 @@ JOB_STATE_NAMES = ", ".join(
 @job.command(name="list")
 @click.option(
     "--state",
+    "--status",
     "-s",
     help=(
         "Filter jobs by state. Case-insensitive and matches the beginning of the state"
@@ -922,6 +923,7 @@ JOB_STATE_NAMES = ", ".join(
 )
 @click.option(
     "--user",
+    "--created-by",
     "-u",
     help=(
         "Filter jobs by user. Case-insensitive and matches the beginning of the"
@@ -933,7 +935,11 @@ JOB_STATE_NAMES = ", ".join(
 )
 @click.option(
     "--name-or-id",
+    "--search",
+    "--keyword",
     "-n",
+    "-q",
+    "name_or_id",
     help=(
         "Filter jobs by name or id. Case-insensitive and matches any part of the name"
         " or id. Does not support multiple values. Example: 'train' will match"
@@ -979,14 +985,18 @@ def list_command(state, user, name_or_id, node_group, include_archived, labels=(
     Lists all jobs in the current workspace.
 
     You can filter jobs by:
-    - State: Case-insensitive prefix match (e.g., 'run' matches 'Running')
-    - User: Case-insensitive prefix match (e.g., 'alice' matches 'alice123')
-    - Name/ID: Case-insensitive substring match (e.g., 'train' matches 'training-job-123')
+    - State (--state/--status/-s): Case-insensitive prefix match (e.g., 'run'
+      matches 'Running')
+    - User (--user/--created-by/-u): Case-insensitive prefix match (e.g.,
+      'alice' matches 'alice123')
+    - Name/ID (--name-or-id/--search/--keyword/-n/-q): Case-insensitive
+      substring match (e.g., 'train' matches 'training-job-123')
     - Node Group: Case-insensitive substring match
     - Label: KEY, KEY=VALUE or KEY:VALUE (repeat for AND), as in the dashboard
 
-    Multiple filters can be combined. For example:
-    lep job list -s queue -u alice -n train -ng h100 -l team=research
+    Repeated values of the same filter are ORed (except labels); different
+    filters are combined with AND. For example:
+    lep job list -s queue -u alice -q train -ng h100 -l team=research
     """
 
     if include_archived and state:
@@ -1597,9 +1607,15 @@ def shell(id, name, replica):
 def ssh(id, name, replica, teleport_proxy, teleport_auth):
     """SSH into a running Job replica through Teleport.
 
-    Requires an enabled Teleport agent in the Job image. Use `lep job replicas`
-    to list worker IDs. The Job API does not expose its Teleport proxy, so sign
-    in to the appropriate proxy first or specify --teleport-proxy.
+    Requires local tsh v18+ and an enabled Teleport agent in the Job image. Use
+    `lep job replicas` to list worker IDs. The CLI selects the SSH target and
+    Linux account for you.
+
+    The CLI reuses your Teleport login or starts sign-in before SSH. Teleport
+    sign-in is separate from your Lepton workspace login. If no active tsh
+    profile is available, ask your workspace or node group administrator for the
+    proxy and pass --teleport-proxy. Ask for the SSO connector name if
+    --teleport-auth is needed.
     """
     if bool(id) == bool(name):
         raise click.UsageError("Specify exactly one of --id or --name.")

@@ -1,3 +1,4 @@
+import json
 from functools import partial
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -1048,7 +1049,7 @@ def test_devpod_shell_needs_a_ready_dev_pod(metadata, status, message):
     bridge.assert_not_called()
 
 
-def test_job_logs_follow_seeds_newest_page_then_drains_full_pages():
+def test_job_log_follow_seeds_newest_page_then_drains_full_pages():
     client, api = _fake_client()
 
     def page(first, count):
@@ -1077,7 +1078,7 @@ def test_job_logs_follow_seeds_newest_page_then_drains_full_pages():
         patch("leptonai.cli.slurm.time.sleep") as sleep,
     ):
         result = CliRunner().invoke(
-            lep, ["slurm", "job", "logs", "-i", "42", "--follow", "--limit", "3"]
+            lep, ["slurm", "job", "log", "-i", "42", "--follow", "--limit", "3"]
         )
 
     assert result.exit_code == 0, result.output
@@ -1129,3 +1130,55 @@ def test_devpod_cluster_scope_lists_clusters_once():
 
     assert ssh.exit_code == 0, ssh.output
     api.list_clusters.assert_called_once_with()
+
+
+def test_list_commands_accept_shared_filter_names():
+    client, api = _fake_client()
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        jobs = CliRunner().invoke(
+            lep,
+            [
+                "slurm",
+                "job",
+                "list",
+                "--search",
+                "train",
+                "-u",
+                "alice",
+                "--user",
+                "bob",
+                "-o",
+                "json",
+            ],
+        )
+        legacy = CliRunner().invoke(
+            lep, ["slurm", "job", "list", "--query", "train", "-o", "json"]
+        )
+        clusters = CliRunner().invoke(
+            lep, ["slurm", "cluster", "list", "--search", "cluster-a", "-o", "json"]
+        )
+
+    assert jobs.exit_code == 0, jobs.output
+    first, second = api.list_jobs.call_args_list
+    assert first.kwargs["q"] == "train"
+    assert first.kwargs["created_by"] == ["alice", "bob"]
+    assert legacy.exit_code == 0, legacy.output
+    assert second.kwargs["q"] == "train"
+    assert clusters.exit_code == 0, clusters.output
+    assert "cluster-a" in clusters.output
+
+
+def test_devpod_list_search_filters_by_name_and_id():
+    client, api = _fake_client()
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        hit = CliRunner().invoke(
+            lep, ["slurm", "devpod", "list", "-q", "ALICE", "-o", "json"]
+        )
+        miss = CliRunner().invoke(
+            lep, ["slurm", "devpod", "list", "--search", "bob", "-o", "json"]
+        )
+
+    assert hit.exit_code == 0, hit.output
+    assert "cluster-a-alice" in hit.output
+    assert miss.exit_code == 0, miss.output
+    assert json.loads(miss.output) == []

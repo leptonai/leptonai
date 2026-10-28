@@ -284,7 +284,7 @@ def test_job_ssh_requires_a_node_for_multi_node_jobs(session):
 @pytest.mark.parametrize(
     "jobs, message",
     [
-        ([], "no current running allocation"),
+        ([], "lep slurm job get --id 42"),
         ([{**JOB, "metadata": {**JOB["metadata"], "owner": "bob"}}], "(alice_corp)"),
         (
             [{**JOB, "status": {**JOB["status"], "job_state": "COMPLETING"}}],
@@ -309,6 +309,7 @@ def test_job_ssh_requires_teleport_on_a_compute_group(session):
     result = invoke("job", "ssh", "--id", "42", "-c", "training")
     assert result.exit_code == 1
     assert "compute node groups" in result.output
+    assert "lep slurm cluster shell" in result.output
     run.assert_not_called()
 
 
@@ -368,7 +369,7 @@ def test_only_dev_pods_pin_the_starfleet_connector(session, args, auth):
     [
         ({"metadata": {"owner": "bob@example.com"}}, "you own"),
         ({"status": {"state": "NotReady"}}, "is not Ready"),
-        ({"status": {"teleportNodeName": None}}, "does not report a Teleport node"),
+        ({"status": {"teleportNodeName": None}}, "or `lep slurm devpod shell`"),
         ({"status": {"teleportNodeName": "other-pod"}}, "complete Teleport target"),
         ({"status": {"teleportCluster": "https://proxy"}}, "Teleport proxy"),
     ],

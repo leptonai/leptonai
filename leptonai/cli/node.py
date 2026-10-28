@@ -95,14 +95,19 @@ def node():
 @click.option(
     "--teleport-auth",
     default=None,
-    help="Teleport SSO connector; by default Teleport uses the cluster's default.",
+    help="Teleport SSO connector for login; selected automatically when omitted.",
 )
 def ssh(id, node_group, teleport_auth):
     """SSH into a Slurm compute container through Teleport.
 
-    Requires a personal workspace user/admin token and local tsh v18 or newer.
-    The compute group must enable Teleport and use host networking. Slurm account
-    access can depend on running jobs and node maintenance status.
+    Requires local tsh v18+. The compute group must enable Teleport and use host
+    networking. The CLI finds the cluster's Teleport proxy and connects as your
+    Slurm Linux account; access can depend on running jobs and node maintenance
+    status.
+
+    The CLI reuses your Teleport login or runs tsh login for you. Teleport
+    sign-in must use the same user as your Lepton login, so Service Account
+    Tokens are not supported; that user needs workspace user or admin access.
     """
     client = get_client()
     try:
@@ -297,13 +302,24 @@ def _format_shape_entry(shape):
     required=False,
     multiple=True,
 )
-def list_command(detail=False, node_group=None):
+@click.option(
+    "--search",
+    "--keyword",
+    "-q",
+    "keyword",
+    type=str,
+    help="Case-insensitive substring search across node group name and ID.",
+)
+def list_command(detail=False, node_group=None, keyword=None):
     """
     List node groups in the current workspace with a capacity summary.
 
     For each node group this shows node health (healthy/error/total), whether it
     is Lepton-managed or customer BYOC, and the aggregated GPU/CPU/memory/disk
     usage. For per-node detail, use 'lep node list-nodes -ng <node-group>'.
+
+    --search matches the node group name or ID; it is combined with
+    --node-group using AND.
     """
     if detail:
         console.print(
@@ -317,6 +333,16 @@ def list_command(detail=False, node_group=None):
         filtered_node_groups = resolve_node_groups(node_group, is_exact_match=False)
     else:
         filtered_node_groups = client.nodegroup.list_all()
+
+    normalized_keyword = normalize_keyword(keyword)
+    filtered_node_groups = [
+        ng
+        for ng in filtered_node_groups
+        if keyword_matches(normalized_keyword, ng.metadata.name, ng.metadata.id_)
+    ]
+    if not filtered_node_groups and normalized_keyword:
+        console.print("[yellow]No node groups match the specified filters.[/yellow]")
+        return
 
     table = Table(title="Node Groups", show_lines=True)
     table.add_column("Node Group")

@@ -221,7 +221,12 @@ def test_no_profile_requires_proxy_without_attempting_login(session):
     run.return_value = result(1, stderr="ERROR: Not logged in.")
     output = invoke()
     assert output.exit_code == 1
-    assert "--teleport-proxy" in output.output
+    assert "workspace or node group administrator" in output.output
+    assert "tsh login --proxy=<proxy>" in output.output
+    assert "--auth=<connector>" in output.output
+    assert "--teleport-proxy <proxy>" in output.output
+    assert "--teleport-auth <connector>" in output.output
+    assert "Replace the placeholders" in output.output
     assert run.call_count == 1
 
 

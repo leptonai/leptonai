@@ -90,7 +90,8 @@ def _teleport_proxy(value, owner="Slurm cluster"):
             raise ValueError
     except ValueError:
         raise RuntimeError(
-            f"The {owner} did not publish a valid Teleport proxy."
+            f"The {owner} did not publish a valid Teleport proxy. Teleport may"
+            " not be set up for it yet; ask your Slurm cluster administrator."
         ) from None
     return proxy.hostname
 
@@ -103,11 +104,18 @@ def _slurm_login(spec, actor):
         not _dns(domain) or not isinstance(suffix, str)
         for domain, suffix in suffixes.items()
     ):
-        raise RuntimeError("Invalid Slurm LDAP username mapping.")
+        raise RuntimeError(
+            "The Slurm cluster's LDAP username mapping is invalid. Ask your Slurm"
+            " cluster administrator to check it."
+        )
     local, domain = actor.split("@")
     username = local + suffixes.get(domain, "")
     if not _UNIX_LOGIN.fullmatch(username):
-        raise RuntimeError("Invalid Slurm Linux username for the personal token owner.")
+        raise RuntimeError(
+            f"Could not derive a valid Slurm Linux username from {actor}. Ask your"
+            " Slurm cluster administrator to check the cluster's LDAP username"
+            " mapping."
+        )
     return username
 
 
@@ -179,15 +187,20 @@ class NodeSSHAPI(APIResourse):
             )
         if workspace.get("role") not in ("admin", "user"):
             raise RuntimeError(
-                "Slurm SSH requires a personal token with workspace user or admin"
-                " access."
+                "Slurm SSH requires a Lepton login with user or admin access to"
+                " this workspace. If you logged in to lep with a Service Account"
+                " Token, run `lep login` again with your own API Token; otherwise"
+                " ask your workspace administrator for access."
             )
         token = self._client.auth_token or ""
         match = re.fullmatch(
             r"(nvapi-stg-|nvapi-|lapi-)([A-Za-z0-9._~+/=-]{32,})", token
         )
         if match is None:
-            raise RuntimeError("Slurm SSH requires a current personal API token.")
+            raise RuntimeError(
+                "Slurm SSH could not identify you from your Lepton login. Run"
+                " `lep login` again with your own API Token."
+            )
         prefix, payload = match.groups()
         masked = f"{prefix}{payload[:6]}...{payload[-6:]}"
         tokens = self._read("/tokens")
@@ -203,12 +216,16 @@ class NodeSSHAPI(APIResourse):
         email = owners[0] if len(owners) == 1 else None
         if not isinstance(email, str) or len(email) > 254 or email.count("@") != 1:
             raise RuntimeError(
-                "The current API token could not be verified as a personal user token."
+                "Slurm SSH could not find the user who owns your Lepton API token;"
+                " it uses that user's email to choose your Slurm and Teleport"
+                " accounts. Service Account Tokens have no owner, so run"
+                " `lep login` again with your own API Token."
             )
         local, domain = email.split("@")
         if len(local) > 64 or not _EMAIL_LOCAL.fullmatch(local) or not _dns(domain):
             raise RuntimeError(
-                "The personal token owner did not have a valid canonical email."
+                "The owner of your API token does not have a valid lowercase email"
+                " address, which Slurm SSH uses to find your Slurm account."
             )
         return email
 
@@ -353,13 +370,15 @@ class NodeSSHAPI(APIResourse):
         if status.get("state") != "Ready":
             raise RuntimeError(
                 "Teleport SSH requires a Ready Slurm cluster"
-                f" (state: {status.get('state') or 'unknown'})."
+                f" (state: {status.get('state') or 'unknown'}). Retry when the"
+                " cluster is Ready."
             )
         additional = login.get("additionalLoginsets")
         if additional is not None and (not isinstance(additional, list) or additional):
             raise RuntimeError(
                 "This cluster has multiple login-node groups; Teleport SSH cannot"
-                " determine which one you may use."
+                " determine which one you may use. Use `lep slurm cluster shell`"
+                " to open a login-node shell instead."
             )
         groups = login.get("allowGroups")
         if groups is not None and (
@@ -374,7 +393,8 @@ class NodeSSHAPI(APIResourse):
             )
         ):
             raise RuntimeError(
-                "The cluster's login-node access policy does not allow a connection."
+                "This cluster's login-node access policy is empty or invalid. Ask"
+                " your Slurm cluster administrator to check its allowed groups."
             )
         proxy = _teleport_proxy(status.get("teleportCluster"))
         username = _slurm_login(spec, actor)
@@ -382,6 +402,7 @@ class NodeSSHAPI(APIResourse):
         if not isinstance(names, list) or not names or not all(map(_dns, names)):
             raise RuntimeError(
                 "The Slurm cluster did not publish its current login-node names."
+                " Retry when its login nodes are running."
             )
         names = sorted(set(names))
         hostname = node if node is not None else names[0]
@@ -458,7 +479,10 @@ class NodeSSHAPI(APIResourse):
     ) -> NodeSSHTarget:
         """Resolve a node allocated to a running Slurm job owned by the user."""
         if not isinstance(job_id, str) or not _SLURM_JOB_ID.fullmatch(job_id):
-            raise RuntimeError("Slurm job SSH requires a numeric scheduler job ID.")
+            raise RuntimeError(
+                "Slurm job SSH requires the numeric Slurm job ID shown by"
+                " `lep slurm job list`."
+            )
         actor = self._actor()
         cluster, metadata = self._cluster(cluster_id)
         spec = _object(cluster.get("spec"))
@@ -472,7 +496,9 @@ class NodeSSHAPI(APIResourse):
             groups.extend(_object(group) for group in entries)
         if not any(group.get("enableTeleport") is True for group in groups):
             raise RuntimeError(
-                "Teleport is not enabled for this cluster's Slurm compute node groups."
+                "Teleport is not enabled for this cluster's Slurm compute node"
+                " groups. Ask your Slurm cluster administrator to enable it, or use"
+                " `lep slurm cluster shell` to work from a login node."
             )
         proxy = _teleport_proxy(
             _object(cluster.get("status", {})).get("teleportCluster")
@@ -480,7 +506,11 @@ class NodeSSHAPI(APIResourse):
         username = _slurm_login(spec, actor)
         job = self._live_job(metadata["id"], job_id)
         if job is None:
-            raise RuntimeError(f"Slurm job {job_id} has no current running allocation.")
+            raise RuntimeError(
+                f"Slurm job {job_id} has no current running allocation. SSH works"
+                " only while the job is running; check its state with"
+                f" `lep slurm job get --id {job_id}`."
+            )
         job_meta = _live_metadata(job)
         job_spec = _object(job.get("spec", {}))
         status = _object(job.get("status", {}))
@@ -495,8 +525,8 @@ class NodeSSHAPI(APIResourse):
             raise RuntimeError("The running Slurm job did not match its scheduler ID.")
         if job_meta.get("owner") != username:
             raise RuntimeError(
-                "Teleport SSH requires a running Slurm job owned by your Slurm"
-                f" account ({username})."
+                f"Slurm job {job_id} is not owned by your Slurm account"
+                f" ({username}). You can SSH only into your own jobs."
             )
         if (
             status.get("state") != "Running"
@@ -504,12 +534,14 @@ class NodeSSHAPI(APIResourse):
             or status.get("completion_time") not in (None, 0)
         ):
             raise RuntimeError(
-                "Teleport SSH requires a current running Slurm allocation."
+                f"Slurm job {job_id} does not have a current running Slurm"
+                " allocation. SSH works only while the job is running."
             )
         nodes = status.get("nodes")
         if not isinstance(nodes, list) or not nodes or not all(map(_dns, nodes)):
             raise RuntimeError(
                 "The running Slurm job did not report its allocated node hostnames."
+                " Retry in a moment."
             )
         nodes = sorted(set(nodes))
         if node is not None and node not in nodes:
@@ -568,12 +600,14 @@ class NodeSSHAPI(APIResourse):
         if status.get("state") != "Ready":
             raise RuntimeError(
                 f"Slurm Dev Pod {devpod_id} is not Ready"
-                f" (state: {status.get('state') or 'unknown'})."
+                f" (state: {status.get('state') or 'unknown'}). Retry when it is"
+                " Ready."
             )
         if not status.get("teleportNodeName"):
             raise RuntimeError(
                 "This Slurm Dev Pod does not report a Teleport node; its cluster may"
-                " not enable Teleport for Dev Pods."
+                " not enable Teleport for Dev Pods. Use `lep slurm devpod ssh`"
+                " without --transport teleport, or `lep slurm devpod shell`."
             )
         pod_name = status.get("podName")
         username = status.get("username")

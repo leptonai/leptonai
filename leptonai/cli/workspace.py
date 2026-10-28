@@ -10,7 +10,14 @@ from rich.table import Table
 
 from .client import APIClient
 from leptonai.api.v2.workspace_record import WorkspaceRecord
-from .util import click_group, check, sizeof_fmt
+from .util import (
+    click_group,
+    check,
+    keyword_matches,
+    normalize_keyword,
+    print_workspace_forbidden,
+    sizeof_fmt,
+)
 from ..api.v2.utils import (
     WorkspaceForbiddenError,
     WorkspaceNotFoundError,
@@ -147,17 +154,7 @@ def login(
         sys.exit(1)
 
     except WorkspaceForbiddenError as e:
-        console.print("\n", e)
-        console.print(f"""
-        [red bold]Workspace Access Forbidden[/]
-        [red]Workspace ID:[/red] {e.workspace_id}
-        [red]Workspace URL:[/red] {e.workspace_url}
-
-        [bold]If you have access to this workspace, to resolve this issue:[/bold]
-        [yellow]Check that the workspace URL above matches the environment your token was issued from.[/yellow]
-        If not, login again with the correct workspace URL:
-           [green]lep workspace login -i <workspace_id> -t <auth_token> --workspace-url <workspace_url>[/green]
-        """)
+        print_workspace_forbidden(e, console)
         sys.exit(1)
 
     if workspace_id is not None:
@@ -192,14 +189,32 @@ def logout(purge):
 
 
 @workspace.command(name="list")
+@click.option(
+    "--search",
+    "--keyword",
+    "-q",
+    "keyword",
+    type=str,
+    help="Case-insensitive substring search across workspace name, ID and URL.",
+)
 @click.option("--debug", is_flag=True, help="Debug mode", hidden=True)
-def list_command(debug):
+def list_command(debug, keyword=None):
     """
     List current workspaces and their urls on record. For any workspace displayed
     in the list, you can log in to it by `lep workspace login -i <id>`.
+
+    --search matches the workspace name, ID or URL (case-insensitive substring).
     """
-    workspace_list = WorkspaceRecord.workspaces()
+    normalized_keyword = normalize_keyword(keyword)
+    workspace_list = [
+        info
+        for info in WorkspaceRecord.workspaces()
+        if keyword_matches(normalized_keyword, info.display_name, info.id_, info.url)
+    ]
     current_workspace = WorkspaceRecord.current()
+    if not workspace_list and normalized_keyword:
+        console.print("[yellow]No workspaces match the specified filters.[/yellow]")
+        return
     table = Table(show_lines=True)
     table.add_column("Name / ID")
     table.add_column("URL")

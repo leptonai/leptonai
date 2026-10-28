@@ -108,16 +108,36 @@ or unrecognized clients produce an actionable error. This minimum version check
 does not guarantee compatibility with every Teleport cluster version.
 
 Teleport SSH reuses your local Teleport login, or starts SSO login when needed.
-As in the dashboard, legacy Pods and Slurm Dev Pods sign in with the `Starfleet`
-connector by default, while other targets let Teleport use the cluster's default
-connector; use `--teleport-auth <connector>` to choose one. Lepton API
-credentials and Teleport login are separate. Your workspace
+The authentication connector is selected automatically; use
+`--teleport-auth <connector>` to choose one. Lepton API credentials and Teleport
+login are separate. Your workspace
 (`dev_pod_teleport`), node group, and pod must have Teleport enabled, and the
-pod must be Ready. Pods on the new DevPod API do not publish their Teleport
-proxy, so, as for Jobs below, Teleport SSH uses the active `tsh` profile or
+pod must be Ready.
+
+Pod SSH uses the server's Teleport connection details when available. Otherwise,
+as for Jobs below, it uses the active `tsh` profile or
 `--teleport-proxy <host>:443` and connects as `root` to the pod's
-`<workspace-id>-<pod-name>` node. Without `--transport teleport`, `lep pod ssh`
-continues to use direct SSH.
+`<workspace-id>-<pod-name>` node. If no profile is selected, provide
+`--teleport-proxy` to start login. Omit this option when the server provides the
+proxy. Without `--transport teleport`, `lep pod ssh` uses direct SSH.
+
+If you do not know which proxy to use, ask your workspace or node group
+administrator for the Teleport proxy (`host[:port]`) and, if required, the SSO
+connector name. Replace the placeholders below with those values:
+
+```shell
+tsh login --proxy=<proxy>
+# If your administrator specifies an SSO connector:
+tsh login --proxy=<proxy> --auth=<connector>
+```
+
+Complete the sign-in steps shown by `tsh`, then rerun your `lep ... ssh` command.
+Alternatively, pass `--teleport-proxy <proxy>` to `lep pod ssh --transport teleport`
+or `lep job ssh` to start sign-in automatically; add `--teleport-auth <connector>`
+if needed. The CLI selects the SSH target and Linux account for you. That Linux
+account (such as `root`) is separate from the identity you use to sign in to
+Teleport. If access is denied, ask your administrator to verify your access to
+the workload.
 
 Jobs can also be accessed through Teleport when their workspace has `job_teleport`
 enabled and their image/entrypoint starts a Teleport agent:
@@ -147,12 +167,14 @@ lep node ssh --node-group <node-group-name-or-id> --id <node-id>
 ```
 
 Node SSH discovers the Slurm cluster, Teleport proxy, Machine hostname, and Linux
-account automatically. Use a personal API token with workspace user or admin
-access; Teleport sign-in must match that token's owner. The compute group must
-enable Teleport and use host networking. For clusters using Pod Networking, use
-`lep slurm job ssh` on a running Slurm job you own instead.
-The session opens in the compute container; Slurm account permissions and job
-allocation policies still apply. Use `--teleport-auth` to override the SSO connector.
+account automatically, so it never needs `--teleport-proxy`. When needed, the
+CLI runs `tsh login` for you as the user who owns your Lepton API token, so
+Service Account Tokens are not supported; that user needs workspace user or
+admin access. The compute group must enable Teleport and use host networking. For
+clusters using Pod Networking, use `lep slurm job ssh` on a running Slurm job
+you own instead. The session opens in the compute container; Slurm account
+permissions and job allocation policies still apply. Use `--teleport-auth` to
+override the SSO connector.
 
 For a workspace with managed Slurm, inspect clusters and jobs:
 
@@ -161,7 +183,7 @@ lep slurm cluster list --name prod --status Ready
 lep slurm cluster shell -n production
 lep slurm job list --cluster production --status Running --include-archived
 lep slurm job attempts -i 12345 --steps
-lep slurm job logs -n my-training-job --follow
+lep slurm job log -n my-training-job --follow
 lep slurm devpod get --cluster production
 lep slurm devpod ssh --cluster production
 ```
@@ -174,12 +196,15 @@ lep slurm job ssh -i 12345 --node <allocated-node>
 lep slurm devpod ssh --cluster production --transport teleport
 ```
 
-Like `lep node ssh`, these need a personal API token whose owner matches your
-Teleport sign-in. Login-node SSH requires a Ready cluster with Teleport enabled
-for its login nodes and connects as your mapped Slurm account; `--node` picks a
-login node other than the first. Job SSH requires a running job owned by your
-Slurm account; a job on several nodes requires `--node`. Dev Pod SSH uses the
-Teleport node and Linux account the Dev Pod reports.
+Like `lep node ssh`, these find the Teleport proxy from the Slurm cluster and
+sign in to Teleport as the user who owns your Lepton API token. Login-node and
+job SSH connect as your Slurm Linux account, derived from your email by the
+cluster's LDAP mapping. Login-node SSH requires a Ready cluster with Teleport
+enabled for its login nodes; `--node` picks a login node other than the first.
+Job SSH requires a running job owned by your Slurm account; a job on several
+nodes requires `--node`. Dev Pod SSH uses the Teleport node and Linux account
+the Dev Pod reports. If Teleport access is denied, ask your Slurm cluster
+administrator to verify it.
 
 Personal Slurm Dev Pods are available under `lep slurm devpod`; run
 `lep slurm --help` for the complete command tree. `devpod get` shows the

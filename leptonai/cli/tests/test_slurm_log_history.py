@@ -44,7 +44,7 @@ def _serve(client, entries):
 
 
 def _invoke(*args, selector=("--id", "42")):
-    return CliRunner().invoke(lep, ["slurm", "job", "logs", *selector, *args])
+    return CliRunner().invoke(lep, ["slurm", "job", "log", *selector, *args])
 
 
 def _lines(result):

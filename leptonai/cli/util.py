@@ -12,9 +12,14 @@ from urllib.parse import urlparse
 import click
 from loguru import logger
 from leptonai.api.v2.api_resource import ClientError, ServerError
-from leptonai.api.v2.utils import WorkspaceError, WorkspaceConfigurationError
+from leptonai.api.v2.utils import (
+    WorkspaceError,
+    WorkspaceConfigurationError,
+    WorkspaceForbiddenError,
+)
 
 from rich.console import Console
+from rich.markup import escape
 from leptonai.api.v2.types.job import LeptonJob, LeptonJobQueryMode
 from .client import APIClient
 
@@ -240,6 +245,36 @@ def check(condition: Any, message: str) -> None:
     if not condition:
         console.print(message)
         sys.exit(1)
+
+
+def print_workspace_forbidden(
+    e: WorkspaceForbiddenError, out: Optional[Console] = None
+) -> None:
+    """Prints a 403 login failure, leading with the server's reason when present."""
+    out = out or console
+    out.print("\n", escape(str(e)))
+
+    reason_hint = ""
+    if e.reason:
+        # A 403 can come from a CDN/WAF in front of the gateway (e.g. a corporate
+        # IP allowlist), so the server's reason beats guessing at the cause.
+        reason_hint = f"""
+        [red]Server response:[/red] {escape(e.reason)}
+
+        [yellow]If the response mentions network or IP restrictions, connect from an authorized network.[/yellow]
+        Python follows system proxy settings even when HTTPS_PROXY is unset; add the host to NO_PROXY to bypass them.
+"""
+
+    out.print(f"""
+        [red bold]Workspace Access Forbidden[/]
+        [red]Workspace ID:[/red] {e.workspace_id}
+        [red]Workspace URL:[/red] {e.workspace_url}
+{reason_hint}
+        [bold]If you have access to this workspace, to resolve this issue:[/bold]
+        [yellow]Check that the workspace URL above matches the environment your token was issued from.[/yellow]
+        If not, login again with the correct workspace URL:
+           [green]lep workspace login -i <workspace_id> -t <auth_token> --workspace-url <workspace_url>[/green]
+        """)
 
 
 def explain_response(response, if_2xx, if_4xx, if_others, exit_if_4xx=False):
