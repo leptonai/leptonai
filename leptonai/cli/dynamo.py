@@ -59,8 +59,10 @@ from .util import (
     colorize_state,
     console,
     format_timestamp_ms,
+    keyword_matches,
     make_block_option_command,
     make_name_id_cell,
+    normalize_keyword,
     resolve_save_path,
 )
 
@@ -489,12 +491,19 @@ def _print_dynamo_table(deployments: List[LeptonDynamoGraphDeployment]) -> None:
 @dynamo.command(name="list")
 @click.option(
     "--name",
+    "--search",
+    "--keyword",
     "-n",
+    "-q",
+    "name",
     multiple=True,
     help="Filter by name (case-insensitive substring). Can be repeated.",
 )
 @click.option(
     "--state",
+    "--status",
+    "-s",
+    "state",
     multiple=True,
     help=(
         "Filter by deployment state, e.g. Ready, 'Not Ready', Starting, Updating,"
@@ -503,6 +512,9 @@ def _print_dynamo_table(deployments: List[LeptonDynamoGraphDeployment]) -> None:
 )
 @click.option(
     "--created-by",
+    "--user",
+    "-u",
+    "created_by",
     multiple=True,
     help="Filter by creator username. Can be repeated.",
 )
@@ -598,7 +610,9 @@ def get(name, path):
 
 
 def _services_table(
-    dep: LeptonDynamoGraphDeployment, infos: Optional[Dict[str, Any]]
+    dep: LeptonDynamoGraphDeployment,
+    infos: Optional[Dict[str, Any]],
+    services: Optional[Sequence[str]] = None,
 ) -> Table:
     table = Table(show_lines=False)
     table.add_column("Service")
@@ -611,7 +625,7 @@ def _services_table(
 
     spec_services = (dep.spec.services if dep.spec else None) or {}
     status_services = (dep.status.services if dep.status else None) or {}
-    for svc_name in _sorted_services(dep):
+    for svc_name in _sorted_services(dep) if services is None else services:
         service = spec_services[svc_name]
         info = (infos or {}).get(svc_name)
         status = status_services.get(svc_name)
@@ -779,7 +793,15 @@ def service_group():
 
 @service_group.command(name="list")
 @click.option("--name", "-n", help="The Dynamo deployment name.", required=True)
-def list_services(name):
+@click.option(
+    "--search",
+    "--keyword",
+    "-q",
+    "keyword",
+    type=str,
+    help="Case-insensitive substring search on the service name.",
+)
+def list_services(name, keyword=None):
     """
     Lists the services of a Dynamo deployment with their replica counts.
     """
@@ -793,7 +815,14 @@ def list_services(name):
     if not _sorted_services(dep):
         console.print(f"Dynamo deployment [yellow]{name}[/] has no services.")
         return
-    console.print(_services_table(dep, infos))
+    normalized_keyword = normalize_keyword(keyword)
+    services_ = [
+        s for s in _sorted_services(dep) if keyword_matches(normalized_keyword, s)
+    ]
+    if not services_:
+        console.print("[yellow]No services match the specified filters.[/yellow]")
+        return
+    console.print(_services_table(dep, infos, services_))
 
 
 @service_group.command(name="get")
@@ -964,13 +993,23 @@ def replica_group():
 )
 @click.option(
     "--state",
+    "--status",
+    "state",
     multiple=True,
     help=(
         "Filter by replica readiness status, e.g. Ready, InProgress, Failed,"
         " Terminated. Case-insensitive; can be repeated."
     ),
 )
-def list_replicas(name, service, state):
+@click.option(
+    "--search",
+    "--keyword",
+    "-q",
+    "keyword",
+    type=str,
+    help="Case-insensitive substring search across replica ID, service and node.",
+)
+def list_replicas(name, service, state, keyword=None):
     """
     Lists the replicas (pods) of a Dynamo deployment, per service.
     """
@@ -991,9 +1030,25 @@ def list_replicas(name, service, state):
         rows = [
             (s, r) for s, r in rows if _normalize_token(_replica_reason(r)) in wanted
         ]
+    normalized_keyword = normalize_keyword(keyword)
+    if normalized_keyword:
+        rows = [
+            (s, r)
+            for s, r in rows
+            if keyword_matches(
+                normalized_keyword,
+                r.metadata.id_ if r.metadata else None,
+                r.id_,
+                s,
+                r.status.node.name if r.status and r.status.node else None,
+            )
+        ]
     table, count = _replicas_table(rows)
     if not count:
-        console.print(f"No replicas found for [yellow]{name}[/].")
+        if state or normalized_keyword:
+            console.print("[yellow]No replicas match the specified filters.[/yellow]")
+        else:
+            console.print(f"No replicas found for [yellow]{name}[/].")
         return
     console.print(table)
 

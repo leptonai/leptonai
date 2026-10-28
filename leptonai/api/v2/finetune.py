@@ -25,7 +25,7 @@ class FineTuneAPI(APIResourse):
         node_groups: Optional[List[str]] = None,
         page: Optional[int] = None,
         page_size: Optional[int] = None,
-        created_by: Optional[str] = None,
+        created_by: Optional[Union[str, List[str]]] = None,
     ) -> List[LeptonFineTuneJob]:
         """
         List fine-tune jobs with optional server-side filtering.

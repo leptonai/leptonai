@@ -17,6 +17,8 @@ from .util import (
     resolve_save_path,
     PathResolutionError,
     labels_to_selector,
+    normalize_keyword,
+    keyword_matches,
 )
 from .client import APIClient
 from leptonai.api.v2.types.job import (
@@ -316,7 +318,14 @@ def _print_finetune_jobs_table(jobs, dashboard_base_url: Optional[str] = None):
 
 @finetune.command(name="list")
 @click.option(
-    "-q", "--q", type=str, required=False, help="Substring match for job name."
+    "--search",
+    "--keyword",
+    "-q",
+    "--q",
+    "q",
+    type=str,
+    required=False,
+    help="Case-insensitive substring match on the job name.",
 )
 @click.option("--query", type=str, required=False, help="Label selector query.")
 @click.option(
@@ -331,17 +340,30 @@ def _print_finetune_jobs_table(jobs, dashboard_base_url: Optional[str] = None):
     ),
 )
 @click.option(
-    "--status", type=str, multiple=True, help="Filter by job state (repeatable)."
+    "--status",
+    "--state",
+    "-s",
+    "status",
+    type=str,
+    multiple=True,
+    help="Filter by job state. Repeat for OR.",
 )
 @click.option(
     "--node-group",
+    "-ng",
     "node_groups",
     type=str,
     multiple=True,
-    help="Filter by node group (repeatable).",
+    help="Filter by node group. Repeat for OR.",
 )
 @click.option(
-    "--created-by", type=str, required=False, help="Filter by creator email (single)."
+    "--created-by",
+    "--user",
+    "-u",
+    "created_by",
+    type=str,
+    multiple=True,
+    help="Filter by creator. Repeat for OR.",
 )
 @click.option(
     "--page",
@@ -367,7 +389,7 @@ def list_command(
     query: Optional[str],
     status: Optional[List[str]],
     node_groups: Optional[List[str]],
-    created_by: Optional[str],
+    created_by: Optional[List[str]],
     page: Optional[int],
     page_size: Optional[int],
     include_archived: bool,
@@ -375,10 +397,10 @@ def list_command(
 ):
     """List finetune jobs.
 
-    Filters mirror the dashboard: -q matches the job name, --status and
-    --node-group accept repeated values (OR), --created-by filters by creator
-    and --label/--query filter by labels. Different filters are combined with
-    AND.
+    Filters mirror the dashboard: --search/-q matches the job name,
+    --status/-s, --node-group/-ng and --created-by/-u accept repeated values
+    (OR), and --label/--query filter by labels. Different filters are combined
+    with AND.
     """
     client = APIClient()
     job_query_mode = (
@@ -386,16 +408,20 @@ def list_command(
         if include_archived
         else LeptonJobQueryMode.AliveOnly.value
     )
+    label_selector = labels_to_selector(labels, base_query=query)
     jobs = client.finetune.list_all(
         job_query_mode=job_query_mode,
         q=q,
-        query=labels_to_selector(labels, base_query=query),
+        query=label_selector,
         status=list(status) if status else None,
         node_groups=list(node_groups) if node_groups else None,
         page=page,
         page_size=page_size,
-        created_by=created_by or None,
+        created_by=list(created_by) if created_by else None,
     )
+    if not jobs and (q or label_selector or status or node_groups or created_by):
+        console.print("[yellow]No finetune jobs match the specified filters.[/yellow]")
+        return
     _print_finetune_jobs_table(jobs, dashboard_base_url=client.get_dashboard_base_url())
 
 
@@ -483,11 +509,29 @@ def delete_command(id: str, include_archived: bool):
 
 
 @finetune.command(name="list-trainers", hidden=True)
-def list_trainers_command():
+@click.option(
+    "--search",
+    "--keyword",
+    "-q",
+    "keyword",
+    type=str,
+    help="Case-insensitive substring search on the trainer ID.",
+)
+def list_trainers_command(keyword=None):
     """List available finetune trainers."""
     client = APIClient()
     trainers = client.finetune.list_trainers()
-    logger.trace(json.dumps(trainers[0].model_dump(), indent=2))
+    if trainers:
+        logger.trace(json.dumps(trainers[0].model_dump(), indent=2))
+    normalized_keyword = normalize_keyword(keyword)
+    trainers = [
+        t
+        for t in trainers
+        if keyword_matches(normalized_keyword, getattr(t, "trainer_id", None))
+    ]
+    if not trainers and normalized_keyword:
+        console.print("[yellow]No trainers match the specified filters.[/yellow]")
+        return
     table = Table(title="Trainers", show_header=True, show_lines=True)
     table.add_column("Trainer ID")
     table.add_column("Is Default")
