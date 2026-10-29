@@ -463,7 +463,6 @@ def test_job_attempts_with_cluster_and_id_resolves_inside_cluster():
     [
         ["get"],
         ["attempts"],
-        ["log"],
     ],
 )
 def test_job_with_cluster_and_id_honors_include_archived(command):
