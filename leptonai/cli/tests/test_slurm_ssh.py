@@ -294,6 +294,10 @@ def test_job_ssh_requires_a_node_for_multi_node_jobs(session):
             "owned by Slurm account (unknown)",
         ),
         (
+            [{**JOB, "metadata": {**JOB["metadata"], "owner": "bob@example.com"}}],
+            "owned by Slurm account bob@example.com, but your Slurm account is",
+        ),
+        (
             [{**JOB, "status": {**JOB["status"], "job_state": "COMPLETING"}}],
             "current running Slurm allocation",
         ),
@@ -314,6 +318,18 @@ def test_job_ssh_matches_owner_case_insensitively(session):
     http, run = session
     job = deepcopy(JOB)
     job["metadata"]["owner"] = "Alice_Corp"
+    http.replace(responses.GET, JOBS_URL, json={"jobs": [job], "total": 1})
+    run.side_effect = [profile(), inventory("gpu-1"), completed()]
+    result = invoke("job", "ssh", "--id", "42", "-c", "training")
+    assert result.exit_code == 0, result.output
+
+
+@pytest.mark.parametrize("owner", ["alice@example.com", "Alice@Example.com"])
+def test_job_ssh_maps_an_email_owner_to_its_slurm_account(session, owner):
+    # A live job whose Slurm user name is unresolved reports its mail user.
+    http, run = session
+    job = deepcopy(JOB)
+    job["metadata"]["owner"] = owner
     http.replace(responses.GET, JOBS_URL, json={"jobs": [job], "total": 1})
     run.side_effect = [profile(), inventory("gpu-1"), completed()]
     result = invoke("job", "ssh", "--id", "42", "-c", "training")
