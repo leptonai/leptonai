@@ -75,13 +75,6 @@ class JobAPI(APIResourse):
             current_page += 1
         return results
 
-    def list_matching(self, pattern: str):
-        params = {
-            "query": pattern,
-        }
-        responses = self._get("/jobs", params=params)
-        return self.ensure_list(responses, LeptonJob)
-
     def create(self, spec: LeptonJob) -> LeptonJob:
         """
         Create a job with the given job spec.

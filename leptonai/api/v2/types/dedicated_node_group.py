@@ -57,12 +57,6 @@ class SchedulingPolicy(BaseModel):
     pod_stacking_first: Optional[bool] = None
 
 
-class NodeGroupOwner(str, Enum):
-    Empty = ""
-    Customer = "customer"
-    Lepton = "lepton"
-
-
 class NetworkConfigurations(BaseModel):
     external_endpoint_subdomain: Optional[str] = None
     public_net_interfaces: Optional[List[str]] = None

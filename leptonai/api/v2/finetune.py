@@ -4,7 +4,6 @@ from .api_resource import APIResourse
 from leptonai.api.v2.types.job import LeptonJobQueryMode
 from .types.finetune import (
     LeptonFineTuneJob,
-    FineTuneModelInfo,
     TrainerInfo,
 )
 
@@ -105,10 +104,6 @@ class FineTuneAPI(APIResourse):
             params={"job_query_mode": job_query_mode} if job_query_mode else None,
         )
         return self.ensure_ok(response)
-
-    def list_supported_models(self) -> List[FineTuneModelInfo]:
-        response = self._get("/finetune/supported-models")
-        return self.ensure_list(response, FineTuneModelInfo)
 
     def list_trainers(self, default_only: bool = True) -> List[TrainerInfo]:
         response = self._get(

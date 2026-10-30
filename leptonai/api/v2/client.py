@@ -726,12 +726,6 @@ class APIClient(object):
         """
         return self.auth_token
 
-    def get_workspace_id(self) -> Union[str, None]:
-        return self.workspace_id
-
-    def get_workspace_name(self) -> Union[str, None]:
-        return WorkspaceRecord.current().display_name
-
     def get_workspace_origin(self) -> Optional[str]:
         """Return the normalized Origin header value, or None if not configured."""
         return self.workspace_origin_url

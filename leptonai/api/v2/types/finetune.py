@@ -1,21 +1,9 @@
-from typing import Optional, Any, List
+from typing import Optional, Any
 from pydantic import BaseModel
 
 from leptonai.api.v2.types.common import Metadata
 from leptonai.api.v2.types.job import LeptonJobUserSpec, LeptonJobStatus
 from leptonai.api.v2.types.deployment import Mount
-
-
-class TechniqueInfo(BaseModel):
-    # nil = unknown, true = supported, false = not supported
-    is_supported: Optional[bool] = None
-
-
-class FineTuneModelInfo(BaseModel):
-    # Hugging Face model ID
-    model_id: str
-    sft: TechniqueInfo
-    lora: TechniqueInfo
 
 
 class TrainerInfo(BaseModel):
@@ -48,7 +36,3 @@ class LeptonFineTuneJob(BaseModel):
     metadata: Metadata
     spec: LeptonFineTuneJobSpec = LeptonFineTuneJobSpec()
     status: Optional[LeptonFineTuneJobStatus] = None
-
-
-class LeptonFineTuneJobList(BaseModel):
-    finetune_jobs: List[LeptonFineTuneJob]

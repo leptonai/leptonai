@@ -213,32 +213,3 @@ class DynamoGraphDeploymentAPI(APIResourse):
     ) -> List[DynamoHistoryItem]:
         response = self._get(self._path(name_or_deployment, "history"))
         return self.ensure_list(response, DynamoHistoryItem)
-
-    def get_metric(
-        self,
-        name_or_deployment: Union[str, LeptonDynamoGraphDeployment],
-        metric: str,
-        window: Optional[int] = None,
-    ) -> Any:
-        """
-        Deployment-level metric series (e.g. ``GPUUtilAvg``). ``window`` is a
-        plain integer number of hours (the dashboard offers 1, 2, 3, 6, 12, 24).
-        Returns the decoded JSON list of ``{"metric": {...}, "values": [...]}``.
-        """
-        params = {"window": window} if window is not None else None
-        response = self._get(
-            self._path(name_or_deployment, "monitoring", metric), params=params
-        )
-        return self.ensure_json(response)
-
-    def get_replica_metric(
-        self,
-        name_or_deployment: Union[str, LeptonDynamoGraphDeployment],
-        replica: str,
-        metric: str,
-    ) -> Any:
-        """Replica-level metric series (e.g. ``GPUUtil``). No window parameter."""
-        response = self._get(
-            self._path(name_or_deployment, "replicas", replica, "monitoring", metric)
-        )
-        return self.ensure_json(response)

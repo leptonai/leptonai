@@ -9,7 +9,7 @@ by the shared Loki-compatible endpoint.
 from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import quote
 
-from .api_resource import SHELL_SUBPROTOCOL, APIResourse
+from .api_resource import APIResourse
 from .types.slurm import (
     LeptonSlurmCluster,
     LeptonSlurmDevPod,
@@ -28,9 +28,6 @@ SLURM_JOB_QUERY_MODES = (
     "archive_only",
     "alive_and_archive",
 )
-
-# Kept for importers; every workspace /shell route shares this subprotocol.
-SLURM_SHELL_SUBPROTOCOL = SHELL_SUBPROTOCOL
 
 
 class SlurmClusterLookupError(ValueError):

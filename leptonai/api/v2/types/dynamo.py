@@ -22,22 +22,6 @@ from .ingress import LoadBalanceConfig
 from .readiness import ReplicaReadinessReason
 
 
-class DynamoBackendFramework(str, Enum):
-    VLLM = "vllm"
-    SGLANG = "sglang"
-    TRTLLM = "trtllm"
-
-
-class DynamoServingMode(str, Enum):
-    AGGREGATED = "aggregated"
-    DISAGGREGATED = "disaggregated"
-
-
-class DynamoComponentType(str, Enum):
-    FRONTEND = "frontend"
-    WORKER = "worker"
-
-
 # Service names used by the dashboard. The API accepts arbitrary service keys,
 # but only these four have default images and commands in the CLI defaults
 # registry (see leptonai.api.v2.dynamo_spec).
