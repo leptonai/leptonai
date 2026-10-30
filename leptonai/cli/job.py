@@ -11,6 +11,7 @@ from requests import RequestException
 from .teleport import connect_job_teleport
 
 from leptonai.cli.log import _epoch_to_time_str, _preprocess_time
+from .log_export import run_job_log_download
 
 from .util import (
     console,
@@ -1493,15 +1494,27 @@ def clone(id, include_archived):
     console.print(f"Job [green]{new_job.metadata.id_}[/] cloned successfully.")
 
 
-@job.command()
-@click.option("--id", "-i", help="The job id to get log.", required=True)
+@job.group(invoke_without_command=True)
+@click.option("--id", "-i", help="The job id to get log.")
 @click.option("--replica", "-r", help="The replica name to get log.", default=None)
-def log(id, replica):
+@click.pass_context
+def log(ctx, id, replica):
     """
     Gets the log of a job. If `replica` is not specified, the first replica
     is selected. Otherwise, the log of the specified replica is shown. To get the
     list of replicas, use `lep job replicas`.
+
+    Use `lep job log download` to save a job's logs to a file.
     """
+    if ctx.invoked_subcommand is not None:
+        if id or replica:
+            raise click.UsageError(
+                "Pass options after the subcommand, e.g. `lep job log"
+                f" {ctx.invoked_subcommand} --id <job-id>`."
+            )
+        return
+    if not id:
+        raise click.UsageError("Missing option '--id' / '-i'.")
     client = APIClient()
 
     if not replica:
@@ -1531,6 +1544,84 @@ def log(id, replica):
         console.print(
             "End of log. It seems that the job has not started, or already finished."
         )
+
+
+@log.command(name="download")
+@click.option("--id", "-i", "job_id", help="ID of the job to export logs from.")
+@click.option(
+    "--export-id",
+    help="Resume an existing export: wait for it and download the file.",
+)
+@click.option(
+    "--start",
+    "-s",
+    help=(
+        "Start of the time range (UTC unless --local-time), e.g. '2026-10-30"
+        " 08:00:00', 'today 08', or an epoch. Defaults to the job's creation time,"
+        " within the 24 hours before --end."
+    ),
+)
+@click.option(
+    "--end",
+    "-e",
+    help=(
+        "End of the time range, in the same formats as --start. Defaults to the"
+        " job's completion time, or now while it runs."
+    ),
+)
+@click.option(
+    "--replica",
+    "-r",
+    "replicas",
+    multiple=True,
+    help=(
+        "Only include this replica (exact name from `lep job replicas`). Repeat"
+        " for several. Defaults to all replicas."
+    ),
+)
+@click.option("--contains", help="Only include lines containing this literal text.")
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(dir_okay=False),
+    help="File to save the NDJSON logs to. Defaults to logs-<export-id>.ndjson.",
+)
+@click.option(
+    "--no-wait",
+    is_flag=True,
+    default=False,
+    help="Create the export and exit without waiting to download it.",
+)
+@click.option(
+    "--local-time",
+    is_flag=True,
+    default=False,
+    help="Interpret --start/--end in the local timezone instead of UTC.",
+)
+def download_log(
+    job_id, export_id, start, end, replicas, contains, output, no_wait, local_time
+):
+    """
+    Downloads a job's logs as an NDJSON file.
+
+    The server prepares the export, which can take a while; this command waits
+    for it and then saves the file. If you stop waiting, the export continues
+    and you can fetch it later with `--export-id`. A single export covers at
+    most 24 hours, and the server deletes the file about 8 hours after it is
+    ready.
+    """
+    run_job_log_download(
+        APIClient(),
+        job_id=job_id,
+        export_id=export_id,
+        start=start,
+        end=end,
+        replicas=replicas,
+        contains=contains,
+        output=output,
+        no_wait=no_wait,
+        local_time=local_time,
+    )
 
 
 def _live_job_id(client, id, name):

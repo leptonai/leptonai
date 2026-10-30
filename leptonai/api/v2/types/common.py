@@ -44,6 +44,9 @@ class Metadata(BaseModel):
     last_modified_at: Optional[int] = None
     visibility: Optional[LeptonVisibility] = None
     replica_version: Optional[str] = None
+    # Read-only incarnation UID of the backing Kubernetes resource; older
+    # servers omit it.
+    uuid: Optional[str] = None
 
 
 class SecretItem(BaseModel):

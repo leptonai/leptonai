@@ -26,6 +26,7 @@ from .deployment import DeploymentAPI
 from .endpoint import EndpointAPI
 from .devpod import DevPodAPI
 from .job import JobAPI
+from .log_export import LogExportAPI
 from .secret import SecretAPI
 from .pod import PodAPI
 from .ingress import IngressAPI
@@ -342,6 +343,7 @@ class APIClient(object):
         self.secret = SecretAPI(self)
         self.ingress = IngressAPI(self)
         self.log = LogAPI(self)
+        self.log_export = LogExportAPI(self)
         self.template = TemplateAPI(self)
         self.finetune = FineTuneAPI(self)
         self.shapes = ResourceShapeAPI(self)
