@@ -1,4 +1,4 @@
-"""Tests for the `lep finetune list` filters."""
+"""Tests for `lep finetune`: disabled in the CLI, plus the preserved list filters."""
 
 import os
 import tempfile
@@ -101,3 +101,31 @@ def test_finetune_list_trainers_reports_when_nothing_matches():
     result = _invoke_trainers(["--search", "missing"])
     assert result.exit_code == 0, result.output
     assert "No trainers match the specified filters." in result.output
+
+
+def test_lep_finetune_is_disabled_and_hidden():
+    from leptonai.cli.cli import lep
+    from leptonai.cli.finetune import FINETUNE_UNAVAILABLE_MESSAGE
+
+    runner = CliRunner()
+    assert "finetune" not in runner.invoke(lep, ["--help"]).output
+
+    with patch("leptonai.cli.finetune.APIClient") as api_client:
+        for args in (
+            ["finetune"],
+            ["finetune", "--help"],
+            ["finetune", "list"],
+            ["finetune", "create", "--help"],
+            ["finetune", "remove", "-i", "some-job"],
+        ):
+            result = runner.invoke(lep, args)
+            assert result.exit_code == 1, (args, result.output)
+            assert FINETUNE_UNAVAILABLE_MESSAGE in result.output, args
+    api_client.assert_not_called()
+
+
+def test_lep_job_is_still_available():
+    from leptonai.cli.cli import lep
+
+    result = CliRunner().invoke(lep, ["job", "--help"])
+    assert result.exit_code == 0, result.output

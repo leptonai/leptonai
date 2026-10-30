@@ -869,5 +869,22 @@ def create_command(
         sys.exit(1)
 
 
+FINETUNE_UNAVAILABLE_MESSAGE = (
+    "Fine-tune jobs are not available in this release of the Lepton CLI."
+)
+
+
+@click.command(
+    name="finetune",
+    hidden=True,
+    add_help_option=False,
+    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+)
+def finetune_disabled():
+    # Fine-tune jobs are disabled for the OSS release (LEP-7170). The `finetune`
+    # group above is kept for when the workflow is refreshed and re-enabled.
+    raise click.ClickException(FINETUNE_UNAVAILABLE_MESSAGE)
+
+
 def add_command(cli_group):
-    cli_group.add_command(finetune)
+    cli_group.add_command(finetune_disabled)
