@@ -52,10 +52,15 @@ class WorkspaceFeatures(BaseModel):
     ``/deployments`` routes to the new ``/endpoints`` and ``/devpods`` routes.
     ``enable_secure_endpoint_defaults`` makes the backend generate an API token
     when a new non-pod endpoint does not specify an authentication mode.
+    ``enable_log_exports_create`` allows new bulk log exports and
+    ``enable_log_exports_access`` allows reading existing ones; access stays on
+    when creation is disabled so saved exports remain downloadable.
     """
 
     enable_new_deployment_api: Optional[StrictBool] = None
     enable_secure_endpoint_defaults: Optional[StrictBool] = None
+    enable_log_exports_create: Optional[StrictBool] = None
+    enable_log_exports_access: Optional[StrictBool] = None
 
 
 class WorkspaceInfo(BaseModel):
