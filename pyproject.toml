@@ -7,12 +7,10 @@ readme = "README.md"
 requires-python = ">=3.10,<3.15"
 dependencies = [
     "click",
-    "fastapi",
-    "httpx[http2]==0.27.2",
     "rich",
     "loguru",
     "requests",
-    "pydantic!=2.1.0", # 2.1.0 has a bug (pydantic #6862) that breaks fastapi.
+    "pydantic!=2.1.0", # 2.1.0 has a bug (pydantic #6862).
     "pyyaml",
     "websocket-client>=1.7.0", # interactive Slurm shells (k8s channel protocol)
     "ray[default]",
@@ -34,7 +32,6 @@ test = [
     "pytest",
     "pytest-cov",
     "responses",
-    "respx",
 ]
 
 [dependency-groups]

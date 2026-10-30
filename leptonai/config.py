@@ -166,9 +166,6 @@ if os.environ.get("LEPTON_DEFAULT_RESOURCE_SHAPE"):
 else:
     DEFAULT_RESOURCE_SHAPE = "cpu.small"
 
-# Default port used by the Lepton deployments.
-DEFAULT_PORT = 8080
-
 # Valid resource shapes
 VALID_SHAPES = [
     "cpu.small",
@@ -217,17 +214,3 @@ LEPTON_RESERVED_ENV_NAMES = {
 SSH_PORT = 2222
 TCP_PORT = 18888
 TCP_JUPYTER_PORT = 18889
-
-ENDPOINT_BASE_DOMAIN = "xenon.lepton.run"
-
-
-def build_endpoint_url(workspace_id: str, deployment_name: str) -> str:
-    """
-    Build the endpoint URL for a deployment using the standard pattern:
-        https://<workspace_id>-<deployment_name>.<ENDPOINT_BASE_DOMAIN>
-    """
-    if not workspace_id or not deployment_name:
-        raise ValueError("workspace_id and deployment_name must be non-empty")
-    return f"https://{workspace_id}-{deployment_name}.{ENDPOINT_BASE_DOMAIN}".rstrip(
-        "/"
-    )

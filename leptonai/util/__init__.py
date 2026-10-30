@@ -3,7 +3,4 @@
 General utilities for LeptonAI
 """
 
-from .util import (
-    create_cached_dir_if_needed,
-    is_valid_url,
-)
+from .util import create_cached_dir_if_needed
