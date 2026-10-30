@@ -9,7 +9,7 @@ from click.testing import CliRunner
 
 from leptonai.cli import lep
 from leptonai.cli.tests._log_test_helpers import loki_response
-from leptonai.cli.tests.test_slurm_cli import _fake_client
+from leptonai.cli.tests.test_slurm_cli import JOBS, _fake_client
 
 
 log_module = importlib.import_module("leptonai.cli.log")
@@ -22,6 +22,8 @@ def history_client():
     client, api = _fake_client()
     client.log = Mock()
     client.log.get_log.return_value = loki_response([])
+    # --id with --cluster resolves inside that cluster.
+    api.list_cluster_jobs.return_value = [JOBS.jobs[0]]
     with (
         patch("leptonai.cli.slurm.APIClient", return_value=client),
         patch.object(log_module, "APIClient", return_value=client),
@@ -252,3 +254,20 @@ def test_follow_rejects_historical_window_options(history_client, args):
     assert result.exit_code != 0
     client.log.get_log.assert_not_called()
     api.get_logs.assert_not_called()
+
+
+def test_log_with_cluster_and_id_honors_include_archived(history_client):
+    client, api = history_client
+    # The alive-only query does not return the archived job.
+    api.list_cluster_jobs.side_effect = lambda cluster_id, job_query_mode, q: (
+        [JOBS.jobs[0]] if job_query_mode == "alive_and_archive" else []
+    )
+    selector = ("--id", "42", "--cluster", "cluster-a")
+    window = ("--start", str(START), "--end", str(END))
+
+    default = _invoke(*window, selector=selector)
+    archived = _invoke(*window, "--include-archived", selector=selector)
+
+    assert default.exit_code == 1, default.output
+    assert "No alive Slurm job found" in default.output
+    assert archived.exit_code == 0, archived.output

@@ -434,8 +434,9 @@ AMBIGUOUS_JOBS = WorkspaceSlurmJobList(
 EMPTY_JOBS = WorkspaceSlurmJobList(page=1, page_size=0, total=0, jobs=[])
 
 
-def test_job_attempts_with_cluster_and_id_skips_job_listing():
+def test_job_attempts_with_cluster_and_id_resolves_inside_cluster():
     client, api = _fake_client()
+    api.list_cluster_jobs.return_value = [JOBS.jobs[0]]
     with patch("leptonai.cli.slurm.APIClient", return_value=client):
         # The cluster is accepted as NAMESPACE/NAME or bare NAME; both are
         # validated against list_clusters before any job lookup.
@@ -451,9 +452,34 @@ def test_job_attempts_with_cluster_and_id_skips_job_listing():
     assert full.exit_code == 0, full.output
     assert bare.exit_code == 0, bare.output
     api.list_jobs.assert_not_called()
-    api.list_cluster_jobs.assert_not_called()
+    assert api.list_cluster_jobs.call_args.args == ("ns/cluster-a",)
+    assert api.list_cluster_jobs.call_args.kwargs["q"] == "42"
     assert api.get_job_events.call_count == 2
     api.get_job_events.assert_called_with("ns/cluster-a", "42")
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        ["get"],
+        ["attempts"],
+    ],
+)
+def test_job_with_cluster_and_id_honors_include_archived(command):
+    client, api = _fake_client()
+    # The alive-only query does not return the archived job.
+    api.list_cluster_jobs.side_effect = lambda cluster_id, job_query_mode, q: (
+        [JOBS.jobs[0]] if job_query_mode == "alive_and_archive" else []
+    )
+    args = ["slurm", "job", *command, "-i", "42", "-c", "ns/cluster-a"]
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        default = CliRunner().invoke(lep, args)
+        archived = CliRunner().invoke(lep, [*args, "--include-archived"])
+
+    assert default.exit_code == 1, default.output
+    assert "No alive Slurm job found" in default.output
+    assert "--include-archived" in default.output
+    assert archived.exit_code == 0, archived.output
 
 
 def test_job_commands_error_on_unknown_cluster():
@@ -571,6 +597,23 @@ def test_job_resolution_zero_match_hints_archived():
     assert archived.exit_code == 1, archived.output
     assert "--include-archived" not in archived.output
     assert api.list_jobs.call_args.kwargs["job_query_mode"] == "alive_and_archive"
+
+
+def test_job_resolution_zero_match_points_at_unreachable_clusters():
+    client, api = _fake_client()
+    api.list_jobs.return_value = WorkspaceSlurmJobList(
+        page=1,
+        page_size=0,
+        total=0,
+        jobs=[],
+        failed_clusters={"cluster-b": "cache sync: Gateway Timeout"},
+    )
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        result = CliRunner().invoke(lep, ["slurm", "job", "get", "-i", "99"])
+
+    assert result.exit_code == 1, result.output
+    assert "cluster-b: cache sync: Gateway Timeout" in result.output
+    assert "retry with --cluster NAMESPACE/NAME" in result.output
 
 
 def test_devpod_create_remove_and_safe_ssh_print():

@@ -818,7 +818,12 @@ def _resolve_jobs(
             "Archived jobs are skipped by default; retry with"
             " [green]--include-archived[/]."
         )
-    _print_failed_clusters(failed_clusters)
+    if failed_clusters:
+        _print_failed_clusters(failed_clusters)
+        console.print(
+            "If the job is on one of these clusters, retry with"
+            " [green]--cluster NAMESPACE/NAME[/]."
+        )
     sys.exit(1)
 
 
@@ -1206,9 +1211,6 @@ def get_job(
     _validate_name_id_selector(name, id)
     api = APIClient().slurm
     cluster_id = _resolve_cluster_id(api, cluster) if cluster else None
-    if id and cluster_id:
-        _print_json(api.get_job(cluster_id, id, slurm_api=raw_slurm))
-        return
     matches = _resolve_jobs(
         api, name=name, id=id, cluster_id=cluster_id, include_archived=include_archived
     )
@@ -1239,17 +1241,14 @@ def job_attempts(
     _validate_name_id_selector(name, id)
     api = APIClient().slurm
     cluster_id = _resolve_cluster_id(api, cluster) if cluster else None
-    if id and cluster_id:
-        events = api.get_job_events(cluster_id, id)
-    else:
-        owner, item = _resolve_single_job(
-            api,
-            name=name,
-            id=id,
-            cluster_id=cluster_id,
-            include_archived=include_archived,
-        )
-        events = api.get_job_events(owner, _job_identifier(item))
+    owner, item = _resolve_single_job(
+        api,
+        name=name,
+        id=id,
+        cluster_id=cluster_id,
+        include_archived=include_archived,
+    )
+    events = api.get_job_events(owner, _job_identifier(item))
     if output_format == "json":
         _print_json(events)
     else:
@@ -1355,17 +1354,14 @@ def job_log(
     client = APIClient()
     api = client.slurm
     resolved_cluster = _resolve_cluster_id(api, cluster) if cluster else None
-    if id and resolved_cluster:
-        cluster_id, job_id = resolved_cluster, id
-    else:
-        owner, item = _resolve_single_job(
-            api,
-            name=name,
-            id=id,
-            cluster_id=resolved_cluster,
-            include_archived=include_archived,
-        )
-        cluster_id, job_id = owner, _job_identifier(item)
+    cluster_id, item = _resolve_single_job(
+        api,
+        name=name,
+        id=id,
+        cluster_id=resolved_cluster,
+        include_archived=include_archived,
+    )
+    job_id = _job_identifier(item)
 
     if not follow:
         namespace, cluster_name = api.split_cluster_id(cluster_id)
