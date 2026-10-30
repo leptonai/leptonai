@@ -523,22 +523,10 @@ class NodeSSHAPI(APIResourse):
             or created <= 0
         ):
             raise RuntimeError("The running Slurm job did not match its scheduler ID.")
-        # The operator lowercases the email when it maps it to a Slurm account.
-        # When the scheduler cannot resolve a live job's user name, the job
-        # reports its mail user (the submitter's email) instead; map it the same
-        # way.
-        owner = job_meta.get("owner")
-        account = owner.lower() if isinstance(owner, str) else None
-        if account is not None and account.count("@") == 1:
-            try:
-                account = _slurm_login(spec, account)
-            except RuntimeError:
-                pass
-        if account != username.lower():
+        if job_meta.get("owner") != username:
             raise RuntimeError(
-                f"Slurm job {job_id} is owned by Slurm account"
-                f" {owner or '(unknown)'}, but your Slurm account is {username}."
-                " You can SSH only into your own jobs."
+                f"Slurm job {job_id} is not owned by your Slurm account"
+                f" ({username}). You can SSH only into your own jobs."
             )
         if (
             status.get("state") != "Running"
