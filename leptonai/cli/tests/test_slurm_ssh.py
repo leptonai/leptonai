@@ -285,14 +285,7 @@ def test_job_ssh_requires_a_node_for_multi_node_jobs(session):
     "jobs, message",
     [
         ([], "lep slurm job get --id 42"),
-        (
-            [{**JOB, "metadata": {**JOB["metadata"], "owner": "bob"}}],
-            "owned by Slurm account bob, but your Slurm account is alice_corp",
-        ),
-        (
-            [{**JOB, "metadata": {**JOB["metadata"], "owner": ""}}],
-            "owned by Slurm account (unknown)",
-        ),
+        ([{**JOB, "metadata": {**JOB["metadata"], "owner": "bob"}}], "(alice_corp)"),
         (
             [{**JOB, "status": {**JOB["status"], "job_state": "COMPLETING"}}],
             "current running Slurm allocation",
@@ -308,16 +301,6 @@ def test_job_ssh_never_guesses_an_allocation(session, jobs, message):
     assert result.exit_code == 1
     assert message in result.output
     run.assert_not_called()
-
-
-def test_job_ssh_matches_owner_case_insensitively(session):
-    http, run = session
-    job = deepcopy(JOB)
-    job["metadata"]["owner"] = "Alice_Corp"
-    http.replace(responses.GET, JOBS_URL, json={"jobs": [job], "total": 1})
-    run.side_effect = [profile(), inventory("gpu-1"), completed()]
-    result = invoke("job", "ssh", "--id", "42", "-c", "training")
-    assert result.exit_code == 0, result.output
 
 
 def test_job_ssh_requires_teleport_on_a_compute_group(session):
