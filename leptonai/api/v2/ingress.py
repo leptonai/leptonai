@@ -41,6 +41,18 @@ class IngressAPI(APIResourse):
         )
         return self.ensure_type(response, LeptonIngress)
 
+    def create_endpoint(
+        self, name_or_ingress: Union[str, LeptonIngress], spec: LeptonIngressEndpoint
+    ) -> LeptonIngress:
+        """
+        Create a ingressEndpoint with the given LeptonIngress IngressEndpoint spec.
+        """
+        response = self._post(
+            f"/ingress/{self._to_name(name_or_ingress)}/endpoint/deployment",
+            json=self.safe_json(spec),
+        )
+        return self.ensure_type(response, LeptonIngress)
+
     def delete_endpoint(
         self,
         name_or_ingress: Union[str, LeptonIngress],

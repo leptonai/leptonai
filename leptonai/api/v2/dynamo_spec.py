@@ -49,6 +49,9 @@ DYNAMO_SERVICES_BY_MODE = {
     "aggregated": ("frontend", "worker"),
     "disaggregated": ("frontend", "prefill-worker", "decode-worker"),
 }
+DYNAMO_WORKER_SERVICES = tuple(
+    name for name in DYNAMO_SERVICE_NAMES if name != DYNAMO_FRONTEND_SERVICE
+)
 
 DYNAMO_SHELL_INTERPRETER = "/bin/sh"
 DYNAMO_FRONTEND_WORKDIR = "/workspace"

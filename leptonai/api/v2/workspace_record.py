@@ -4,6 +4,7 @@ the user does not have to call the API to get the workspace information every
 time. This class is also used by the CLI to read and write workspace info.
 """
 
+import os
 import sys
 from pydantic import BaseModel, Field
 from threading import Lock
@@ -83,6 +84,29 @@ class WorkspaceRecord(object):
         with cls._rw_lock:
             with open(cls.WORKSPACE_FILE, "w") as f:
                 yaml.safe_dump(cls._singleton_record.dict(by_alias=True), f)
+
+    @classmethod
+    def login_with_env(cls, client_type: Literal["sdk", "cli"] = "sdk"):
+        """
+        Logs in to the workspace using the environmental variables.
+        """
+        workspace_id = os.environ.get("LEPTON_WORKSPACE_ID")
+        auth_token = os.environ.get("LEPTON_WORKSPACE_TOKEN")
+        workspace_url = os.environ.get("LEPTON_WORKSPACE_URL")
+        workspace_origin_url = os.environ.get("LEPTON_WORKSPACE_ORIGIN_URL")
+        if workspace_id:
+            cls.set(
+                workspace_id,
+                auth_token,
+                workspace_url,
+                workspace_origin_url,
+                client_type=client_type,
+            )
+        else:
+            raise WorkspaceConfigurationError(
+                "LEPTON_WORKSPACE_ID environment variable is not set. Please set it to"
+                " the workspace id you want to log in to."
+            )
 
     @classmethod
     def set(

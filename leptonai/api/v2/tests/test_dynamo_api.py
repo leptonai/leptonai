@@ -470,6 +470,13 @@ class TestDynamoGraphDeploymentAPI(unittest.TestCase):
                 {"timestamp": 1717000000000, "operation": "create", "description": "d"}
             ],
         )
+        series = [
+            {"metric": {"name": "GPUUtilAvg", "device": "0"}, "values": [[1, "0.5"]]}
+        ]
+        responses.add(responses.GET, f"{DGD}/dyn-1/monitoring/GPUUtilAvg", json=series)
+        responses.add(
+            responses.GET, f"{DGD}/dyn-1/replicas/w-1/monitoring/GPUUtil", json=series
+        )
         client = _client()
 
         health = client.dynamo.get_monitoring_status("dyn-1")
@@ -478,6 +485,16 @@ class TestDynamoGraphDeploymentAPI(unittest.TestCase):
 
         history = client.dynamo.get_history("dyn-1")
         self.assertEqual(history[0].operation, "create")
+
+        self.assertEqual(
+            client.dynamo.get_metric("dyn-1", "GPUUtilAvg", window=6), series
+        )
+        self.assertEqual(_query(_last_request()), {"window": ["6"]})
+
+        self.assertEqual(
+            client.dynamo.get_replica_metric("dyn-1", "w-1", "GPUUtil"), series
+        )
+        self.assertEqual(_query(_last_request()), {})
 
 
 class TestLogAPIDynamoScope(unittest.TestCase):
