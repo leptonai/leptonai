@@ -551,8 +551,7 @@ def deployment():
 
     An endpoint is a running instance. Endpoints are created with the `lep
     endpoint create` command and typically expose one or more HTTP routes that
-    users can call, either via a RESTful API or through the Python client
-    provided by `leptonai.client`.
+    users can call via a RESTful API.
 
     The endpoint commands let you list, manage, and remove endpoints on the
     DGX Cloud Lepton.

@@ -6,20 +6,13 @@ dynamic = ["version"]
 readme = "README.md"
 requires-python = ">=3.10,<3.15"
 dependencies = [
-    "anyio>=4.14.2,<5", # 4.14.2 fixes TLS hostname validation and process-pool hangs.
     "click",
-    "contextlib2", # backports async support in nullcontext
-    "exceptiongroup",
-    "fastapi",
-    "httpx[http2]==0.27.2",
     "rich",
-    "typing-extensions",
     "loguru",
     "requests",
-    "pydantic!=2.1.0", # 2.1.0 has a bug (pydantic #6862) that breaks fastapi.
+    "pydantic!=2.1.0", # 2.1.0 has a bug (pydantic #6862).
     "pyyaml",
     "websocket-client>=1.7.0", # interactive Slurm shells (k8s channel protocol)
-    "ledoc-ui",
     "ray[default]",
 ]
 
@@ -39,7 +32,6 @@ test = [
     "pytest",
     "pytest-cov",
     "responses",
-    "respx",
 ]
 
 [dependency-groups]
