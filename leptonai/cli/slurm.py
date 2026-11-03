@@ -33,7 +33,9 @@ from .util import (
     click_group,
     colorize_state,
     console,
+    epoch_scale,
     epoch_to_seconds,
+    err_console,
     format_epoch_cell,
     keyword_matches,
     make_name_id_cell,
@@ -315,9 +317,9 @@ def _print_clusters_table(
 def _print_failed_clusters(failed_clusters: Dict[str, str]) -> None:
     if not failed_clusters:
         return
-    console.print("[yellow]Some clusters could not be queried:[/yellow]")
+    err_console.print("[yellow]Some clusters could not be queried:[/yellow]")
     for cluster_name, error in sorted(failed_clusters.items()):
-        console.print(f"  {cluster_name}: {error}")
+        err_console.print(f"  {cluster_name}: {error}")
 
 
 def _job_cluster_cell(job: WorkspaceSlurmJob, api: Any = None) -> str:
@@ -648,6 +650,59 @@ def _print_log_entries(entries: Iterable[SlurmLogEntry], *, timestamps: bool) ->
 
 
 _FOLLOW_LOOKBACK_NS = 5 * 60 * 1_000_000_000
+# The server's own window when no start is sent; used only when the job record
+# carries no usable times.
+_DEFAULT_LOG_WINDOW_NS = 5 * 60 * 1_000_000_000
+# Slack around the job's recorded lifetime: lines are timestamped by the
+# collector, which can trail or lead the scheduler's clock slightly.
+_JOB_LOG_PAD_NS = 60 * 1_000_000_000
+# Lepton states after which a job writes no more logs (see _SLURM_JOB_STATES).
+_FINISHED_JOB_STATES = frozenset({"Completed", "Failed", "Stopped", "Deleted"})
+
+
+def _epoch_to_ns(value: Any) -> Optional[int]:
+    """Normalize an epoch of any precision to integer nanoseconds."""
+    try:
+        numeric = int(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+    if numeric <= 0:
+        return None
+    return numeric * (1_000_000_000 // epoch_scale(numeric))
+
+
+def _job_log_window(
+    status: Optional[SlurmJobStatus],
+) -> Tuple[Optional[int], Optional[int]]:
+    """Return the (start, end) nanosecond window that covers a job's logs.
+
+    Starts at the job's submit (or start) time; ends at its completion for a
+    finished job and is open (now) otherwise. Either bound is None when the
+    record does not carry it.
+    """
+    if status is None:
+        return None, None
+    began = [
+        t
+        for t in (_epoch_to_ns(status.creation_time), _epoch_to_ns(status.start_time))
+        if t is not None
+    ]
+    start = min(began) - _JOB_LOG_PAD_NS if began else None
+    end = None
+    if _normalize_state(status.state) in _FINISHED_JOB_STATES:
+        ended = [
+            t
+            for t in (
+                _epoch_to_ns(status.completion_time),
+                _epoch_to_ns(status.stopped_time),
+            )
+            if t is not None
+        ]
+        if ended:
+            end = min(max(ended) + _JOB_LOG_PAD_NS, time.time_ns())
+    if start is not None and end is not None and end <= start:
+        end = None
+    return start, end
 
 
 def _follow_logs(
@@ -658,11 +713,13 @@ def _follow_logs(
     start_ns: Optional[int],
     timestamps: bool,
     poll_interval: float,
+    seed_start_ns: Optional[int] = None,
 ) -> None:
     """Tail Slurm logs until interrupted.
 
     Without ``--start`` the first request fetches the newest page (like
-    ``tail -f``) instead of replaying the look-back window oldest-first.
+    ``tail -f``) instead of replaying the look-back window oldest-first; that
+    window opens at ``seed_start_ns`` (the job's submit time) when known.
     Afterwards the loop polls forward from the last timestamp seen; a full
     page means more lines are waiting, so it re-requests immediately and only
     sleeps once a poll comes back short.
@@ -678,7 +735,11 @@ def _follow_logs(
     cursor = start_ns
     try:
         if cursor is None:
-            cursor = time.time_ns() - _FOLLOW_LOOKBACK_NS
+            cursor = (
+                seed_start_ns
+                if seed_start_ns is not None
+                else time.time_ns() - _FOLLOW_LOOKBACK_NS
+            )
             _, newest = emit(
                 api.get_logs(
                     cluster_id,
@@ -744,15 +805,15 @@ def _resolve_cluster(
         return api.resolve_cluster(cluster, clusters=clusters)
     except SlurmClusterLookupError as error:
         if error.ambiguous:
-            console.print(
+            err_console.print(
                 f"[red]{cluster}[/] matches several clusters; use NAMESPACE/NAME:"
             )
         else:
-            console.print(f"Slurm cluster [red]{cluster}[/] was not found.")
+            err_console.print(f"Slurm cluster [red]{cluster}[/] was not found.")
             if error.candidates:
-                console.print("Available clusters:")
+                err_console.print("Available clusters:")
         for item in error.candidates:
-            console.print(f"  {item.metadata.id_}")
+            err_console.print(f"  {item.metadata.id_}")
         sys.exit(1)
 
 
@@ -801,9 +862,9 @@ def _resolve_jobs(
 
     scope = "alive or archived" if include_archived else "alive"
     search_type = "name" if name else "ID"
-    console.print(f"No {scope} Slurm job found for [red]{search_type}: {query}[/].")
+    err_console.print(f"No {scope} Slurm job found for [red]{search_type}: {query}[/].")
     if not include_archived:
-        console.print(
+        err_console.print(
             "Archived jobs are skipped by default; retry with"
             " [green]--include-archived[/]."
         )
@@ -824,7 +885,7 @@ def _resolve_single_job(
     )
     if len(matches) == 1:
         return matches[0]
-    console.print(
+    err_console.print(
         f"[red]{name or id}[/] matches {len(matches)} Slurm jobs; disambiguate"
         " with [green]--cluster NAMESPACE/NAME[/] or [green]--id[/]:"
     )
@@ -840,7 +901,7 @@ def _resolve_single_job(
             item.metadata.name or "-",
             _job_state_cell(item.status),
         )
-    console.print(table)
+    err_console.print(table)
     sys.exit(1)
 
 
@@ -1195,7 +1256,9 @@ def get_job(
     _validate_name_id_selector(name, id)
     api = APIClient().slurm
     cluster_id = _resolve_cluster_id(api, cluster) if cluster else None
-    if id and cluster_id:
+    # The single-job route reads slurmdbd and returns archived jobs too, so
+    # it can stand in for resolution only when those are allowed.
+    if id and cluster_id and include_archived:
         _print_json(api.get_job(cluster_id, id, slurm_api=raw_slurm))
         return
     matches = _resolve_jobs(
@@ -1228,7 +1291,7 @@ def job_attempts(
     _validate_name_id_selector(name, id)
     api = APIClient().slurm
     cluster_id = _resolve_cluster_id(api, cluster) if cluster else None
-    if id and cluster_id:
+    if id and cluster_id and include_archived:
         events = api.get_job_events(cluster_id, id)
     else:
         owner, item = _resolve_single_job(
@@ -1257,9 +1320,24 @@ def job_attempts(
     show_default=True,
 )
 @click.option("--query", "query", "-q", help="Filter log lines.")
-@click.option("--start", help="UTC time or epoch (seconds/ms/us/ns).")
-@click.option("--end", help="UTC time or epoch (seconds/ms/us/ns).")
-@click.option("--limit", type=click.IntRange(min=1), default=100, show_default=True)
+@click.option(
+    "--start",
+    help="UTC time or epoch (seconds/ms/us/ns). Defaults to the job's submit time.",
+)
+@click.option(
+    "--end",
+    help=(
+        "UTC time or epoch (seconds/ms/us/ns). Defaults to the job's end time,"
+        " or now while it runs."
+    ),
+)
+@click.option(
+    "--limit",
+    type=click.IntRange(min=1),
+    default=100,
+    show_default=True,
+    help="Maximum lines to print; the newest lines win.",
+)
 @click.option(
     "--follow",
     "follow",
@@ -1295,13 +1373,13 @@ def job_log(
     """Print or follow stdout/stderr logs for a Slurm job.
 
     Select the job by --id or --name; the owning cluster is resolved
-    automatically.
+    automatically. By default the window covers the job's whole run, from
+    its submit time to its end (or now while it runs); --start and --end
+    narrow it.
     """
     _validate_name_id_selector(name, id)
     start_ns = _preprocess_time(start, epoch=True) if start else None
     end_ns = _preprocess_time(end, epoch=True) if end else None
-    if start_ns is None and end_ns is not None:
-        start_ns = end_ns - 5 * 60 * 1_000_000_000
     if start_ns is not None and end_ns is not None and end_ns <= start_ns:
         raise click.UsageError("--end must be later than --start.")
     if follow and end_ns is not None:
@@ -1313,7 +1391,8 @@ def job_log(
     }[log_type]
     api = APIClient().slurm
     resolved_cluster = _resolve_cluster_id(api, cluster) if cluster else None
-    if id and resolved_cluster:
+    job_status: Optional[SlurmJobStatus] = None
+    if id and resolved_cluster and include_archived:
         cluster_id, job_id = resolved_cluster, id
     else:
         owner, item = _resolve_single_job(
@@ -1324,6 +1403,36 @@ def job_log(
             include_archived=include_archived,
         )
         cluster_id, job_id = owner, _job_identifier(item)
+        job_status = item.status
+
+    # Without --start the server would only search its last five minutes,
+    # silently missing any job that ended earlier; default to the job's run.
+    seed_start_ns: Optional[int] = None
+    if start_ns is None:
+        if job_status is None:
+            job_status = api.get_job(cluster_id, job_id).status
+        job_start_ns, job_end_ns = _job_log_window(job_status)
+        if job_start_ns is not None:
+            if end_ns is not None and end_ns <= job_start_ns:
+                raise click.UsageError(
+                    f"--end is before Slurm job {job_id} was submitted"
+                    f" ({_format_time(job_start_ns + _JOB_LOG_PAD_NS)})."
+                )
+            if follow:
+                seed_start_ns = job_start_ns
+            else:
+                start_ns = job_start_ns
+                if end_ns is None:
+                    end_ns = job_end_ns
+        else:
+            fallback_end = end_ns if end_ns is not None else time.time_ns()
+            if not follow:
+                start_ns = fallback_end - _DEFAULT_LOG_WINDOW_NS
+            err_console.print(
+                f"[yellow]Slurm job {job_id} reports no submit time; showing"
+                f" logs since {_format_time(fallback_end - _DEFAULT_LOG_WINDOW_NS)}"
+                " only. Pass --start to search further back.[/yellow]"
+            )
 
     common = dict(
         job_id=job_id,
@@ -1351,6 +1460,7 @@ def job_log(
         start_ns=start_ns,
         timestamps=timestamps,
         poll_interval=poll_interval,
+        seed_start_ns=seed_start_ns,
     )
 
 
@@ -1539,7 +1649,10 @@ def remove_devpod(
     type=click.Choice(["bastion", "teleport"]),
     default="bastion",
     show_default=True,
-    help="Connect through the cluster bastion or Teleport (requires local tsh v18+).",
+    help=(
+        "Connect through the cluster bastion (requires a local OpenSSH client)"
+        " or Teleport (requires local tsh v18+)."
+    ),
 )
 @click.option(
     "--teleport-auth",
@@ -1562,7 +1675,8 @@ def ssh_devpod(
 
     Select the pod by --name or --id, optionally scoped by --cluster; the
     owning --cluster may also be used alone. By default, runs the bastion SSH
-    command reported by the platform; pass extra SSH options after `--`.
+    command reported by the platform with the local OpenSSH client (`ssh`
+    must be on PATH); pass extra SSH options after `--`.
 
     With --transport teleport, requires local tsh v18+ and a Ready Dev Pod.
     The CLI finds the Teleport proxy and connects as the Dev Pod's Linux
@@ -1622,7 +1736,13 @@ def ssh_devpod(
     click.echo(shlex.join(argv))
     if print_only:
         return
-    completed = subprocess.run(argv, check=False)
+    try:
+        completed = subprocess.run(argv, check=False)
+    except FileNotFoundError:
+        raise click.ClickException(
+            "The OpenSSH client (`ssh`) was not found on PATH. Install OpenSSH,"
+            " or use `lep slurm devpod shell` or `--transport teleport` instead."
+        ) from None
     if completed.returncode:
         raise click.exceptions.Exit(completed.returncode)
 
