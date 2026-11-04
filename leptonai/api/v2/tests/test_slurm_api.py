@@ -256,6 +256,17 @@ def test_job_events_and_logs_use_cluster_scoped_parameters():
     )
 
 
+def test_get_logs_always_sends_q_so_the_server_unwraps_the_envelope():
+    # LEP-7430: without the q key the server returns each line as the
+    # collector's raw {"message": ...} JSON; an empty q asks for plain text.
+    api, client = _api({"data": {"result": []}})
+    api.get_logs("ns/cluster-a", job_id=42)
+
+    params = client._get.call_args.kwargs["params"]
+    assert params["q"] == ""
+    assert "start" not in params and "end" not in params
+
+
 def test_get_logs_returns_typed_entries_in_timestamp_order():
     api, _ = _api({
         "status": "success",
