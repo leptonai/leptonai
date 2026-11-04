@@ -298,6 +298,10 @@ class SlurmAPI(APIResourse):
             "slurm_cluster": name,
             "limit": limit,
             "direction": direction,
+            # Always present, even when empty: the server unwraps the
+            # collector's {"message": ...} envelope into plain log text only
+            # when the q key is on the request (the dashboard sends q="" too).
+            "q": query or "",
         }
         optional = {
             "slurm_job": None if job_id is None else str(job_id),
@@ -305,7 +309,6 @@ class SlurmAPI(APIResourse):
             "slurm_step": step,
             "slurm_node": node,
             "slurm_log_type": log_type,
-            "q": query,
             "start": start,
             "end": end,
         }

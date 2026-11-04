@@ -16,6 +16,7 @@ from leptonai.api.v2.types.slurm import (
     SlurmLogs,
     WorkspaceSlurmJobList,
 )
+from leptonai.api.v2.api_resource import ClientError, ServerError
 from leptonai.api.v2.slurm import SlurmAPI
 from leptonai.cli import lep
 
@@ -407,7 +408,7 @@ def test_job_list_table_shows_slurm_state_and_reason():
     assert "NodeDown" in result.output
 
 
-def _job_entry(job_id, name, cluster_id, state="Running"):
+def _job_entry(job_id, name, cluster_id, state="Running", **times):
     return {
         "kind": "slurm",
         "slurm_cluster": {"id": cluster_id, "name": cluster_id.split("/")[1]},
@@ -417,8 +418,14 @@ def _job_entry(job_id, name, cluster_id, state="Running"):
             "created_at": 1_700_000_000_000,
         },
         "spec": {"job_id": job_id, "cpus": 1, "gpus": 0, "memory_mb": 1024},
-        "status": {"state": state, "job_state": state.upper()},
+        "status": {"state": state, "job_state": state.upper(), **times},
     }
+
+
+def _job_list(*entries):
+    return WorkspaceSlurmJobList(
+        page=1, page_size=len(entries), total=len(entries), jobs=list(entries)
+    )
 
 
 AMBIGUOUS_JOBS = WorkspaceSlurmJobList(
@@ -434,18 +441,18 @@ AMBIGUOUS_JOBS = WorkspaceSlurmJobList(
 EMPTY_JOBS = WorkspaceSlurmJobList(page=1, page_size=0, total=0, jobs=[])
 
 
-def test_job_attempts_with_cluster_and_id_skips_job_listing():
+def test_job_attempts_with_cluster_id_and_archived_skips_job_listing():
     client, api = _fake_client()
     with patch("leptonai.cli.slurm.APIClient", return_value=client):
         # The cluster is accepted as NAMESPACE/NAME or bare NAME; both are
         # validated against list_clusters before any job lookup.
         full = CliRunner().invoke(
             lep,
-            ["slurm", "job", "attempts", "-i", "42", "--cluster", "ns/cluster-a"],
+            ["slurm", "job", "attempts", "-i", "42", "-c", "ns/cluster-a", "-ia"],
         )
         bare = CliRunner().invoke(
             lep,
-            ["slurm", "job", "attempts", "-i", "42", "--cluster", "cluster-a"],
+            ["slurm", "job", "attempts", "-i", "42", "-c", "cluster-a", "-ia"],
         )
 
     assert full.exit_code == 0, full.output
@@ -454,6 +461,28 @@ def test_job_attempts_with_cluster_and_id_skips_job_listing():
     api.list_cluster_jobs.assert_not_called()
     assert api.get_job_events.call_count == 2
     api.get_job_events.assert_called_with("ns/cluster-a", "42")
+
+
+@pytest.mark.parametrize("command", ["get", "attempts", "log"])
+def test_job_id_with_cluster_skips_archived_jobs_by_default(command):
+    # LEP-7309: --cluster must not bypass the alive-only default; the job is
+    # looked up in the cluster's alive list, and an archived one is refused
+    # with the same --include-archived hint as the workspace-wide lookup.
+    client, api = _fake_client()
+    api.list_cluster_jobs.return_value = []
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        result = CliRunner().invoke(
+            lep, ["slurm", "job", command, "-i", "1304", "-c", "cluster-a"]
+        )
+
+    assert result.exit_code == 1, result.output
+    assert "--include-archived" in result.stderr
+    assert result.stdout == ""
+    assert api.list_cluster_jobs.call_args.args == ("ns/cluster-a",)
+    assert api.list_cluster_jobs.call_args.kwargs["job_query_mode"] == "alive_only"
+    api.get_job.assert_not_called()
+    api.get_job_events.assert_not_called()
+    api.get_logs.assert_not_called()
 
 
 def test_job_commands_error_on_unknown_cluster():
@@ -780,6 +809,34 @@ def test_devpod_ssh_runs_bastion_command_with_extra_options_before_destination()
     run.assert_called_once_with(
         ["ssh", "-v", "-J", "alice@bastion", "alice@pod"], check=False
     )
+
+
+def test_devpod_ssh_without_local_ssh_fails_with_an_actionable_message():
+    # LEP-7428: a missing OpenSSH client is a usage problem, not a crash.
+    client, _ = _fake_client()
+    with (
+        patch("leptonai.cli.slurm.APIClient", return_value=client),
+        patch(
+            "leptonai.cli.slurm.subprocess.run",
+            side_effect=FileNotFoundError(2, "No such file or directory", "ssh"),
+        ),
+    ):
+        result = CliRunner().invoke(
+            lep, ["slurm", "devpod", "ssh", "--id", "ns/cluster-a-alice"]
+        )
+
+    assert result.exit_code == 1, result.output
+    assert "OpenSSH client" in result.stderr
+    assert "lep slurm devpod shell" in result.stderr
+    assert "Traceback" not in result.output
+    assert "Unexpected error" not in result.output
+
+
+def test_devpod_ssh_help_states_the_openssh_requirement():
+    result = CliRunner().invoke(lep, ["slurm", "devpod", "ssh", "--help"])
+
+    assert result.exit_code == 0, result.output
+    assert "OpenSSH" in " ".join(result.output.split())
 
 
 def test_devpod_ssh_fails_closed_when_bastion_is_disabled():
@@ -1182,3 +1239,38 @@ def test_devpod_list_search_filters_by_name_and_id():
     assert "cluster-a-alice" in hit.output
     assert miss.exit_code == 0, miss.output
     assert json.loads(miss.output) == []
+
+
+class _ErrorResponse:
+    def __init__(self, status_code, text):
+        self.status_code = status_code
+        self.text = text
+
+
+@pytest.mark.parametrize(
+    "error, expected",
+    [
+        (
+            ClientError(_ErrorResponse(404, '{"message":"job 99999999 not found"}')),
+            "404 Not Found",
+        ),
+        (ClientError(_ErrorResponse(401, "OAuth flow failed.")), "401 Unauthorized"),
+        (ClientError(_ErrorResponse(403, "permission denied")), "403 Forbidden"),
+        (ServerError(_ErrorResponse(502, "bad gateway")), "502 Error"),
+        (RuntimeError("boom"), "Unexpected error"),
+    ],
+)
+def test_api_and_runtime_errors_go_to_stderr(error, expected):
+    # LEP-7427: stdout carries only results, so scripts piping JSON never
+    # parse an error message as output.
+    client, api = _fake_client()
+    api.get_job.side_effect = error
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        result = CliRunner().invoke(
+            lep,
+            ["slurm", "job", "get", "-i", "99999999", "-c", "cluster-a", "-ia"],
+        )
+
+    assert result.exit_code == 1, result.output
+    assert result.stdout == ""
+    assert expected in result.stderr

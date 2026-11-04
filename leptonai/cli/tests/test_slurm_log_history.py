@@ -9,7 +9,8 @@ from click.testing import CliRunner
 
 from leptonai.cli import lep
 from leptonai.cli.tests._log_test_helpers import loki_response
-from leptonai.cli.tests.test_slurm_cli import _fake_client
+from leptonai.api.v2.types.slurm import SlurmJob
+from leptonai.cli.tests.test_slurm_cli import _fake_client, _job_entry, _job_list
 
 
 log_module = importlib.import_module("leptonai.cli.log")
@@ -57,7 +58,11 @@ def _lines(result):
 
 @pytest.mark.parametrize(
     "selector",
-    [("--id", "42"), ("--name", "train"), ("--id", "42", "--cluster", "cluster-a")],
+    [
+        ("--id", "42"),
+        ("--name", "train"),
+        ("--id", "42", "--cluster", "cluster-a", "--include-archived"),
+    ],
 )
 def test_history_fetches_the_whole_window_with_slurm_filters(history_client, selector):
     client, api = history_client
@@ -252,3 +257,87 @@ def test_follow_rejects_historical_window_options(history_client, args):
     assert result.exit_code != 0
     client.log.get_log.assert_not_called()
     api.get_logs.assert_not_called()
+
+
+# LEP-7431: without --start the window follows the job's own run.
+SUBMITTED_S = 1_793_691_300
+FINISHED_S = 1_793_691_445
+PAD_NS = 60 * 10**9
+
+
+@pytest.mark.parametrize(
+    "state, times, expected_end",
+    [
+        (
+            "Completed",
+            {"creation_time": SUBMITTED_S, "completion_time": FINISHED_S},
+            FINISHED_S * 10**9 + PAD_NS,
+        ),
+        # A requeued, running job keeps an earlier attempt's completion time.
+        (
+            "Running",
+            {"creation_time": SUBMITTED_S, "completion_time": FINISHED_S},
+            None,
+        ),
+    ],
+)
+def test_history_defaults_to_the_job_run(history_client, state, times, expected_end):
+    client, api = history_client
+    api.list_jobs.return_value = _job_list(
+        _job_entry(42, "train", "ns/cluster-a", state=state, **times)
+    )
+    result = _invoke()
+
+    assert result.exit_code == 0, result.output
+    kwargs = client.log.get_log.call_args_list[0].kwargs
+    assert kwargs["start"] == SUBMITTED_S * 10**9 - PAD_NS
+    if expected_end is not None:
+        assert client.log.get_log.call_args_list[-1].kwargs["end"] == expected_end
+    assert "today" not in result.output
+
+
+def test_history_reads_job_times_when_resolution_is_skipped(history_client):
+    client, api = history_client
+    api.get_job.return_value = SlurmJob(
+        metadata={"id": "997"},
+        spec={"job_id": 997},
+        status={
+            "state": "Completed",
+            "creation_time": SUBMITTED_S * 1000,
+            "completion_time": FINISHED_S * 1000,
+        },
+    )
+    result = _invoke(selector=("--id", "997", "-c", "cluster-a", "-ia"))
+
+    assert result.exit_code == 0, result.output
+    api.get_job.assert_called_once_with("ns/cluster-a", "997")
+    first = client.log.get_log.call_args_list[0].kwargs
+    last = client.log.get_log.call_args_list[-1].kwargs
+    assert first["start"] == SUBMITTED_S * 10**9 - PAD_NS
+    assert last["end"] == FINISHED_S * 10**9 + PAD_NS
+
+
+def test_history_end_before_submission_is_a_usage_error(history_client):
+    client, api = history_client
+    api.list_jobs.return_value = _job_list(
+        _job_entry(42, "train", "ns/cluster-a", creation_time=SUBMITTED_S)
+    )
+    result = _invoke("--end", str(SUBMITTED_S - 3600))
+
+    assert result.exit_code == 2, result.output
+    assert "before Slurm job 42 was submitted" in result.output
+    client.log.get_log.assert_not_called()
+
+
+def test_follow_seeds_from_the_job_submit_time(history_client):
+    client, api = history_client
+    api.list_jobs.return_value = _job_list(
+        _job_entry(42, "train", "ns/cluster-a", creation_time=SUBMITTED_S)
+    )
+    with patch("leptonai.cli.slurm.time.sleep", side_effect=KeyboardInterrupt):
+        result = _invoke("--follow")
+
+    assert result.exit_code == 0, result.output
+    seed = api.get_logs.call_args_list[0].kwargs
+    assert seed["direction"] == "backward"
+    assert seed["start"] == SUBMITTED_S * 10**9 - PAD_NS

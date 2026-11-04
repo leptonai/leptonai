@@ -29,6 +29,8 @@ from leptonai.api.v2.types.deployment import (
 )
 
 console = Console(highlight=False)
+# Errors, hints and tracebacks go to stderr so stdout carries only results.
+err_console = Console(stderr=True, highlight=False)
 
 
 class PathResolutionError(Exception):
@@ -164,17 +166,17 @@ def click_group(*args, **kwargs):
             try:
                 return super().invoke(ctx)
             except WorkspaceConfigurationError as e:
-                console.print(f"[red]Workspace configuration error[/]: {e}")
+                err_console.print(f"[red]Workspace configuration error[/]: {e}")
                 sys.exit(1)
             except WorkspaceError as e:
-                console.print(f"[red]{e.__class__.__name__}[/]: {e}")
+                err_console.print(f"[red]{e.__class__.__name__}[/]: {e}")
                 sys.exit(1)
             except ClientError as e:
                 resp = getattr(e, "response", None)
                 status = getattr(resp, "status_code", None)
                 text = getattr(resp, "text", str(e))
                 if status == 401:
-                    console.print(
+                    err_console.print(
                         f"\n[red]401 Unauthorized[/]: {text}\n\n[yellow]Hint:[/yellow]"
                         " This may be caused by an invalid or mismatched workspace"
                         " token.\n[white] \n Check your local workspace info and"
@@ -184,7 +186,7 @@ def click_group(*args, **kwargs):
                         " <workspace_id>:<new_token>.\n"
                     )
                 elif status == 403:
-                    console.print(
+                    err_console.print(
                         f"\n[red]403 Forbidden[/]: {text}\n\n[yellow]Hint:[/yellow]"
                         " This may be caused by insufficient permissions or an expired"
                         " workspace token.\n\n[white]Check your local workspace info"
@@ -194,26 +196,26 @@ def click_group(*args, **kwargs):
                         " again with `lep login -c <workspace_id>:<new_token>`.\n"
                     )
                 elif status == 404:
-                    console.print(f"[red]404 Not Found[/]:{text}")
+                    err_console.print(f"[red]404 Not Found[/]:{text}")
                 else:
-                    console.print(f"[red]{status} Error[/]: {text}")
+                    err_console.print(f"[red]{status} Error[/]: {text}")
                 sys.exit(1)
             except ServerError as e:
                 resp = getattr(e, "response", None)
                 status = getattr(resp, "status_code", None)
                 text = getattr(resp, "text", str(e))
-                console.print(f"[red]{status} Error[/]: {text}")
+                err_console.print(f"[red]{status} Error[/]: {text}")
                 sys.exit(1)
             except (click.ClickException, click.exceptions.Exit, click.Abort):
                 # Abort (Ctrl-C or EOF at a prompt) gets click's "Aborted!".
                 raise
             except ValueError as e:
-                console.print(f"[red]Error[/]: {e}")
+                err_console.print(f"[red]Error[/]: {e}")
                 logger.trace(traceback.format_exc())
                 sys.exit(1)
             except Exception as e:
-                console.print(f"[red]Unexpected error[/]: {e}")
-                console.print(traceback.format_exc())
+                err_console.print(f"[red]Unexpected error[/]: {e}")
+                err_console.print(traceback.format_exc())
                 sys.exit(1)
 
     return click.group(*args, cls=ClickAliasedGroup, **kwargs)
@@ -243,7 +245,7 @@ def check(condition: Any, message: str) -> None:
     :param message: The message to print if the condition is false.
     """
     if not condition:
-        console.print(message)
+        err_console.print(message)
         sys.exit(1)
 
 
