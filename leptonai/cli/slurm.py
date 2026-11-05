@@ -1,6 +1,7 @@
 """CLI commands for workspace Slurm resources."""
 
 import json
+import re
 import shlex
 import subprocess
 import sys
@@ -11,6 +12,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 import click
 from requests import RequestException
 from rich.table import Table
+from rich.text import Text
 
 from .client import APIClient
 from ..api.v2.node_ssh import NodeSSHTarget
@@ -62,6 +64,28 @@ _SLURM_JOB_STATES = (
     "PendingRetry",
     "Terminating",
 )
+
+# Server-side limits, checked here so a bad value fails as a usage error
+# instead of a raw API (or logging backend) error.
+# Cluster event types the history route accepts (slurm-cluster-operator
+# eventstore), and its maximum page.
+_SLURM_CLUSTER_EVENT_TYPES = (
+    "create_cluster",
+    "delete_cluster",
+    "update_cluster",
+    "patch_cluster",
+    "add_user",
+    "remove_user",
+    "restart_pods",
+    "reset_usage",
+)
+_MAX_CLUSTER_EVENTS = 1000
+# The logging backend's max entries per query and max query length.
+_MAX_LOG_LINES = 20000
+_MAX_LOG_WINDOW_NS = 31 * 24 * 60 * 60 * 1_000_000_000
+# Dev Pod resource request formats (LeptonSlurmCluster ResourceList CRD).
+_DEVPOD_CPU_PATTERN = re.compile(r"[0-9]+m?|[0-9]+\.[0-9]+")
+_DEVPOD_MEMORY_PATTERN = re.compile(r"[0-9]+([EPTGMK]i?)?")
 
 
 def _model_dump(value: Any) -> Any:
@@ -368,7 +392,8 @@ def _print_jobs_table(result: WorkspaceSlurmJobList, *, api: Any = None) -> None
             f"{item.status.partition or '-'} / {item.status.qos or '-'}",
             _format_resources(item.spec.cpus, item.spec.gpus, item.spec.memory_mb),
             format_epoch_cell(item.metadata.created_at),
-            _job_reason(item.status),
+            # Plain Text: a reason such as "Dependency [afterok:41]" is not markup.
+            Text(_job_reason(item.status)),
         )
     console.print(table)
     _print_failed_clusters(result.failed_clusters)
@@ -389,7 +414,7 @@ def _print_attempts_table(
         table.add_row(
             f"Attempt {attempt.attempt}",
             _state_cell(attempt.state),
-            ", ".join(attempt.nodes) or "-",
+            Text(", ".join(attempt.nodes) or "-"),
             _format_resources(attempt.cpus, attempt.gpus, attempt.memory_mb),
             format_epoch_cell(attempt.start_at or attempt.submit_at),
             _format_duration(attempt.start_at, attempt.end_at),
@@ -400,7 +425,7 @@ def _print_attempts_table(
                 table.add_row(
                     f"{attempt.attempt}/{step.id_ or step.name or '-'}",
                     _state_cell(step.state),
-                    ", ".join(step.nodes) or "-",
+                    Text(", ".join(step.nodes) or "-"),
                     _format_resources(step.cpus, step.gpus, step.memory_mb),
                     format_epoch_cell(step.start_at or step.submit_at),
                     _format_duration(step.start_at, step.end_at),
@@ -444,7 +469,7 @@ def _print_devpods_table(
             f"{(limits.memory if limits else None) or '-'}",
             (status.image_version if status else None) or "-",
             "[green]Ready[/]" if _reported_devpod_ssh_command(item) else "-",
-            _devpod_diagnosis(status),
+            Text(_devpod_diagnosis(status)),
         )
     console.print(table)
 
@@ -830,6 +855,7 @@ def _resolve_jobs(
     id: Optional[str],
     cluster_id: Optional[str],
     include_archived: bool,
+    archived_hint: bool = True,
 ) -> List[Tuple[str, Any]]:
     """Resolve --name/--id to (cluster ID, job) pairs.
 
@@ -863,7 +889,7 @@ def _resolve_jobs(
     scope = "alive or archived" if include_archived else "alive"
     search_type = "name" if name else "ID"
     err_console.print(f"No {scope} Slurm job found for [red]{search_type}: {query}[/].")
-    if not include_archived:
+    if not include_archived and archived_hint:
         err_console.print(
             "Archived jobs are skipped by default; retry with"
             " [green]--include-archived[/]."
@@ -879,9 +905,15 @@ def _resolve_single_job(
     id: Optional[str],
     cluster_id: Optional[str],
     include_archived: bool,
+    archived_hint: bool = True,
 ) -> Tuple[str, Any]:
     matches = _resolve_jobs(
-        api, name=name, id=id, cluster_id=cluster_id, include_archived=include_archived
+        api,
+        name=name,
+        id=id,
+        cluster_id=cluster_id,
+        include_archived=include_archived,
+        archived_hint=archived_hint,
     )
     if len(matches) == 1:
         return matches[0]
@@ -1051,8 +1083,19 @@ def get_cluster(name: Optional[str], id: Optional[str]) -> None:
 @cluster.command(name="events")
 @click.option("--name", "-n", help="Cluster name", type=str)
 @click.option("--id", "-i", help="Canonical NAMESPACE/NAME cluster ID", type=str)
-@click.option("--limit", type=click.IntRange(min=1), default=100, show_default=True)
-@click.option("--type", "event_type", help="Filter by cluster event type.")
+@click.option(
+    "--limit",
+    type=click.IntRange(min=1, max=_MAX_CLUSTER_EVENTS),
+    default=100,
+    show_default=True,
+    help="Maximum events to return.",
+)
+@click.option(
+    "--type",
+    "event_type",
+    type=LooseChoice(_SLURM_CLUSTER_EVENT_TYPES),
+    help="Filter by cluster event type.",
+)
 @click.option("--output", "output_format", "-o", type=OUTPUT_FORMAT, default="table")
 def cluster_events(
     name: Optional[str],
@@ -1078,11 +1121,13 @@ def cluster_events(
     table.add_column("User")
     table.add_column("Message")
     for event in events:
+        # Plain Text cells: messages carry config dumps and regexes whose
+        # "[...]" and backslashes rich would otherwise parse as markup.
         table.add_row(
-            event.timestamp or "-",
-            event.type_ or "-",
-            event.user or "-",
-            event.message or "-",
+            Text(event.timestamp or "-"),
+            Text(event.type_ or "-"),
+            Text(event.user or "-"),
+            Text(event.message or "-"),
         )
     console.print(table)
 
@@ -1217,10 +1262,14 @@ def list_jobs(
     resolved_clusters: Optional[List[str]] = None
     if cluster_names:
         clusters = api.list_clusters()
-        resolved_clusters = [
-            _resolve_cluster_id(api, value, clusters=clusters)
-            for value in cluster_names
-        ]
+        # A cluster given twice (by NAME and NAMESPACE/NAME, say) would be
+        # listed twice by the server, so every job would show up twice.
+        resolved_clusters = list(
+            dict.fromkeys(
+                _resolve_cluster_id(api, value, clusters=clusters)
+                for value in cluster_names
+            )
+        )
     result = api.list_jobs(
         cluster_names=resolved_clusters,
         job_query_mode=mode,
@@ -1333,7 +1382,7 @@ def job_attempts(
 )
 @click.option(
     "--limit",
-    type=click.IntRange(min=1),
+    type=click.IntRange(min=1, max=_MAX_LOG_LINES),
     default=100,
     show_default=True,
     help="Maximum lines to print; the newest lines win.",
@@ -1375,7 +1424,7 @@ def job_log(
     Select the job by --id or --name; the owning cluster is resolved
     automatically. By default the window covers the job's whole run, from
     its submit time to its end (or now while it runs); --start and --end
-    narrow it.
+    narrow it. A single query covers at most 31 days.
     """
     _validate_name_id_selector(name, id)
     start_ns = _preprocess_time(start, epoch=True) if start else None
@@ -1384,6 +1433,15 @@ def job_log(
         raise click.UsageError("--end must be later than --start.")
     if follow and end_ns is not None:
         raise click.UsageError("--end cannot be used together with --follow.")
+    if start_ns is not None:
+        window_end = end_ns if end_ns is not None else time.time_ns()
+        if window_end - start_ns > _MAX_LOG_WINDOW_NS:
+            raise click.UsageError(
+                "The log window from --start to "
+                + ("--end" if end_ns is not None else "now")
+                + " exceeds 31 days; pick a later --start"
+                + (" or an earlier --end." if end_ns is not None else ".")
+            )
     resolved_log_type = {
         "all": None,
         "stdout": "stdout.log",
@@ -1417,6 +1475,17 @@ def job_log(
                 raise click.UsageError(
                     f"--end is before Slurm job {job_id} was submitted"
                     f" ({_format_time(job_start_ns + _JOB_LOG_PAD_NS)})."
+                )
+            # The backend rejects longer queries; keep the newest 31 days.
+            window_end = end_ns if end_ns is not None else job_end_ns
+            if window_end is None or follow:
+                window_end = time.time_ns()
+            if window_end - job_start_ns > _MAX_LOG_WINDOW_NS:
+                job_start_ns = window_end - _MAX_LOG_WINDOW_NS
+                err_console.print(
+                    f"[yellow]Slurm job {job_id} spans more than 31 days; showing"
+                    f" logs since {_format_time(job_start_ns)} only. Pass --start"
+                    " and --end to pick an earlier window.[/yellow]"
                 )
             if follow:
                 seed_start_ns = job_start_ns
@@ -1481,12 +1550,16 @@ def job_log(
     default=None,
     help="Teleport SSO connector for login; selected automatically when omitted.",
 )
+# Accepted only to reject it clearly: the other job commands take -ia, and
+# without this click would read "-ia" as "-i a".
+@click.option("--include-archived", "-ia", is_flag=True, hidden=True)
 def ssh_job(
     name: Optional[str],
     id: Optional[str],
     cluster: Optional[str],
     node: Optional[str],
     teleport_auth: Optional[str],
+    include_archived: bool,
 ) -> None:
     """SSH into a node allocated to your running Slurm job through Teleport.
 
@@ -1499,6 +1572,11 @@ def ssh_job(
     sign-in must use the same user as your Lepton login, so Service Account
     Tokens are not supported; that user needs workspace user or admin access.
     """
+    if include_archived:
+        raise click.UsageError(
+            "--include-archived does not apply to job ssh: only a running job's"
+            " nodes can be reached."
+        )
     _validate_name_id_selector(name, id)
     client = APIClient()
     api = client.slurm
@@ -1507,7 +1585,12 @@ def ssh_job(
         job_id = id
     else:
         cluster_id, item = _resolve_single_job(
-            api, name=name, id=id, cluster_id=cluster_id, include_archived=False
+            api,
+            name=name,
+            id=id,
+            cluster_id=cluster_id,
+            include_archived=False,
+            archived_hint=False,
         )
         job_id = _job_identifier(item)
     _ssh_via_teleport(
@@ -1515,6 +1598,17 @@ def ssh_job(
         teleport_auth,
         lambda target: f"node {target.hostname} of Slurm job {job_id}",
     )
+
+
+def _resource_request_validator(pattern: "re.Pattern[str]", hint: str):
+    """Build a click callback that checks a Dev Pod resource request format."""
+
+    def validate(ctx, param, value: Optional[str]) -> Optional[str]:
+        if value is not None and not pattern.fullmatch(value):
+            raise click.BadParameter(f"{value!r} is not a valid request; {hint}.")
+        return value
+
+    return validate
 
 
 @slurm.group()
@@ -1550,9 +1644,12 @@ def list_devpods(
         clusters = api.list_clusters()
     # Validate --cluster like `job list` does: the API silently drops unknown
     # names from the filter instead of failing.
-    selected = [
-        _resolve_cluster_id(api, value, clusters=clusters) for value in cluster_names
-    ]
+    selected = list(
+        dict.fromkeys(
+            _resolve_cluster_id(api, value, clusters=clusters)
+            for value in cluster_names
+        )
+    )
     devpods = api.list_devpods(cluster_names=selected or None)
     normalized_keyword = normalize_keyword(keyword)
     devpods = [
@@ -1600,17 +1697,43 @@ def get_devpod(
     help="Cluster NAME or NAMESPACE/NAME to create the Dev Pod on.",
 )
 @click.option("--set", "set_name", help="Dev Pod set configured on the cluster.")
-@click.option("--cpu", help="CPU request, for example 4 or 500m.")
-@click.option("--memory", help="Memory request, for example 16Gi.")
+@click.option(
+    "--cpu",
+    callback=_resource_request_validator(
+        _DEVPOD_CPU_PATTERN, "use whole or decimal cores, or millicores (500m)"
+    ),
+    help="CPU request, for example 4, 0.5 or 500m.",
+)
+@click.option(
+    "--memory",
+    callback=_resource_request_validator(
+        _DEVPOD_MEMORY_PATTERN,
+        "use a whole number with an optional unit (K, M, G, ... or Ki, Mi, Gi, ...)",
+    ),
+    help="Memory request, for example 16Gi or 512Mi.",
+)
 def create_devpod(
     cluster: str,
     set_name: Optional[str],
     cpu: Optional[str],
     memory: Optional[str],
 ) -> None:
-    """Create your Dev Pod on a Slurm cluster."""
+    """Create your Dev Pod on a Slurm cluster; you can have one per cluster."""
     api = APIClient().slurm
     cluster_id = _resolve_cluster_id(api, cluster)
+    # The server reports an existing Dev Pod as a raw 500; say it plainly.
+    _, cluster_name = api.split_cluster_id(cluster_id)
+    existing = [
+        pod
+        for pod in api.list_devpods(cluster_names=[cluster_id])
+        if pod.spec.slurm_cluster_name == cluster_name
+    ]
+    if existing:
+        pod_id = existing[0].metadata.id_ or existing[0].metadata.name
+        raise click.ClickException(
+            f"You already have a Dev Pod on {cluster_id} ({pod_id}); remove it"
+            f" first with: lep slurm devpod remove -c {cluster_id}"
+        )
     created = api.create_devpod(cluster_id, set_name=set_name, cpu=cpu, memory=memory)
     _print_json(created)
 

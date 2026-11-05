@@ -15,6 +15,7 @@ from leptonai.api.v2.api_resource import ClientError, ServerError
 from leptonai.api.v2.utils import WorkspaceError, WorkspaceConfigurationError
 
 from rich.console import Console
+from rich.text import Text
 from leptonai.api.v2.types.job import LeptonJob, LeptonJobQueryMode
 from .client import APIClient
 
@@ -161,18 +162,19 @@ def click_group(*args, **kwargs):
             try:
                 return super().invoke(ctx)
             except WorkspaceConfigurationError as e:
-                err_console.print(f"[red]Workspace configuration error[/]: {e}")
+                _print_error("Workspace configuration error", e)
                 sys.exit(1)
             except WorkspaceError as e:
-                err_console.print(f"[red]{e.__class__.__name__}[/]: {e}")
+                _print_error(e.__class__.__name__, e)
                 sys.exit(1)
             except ClientError as e:
                 resp = getattr(e, "response", None)
                 status = getattr(resp, "status_code", None)
                 text = getattr(resp, "text", str(e))
                 if status == 401:
+                    _print_error("401 Unauthorized", text, leading_newline=True)
                     err_console.print(
-                        f"\n[red]401 Unauthorized[/]: {text}\n\n[yellow]Hint:[/yellow]"
+                        "\n[yellow]Hint:[/yellow]"
                         " This may be caused by an invalid or mismatched workspace"
                         " token.\n[white] \n Check your local workspace info and"
                         " token:[/white]\n [dim]lep workspace list[/dim]\n [dim]lep"
@@ -181,8 +183,9 @@ def click_group(*args, **kwargs):
                         " <workspace_id>:<new_token>.\n"
                     )
                 elif status == 403:
+                    _print_error("403 Forbidden", text, leading_newline=True)
                     err_console.print(
-                        f"\n[red]403 Forbidden[/]: {text}\n\n[yellow]Hint:[/yellow]"
+                        "\n[yellow]Hint:[/yellow]"
                         " This may be caused by insufficient permissions or an expired"
                         " workspace token.\n\n[white]Check your local workspace info"
                         " and token:[/white]\n [dim]lep workspace list[/dim]\n"
@@ -191,29 +194,44 @@ def click_group(*args, **kwargs):
                         " again with `lep login -c <workspace_id>:<new_token>`.\n"
                     )
                 elif status == 404:
-                    err_console.print(f"[red]404 Not Found[/]:{text}")
+                    _print_error("404 Not Found", text, separator=":")
                 else:
-                    err_console.print(f"[red]{status} Error[/]: {text}")
+                    _print_error(f"{status} Error", text)
                 sys.exit(1)
             except ServerError as e:
                 resp = getattr(e, "response", None)
                 status = getattr(resp, "status_code", None)
-                text = getattr(resp, "text", str(e))
-                err_console.print(f"[red]{status} Error[/]: {text}")
+                _print_error(f"{status} Error", getattr(resp, "text", str(e)))
                 sys.exit(1)
             except (click.ClickException, click.exceptions.Exit, click.Abort):
                 # Abort (Ctrl-C or EOF at a prompt) gets click's "Aborted!".
                 raise
             except ValueError as e:
-                err_console.print(f"[red]Error[/]: {e}")
+                _print_error("Error", e)
                 logger.trace(traceback.format_exc())
                 sys.exit(1)
             except Exception as e:
-                err_console.print(f"[red]Unexpected error[/]: {e}")
-                err_console.print(traceback.format_exc())
+                _print_error("Unexpected error", e)
+                err_console.print(traceback.format_exc(), markup=False)
                 sys.exit(1)
 
     return click.group(*args, cls=ClickAliasedGroup, **kwargs)
+
+
+def _print_error(
+    label: str, detail: Any, *, separator: str = ": ", leading_newline: bool = False
+) -> None:
+    """Print a red label followed by error text verbatim on stderr.
+
+    The detail is server or exception text, not markup: rich would otherwise
+    drop "[...]" spans (a list of valid values, a config dump) and the
+    backslash of a "\\[" in it.
+    """
+    err_console.print(
+        Text.assemble(
+            "\n" if leading_newline else "", (label, "red"), separator, str(detail)
+        )
+    )
 
 
 def is_valid_url(candidate_str: str) -> bool:

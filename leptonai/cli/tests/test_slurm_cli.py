@@ -11,6 +11,7 @@ from leptonai.api.v2.types.slurm import (
     LeptonSlurmDevPod,
     SlurmDevPodStatus,
     SlurmJob,
+    SlurmClusterEvent,
     SlurmJobEventList,
     SlurmJobStatus,
     SlurmLogs,
@@ -669,6 +670,7 @@ def test_job_resolution_zero_match_hints_archived():
 
 def test_devpod_create_remove_and_safe_ssh_print():
     client, api = _fake_client()
+    api.list_devpods.return_value = []
     with patch("leptonai.cli.slurm.APIClient", return_value=client):
         created = CliRunner().invoke(
             lep,
@@ -934,6 +936,7 @@ def test_devpod_ssh_fails_closed_when_bastion_is_disabled():
 
 def test_devpod_create_resolves_bare_cluster_name():
     client, api = _fake_client()
+    api.list_devpods.return_value = []
     with patch("leptonai.cli.slurm.APIClient", return_value=client):
         created = CliRunner().invoke(
             lep, ["slurm", "devpod", "create", "-c", "cluster-a"]
@@ -1183,7 +1186,10 @@ def test_job_log_window_stays_open_while_the_job_runs():
             completion_time=FINISHED_S,
         )
     )
-    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+    with (
+        patch("leptonai.cli.slurm.APIClient", return_value=client),
+        patch("leptonai.cli.slurm.time.time_ns", return_value=FINISHED_NS),
+    ):
         result = CliRunner().invoke(lep, ["slurm", "job", "log", "-i", "42"])
 
     assert result.exit_code == 0, result.output
@@ -1216,7 +1222,10 @@ def test_job_log_reads_job_times_when_resolution_is_skipped():
 
 def test_job_log_explicit_start_skips_the_job_window():
     client, api = _fake_client()
-    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+    with (
+        patch("leptonai.cli.slurm.APIClient", return_value=client),
+        patch("leptonai.cli.slurm.time.time_ns", return_value=FINISHED_NS),
+    ):
         result = CliRunner().invoke(
             lep,
             [
@@ -1279,6 +1288,7 @@ def test_job_log_follow_seeds_from_the_job_submit_time():
     with (
         patch("leptonai.cli.slurm.APIClient", return_value=client),
         patch("leptonai.cli.slurm.time.sleep"),
+        patch("leptonai.cli.slurm.time.time_ns", return_value=FINISHED_NS),
     ):
         result = CliRunner().invoke(lep, ["slurm", "job", "log", "-i", "42", "-f"])
 
@@ -1444,3 +1454,255 @@ def test_api_and_runtime_errors_go_to_stderr(error, expected):
     assert result.exit_code == 1, result.output
     assert result.stdout == ""
     assert expected in result.stderr
+
+
+@pytest.mark.parametrize(
+    "error, message",
+    [
+        (
+            ClientError(
+                _ErrorResponse(
+                    400,
+                    "invalid event type: x; valid event types:"
+                    " [create_cluster delete_cluster]",
+                )
+            ),
+            "valid event types: [create_cluster delete_cluster]",
+        ),
+        (
+            ServerError(_ErrorResponse(500, r"pattern '^\[HC\]' [bold]x")),
+            r"pattern '^\[HC\]' [bold]x",
+        ),
+        (ValueError("ambiguous: [red]a[/] or b"), "ambiguous: [red]a[/] or b"),
+    ],
+)
+def test_error_text_is_printed_verbatim_not_as_markup(error, message):
+    # LEP-7508: rich parsed "[create_cluster ...]" as a style tag and dropped
+    # the list of valid values from the server's error.
+    client, api = _fake_client()
+    api.get_job.side_effect = error
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        result = CliRunner().invoke(
+            lep,
+            ["slurm", "job", "get", "-i", "99999999", "-c", "cluster-a", "-ia"],
+        )
+
+    assert result.exit_code == 1, result.output
+    assert message in " ".join(result.stderr.split())
+
+
+def test_cluster_events_validates_limit_and_type_locally():
+    client, api = _fake_client()
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        help_text = (
+            CliRunner().invoke(lep, ["slurm", "cluster", "events", "--help"]).output
+        )
+        too_many = CliRunner().invoke(
+            lep, ["slurm", "cluster", "events", "-n", "cluster-a", "--limit", "1001"]
+        )
+        bad_type = CliRunner().invoke(
+            lep, ["slurm", "cluster", "events", "-n", "cluster-a", "--type", "x"]
+        )
+        loose_type = CliRunner().invoke(
+            lep,
+            ["slurm", "cluster", "events", "-n", "cluster-a", "--type", "Add-User"],
+        )
+
+    assert "1<=x<=1000" in help_text
+    assert too_many.exit_code == 2, too_many.output
+    assert "1001 is not in the range 1<=x<=1000" in too_many.output
+    assert bad_type.exit_code == 2, bad_type.output
+    assert "'reset_usage'" in bad_type.output
+    assert loose_type.exit_code == 0, loose_type.output
+    api.list_cluster_events.assert_called_once_with(
+        "ns/cluster-a", limit=100, event_type="add_user"
+    )
+
+
+def test_cluster_events_table_keeps_brackets_and_backslashes():
+    client, api = _fake_client()
+    messages = [
+        "object.LDAPConfig.DomainSuffix[nvidia.com]:",
+        'b: "^\\\\[HC\\\\] GPU_FAIL$"',
+    ]
+    api.list_cluster_events.return_value = [
+        SlurmClusterEvent(timestamp="t", type="patch_cluster", message=m)
+        for m in messages
+    ]
+    with (
+        patch("leptonai.cli.slurm.APIClient", return_value=client),
+        _wide_console(),
+    ):
+        result = CliRunner().invoke(
+            lep, ["slurm", "cluster", "events", "-n", "cluster-a"]
+        )
+
+    assert result.exit_code == 0, result.output
+    for message in messages:
+        assert message in result.output
+
+
+def test_job_list_table_keeps_bracketed_text_in_reasons():
+    client, api = _fake_client()
+    api.list_jobs.return_value = _job_list(
+        _job_entry(42, "train", "ns/cluster-a", state="Awaiting")
+    )
+    api.list_jobs.return_value.jobs[0].status.state_reason = (
+        "Dependency [afterok:41] not yet satisfied"
+    )
+    with (
+        patch("leptonai.cli.slurm.APIClient", return_value=client),
+        _wide_console(),
+    ):
+        result = CliRunner().invoke(lep, ["slurm", "job", "list"])
+
+    assert result.exit_code == 0, result.output
+    assert "Dependency [afterok:41]" in result.output
+
+
+def test_job_list_dedupes_a_cluster_given_twice():
+    client, api = _fake_client()
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        result = CliRunner().invoke(
+            lep,
+            ["slurm", "job", "list", "-c", "cluster-a", "-c", "ns/cluster-a"],
+        )
+
+    assert result.exit_code == 0, result.output
+    assert api.list_jobs.call_args.kwargs["cluster_names"] == ["ns/cluster-a"]
+
+
+def test_job_log_limit_and_window_respect_backend_maximums():
+    client, api = _fake_client()
+    with (
+        patch("leptonai.cli.slurm.APIClient", return_value=client),
+        patch("leptonai.cli.slurm.time.time_ns", return_value=FINISHED_NS),
+    ):
+        help_text = CliRunner().invoke(lep, ["slurm", "job", "log", "--help"]).output
+        too_many = CliRunner().invoke(
+            lep, ["slurm", "job", "log", "-i", "42", "--limit", "20001"]
+        )
+        negative_start = CliRunner().invoke(
+            lep, ["slurm", "job", "log", "-i", "42", "--start", "-5"]
+        )
+        long_range = CliRunner().invoke(
+            lep,
+            [
+                "slurm",
+                "job",
+                "log",
+                "-i",
+                "42",
+                "--start",
+                str(SUBMITTED_S - 40 * 86400),
+                "--end",
+                str(SUBMITTED_S),
+            ],
+        )
+
+    assert "1<=x<=20000" in help_text
+    assert too_many.exit_code == 2, too_many.output
+    assert "20001 is not in the range 1<=x<=20000" in too_many.output
+    for result in (negative_start, long_range):
+        assert result.exit_code == 2, result.output
+        assert "exceeds 31 days" in result.output
+    api.get_logs.assert_not_called()
+
+
+def test_job_log_clamps_a_job_window_longer_than_31_days():
+    client, api = _fake_client()
+    submitted = SUBMITTED_S - 40 * 86400
+    api.list_jobs.return_value = _job_list(
+        _job_entry(42, "train", "ns/cluster-a", creation_time=submitted)
+    )
+    with (
+        patch("leptonai.cli.slurm.APIClient", return_value=client),
+        patch("leptonai.cli.slurm.time.time_ns", return_value=FINISHED_NS),
+    ):
+        result = CliRunner().invoke(lep, ["slurm", "job", "log", "-i", "42"])
+
+    assert result.exit_code == 0, result.output
+    assert api.get_logs.call_args.kwargs["start"] == FINISHED_NS - 31 * 86400 * 10**9
+    assert "spans more than 31 days" in result.stderr
+    assert result.stdout.split() == ["first", "second"]
+
+
+def test_job_ssh_does_not_offer_include_archived():
+    client, api = _fake_client()
+    api.list_jobs.return_value = EMPTY_JOBS
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        missing = CliRunner().invoke(lep, ["slurm", "job", "ssh", "-i", "999999"])
+        archived = CliRunner().invoke(
+            lep, ["slurm", "job", "ssh", "-i", "999999", "-ia"]
+        )
+
+    assert missing.exit_code == 1, missing.output
+    assert "999999" in missing.output
+    assert "--include-archived" not in missing.output
+    assert archived.exit_code == 2, archived.output
+    assert "does not apply to job ssh" in archived.output
+    assert api.list_jobs.call_count == 1
+
+
+@pytest.mark.parametrize(
+    "option, value",
+    [
+        ("--memory", "1.5Gi"),
+        ("--memory", "-1Gi"),
+        ("--memory", "16GB"),
+        ("--cpu", "-1"),
+        ("--cpu", "+1"),
+        ("--cpu", "1.5m"),
+    ],
+)
+def test_devpod_create_rejects_malformed_requests_locally(option, value):
+    client, api = _fake_client()
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        result = CliRunner().invoke(
+            lep, ["slurm", "devpod", "create", "-c", "cluster-a", option, value]
+        )
+
+    assert result.exit_code == 2, result.output
+    assert f"Invalid value for '{option}'" in result.output
+    api.create_devpod.assert_not_called()
+
+
+def test_devpod_create_accepts_documented_request_formats():
+    client, api = _fake_client()
+    api.list_devpods.return_value = []
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        result = CliRunner().invoke(
+            lep,
+            [
+                "slurm",
+                "devpod",
+                "create",
+                "-c",
+                "cluster-a",
+                "--cpu",
+                "0.5",
+                "--memory",
+                "512Mi",
+            ],
+        )
+
+    assert result.exit_code == 0, result.output
+    api.create_devpod.assert_called_once_with(
+        "ns/cluster-a", set_name=None, cpu="0.5", memory="512Mi"
+    )
+
+
+def test_devpod_create_reports_an_existing_devpod():
+    client, api = _fake_client()  # DEVPOD already lives on cluster-a
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        result = CliRunner().invoke(
+            lep, ["slurm", "devpod", "create", "-c", "cluster-a"]
+        )
+
+    assert result.exit_code == 1, result.output
+    assert "already have a Dev Pod on ns/cluster-a (ns/cluster-a-alice)" in (
+        result.stderr
+    )
+    assert "lep slurm devpod remove -c ns/cluster-a" in result.stderr
+    api.list_devpods.assert_called_once_with(cluster_names=["ns/cluster-a"])
+    api.create_devpod.assert_not_called()
