@@ -39,7 +39,8 @@ class _FakeAPIClient:
         _FakeAPIClient.last_instance = self
 
 
-def _create_args(*extra):
+def _create_args(*extra, node_group="ng-1"):
+    node_group_args = ["--node-group", node_group] if node_group else []
     return [
         "job",
         "create",
@@ -51,11 +52,24 @@ def _create_args(*extra):
         "echo done",
         "--resource-shape",
         config.DEFAULT_RESOURCE_SHAPE,
+        *node_group_args,
         *extra,
     ]
 
 
-class TestJobCliStorageAttachment(unittest.TestCase):
+class _NodeGroupLookupMixin:
+    """Skip the node group lookup API; every name is treated as a valid id."""
+
+    def setUp(self):
+        patcher = patch(
+            "leptonai.cli.util._get_valid_nodegroup_ids",
+            side_effect=lambda names, **_: list(names),
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+
+class TestJobCliStorageAttachment(_NodeGroupLookupMixin, unittest.TestCase):
     def test_job_create_builds_storage_attachments(self):
         runner = CliRunner()
         _FakeAPIClient.last_instance = None
@@ -112,10 +126,6 @@ class TestJobCliStorageAttachment(unittest.TestCase):
         self.assertIn("MODE must be one of", output)
         self.assertIsNotNone(_FakeAPIClient.last_instance)
         self.assertIsNone(_FakeAPIClient.last_instance.job.created_job)
-
-
-if __name__ == "__main__":
-    unittest.main()
 
 
 class TestJobListFilters(unittest.TestCase):
@@ -181,10 +191,11 @@ class TestJobListFilters(unittest.TestCase):
         self.assertIn("-l, --label", result.output)
 
 
-class TestJobCreateNodeLabelSelector(unittest.TestCase):
+class TestJobCreateNodeLabelSelector(_NodeGroupLookupMixin, unittest.TestCase):
     def _invoke(self, extra, spec_file=None):
         _FakeAPIClient.last_instance = None
-        args = _create_args(*extra)
+        # A spec file carries its own node group, so no --node-group flag.
+        args = _create_args(*extra, node_group=None if spec_file else "ng-1")
         if spec_file is not None:
             args.extend(["--file", spec_file])
         with patch("leptonai.cli.job.APIClient", _FakeAPIClient):
@@ -192,6 +203,7 @@ class TestJobCreateNodeLabelSelector(unittest.TestCase):
         return result
 
     def _write_spec(self, affinity):
+        affinity = {"allowed_dedicated_node_groups": ["ng-file"], **affinity}
         handle = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False)
         json.dump(
             {
@@ -220,12 +232,14 @@ class TestJobCreateNodeLabelSelector(unittest.TestCase):
             "vmss=1,fabric,!maintenance",
         )
 
-    def test_job_create_without_selector_omits_affinity(self):
+    def test_job_create_without_selector_only_sends_node_group(self):
         result = self._invoke([])
         self.assertEqual(result.exit_code, 0, result.output)
         created = _FakeAPIClient.last_instance.job.created_job
-        self.assertIsNone(created.spec.affinity)
-        self.assertNotIn("affinity", created.model_dump(exclude_none=True)["spec"])
+        self.assertEqual(
+            created.model_dump(exclude_none=True)["spec"]["affinity"],
+            {"allowed_dedicated_node_groups": ["ng-1"]},
+        )
 
     def test_job_create_rejects_selector_with_node_id(self):
         result = self._invoke(
@@ -280,22 +294,18 @@ class TestJobCreateNodeLabelSelector(unittest.TestCase):
         created = _FakeAPIClient.last_instance.job.created_job
         self.assertEqual(
             created.model_dump(exclude_none=True)["spec"]["affinity"],
-            {"allowed_nodes_in_node_group": ["node-1"]},
+            {
+                "allowed_dedicated_node_groups": ["ng-file"],
+                "allowed_nodes_in_node_group": ["node-1"],
+            },
         )
 
     def test_node_group_keeps_file_selector(self):
         path = self._write_spec({"node_label_selector": "vmss=1"})
-        _FakeAPIClient.last_instance = None
-        with (
-            patch("leptonai.cli.job.APIClient", _FakeAPIClient),
-            patch("leptonai.cli.util._get_valid_nodegroup_ids", return_value=["ng-1"]),
-        ):
-            result = CliRunner().invoke(
-                cli, _create_args("--file", path, "--node-group", "my-group")
-            )
+        result = self._invoke(["--node-group", "my-group"], spec_file=path)
         self.assertEqual(result.exit_code, 0, result.output)
         affinity = _FakeAPIClient.last_instance.job.created_job.spec.affinity
-        self.assertEqual(affinity.allowed_dedicated_node_groups, ["ng-1"])
+        self.assertEqual(affinity.allowed_dedicated_node_groups, ["my-group"])
         self.assertEqual(affinity.node_label_selector, "vmss=1")
         self.assertIsNone(affinity.allowed_nodes_in_node_group)
 
@@ -305,3 +315,46 @@ class TestJobCreateNodeLabelSelector(unittest.TestCase):
         help_text = " ".join(result.output.split())
         self.assertIn("--node-label-selector", help_text)
         self.assertIn("Cannot be combined with --node-id", help_text)
+
+
+class TestJobCreateRequiresNodeGroup(_NodeGroupLookupMixin, unittest.TestCase):
+    def _invoke(self, args):
+        _FakeAPIClient.last_instance = None
+        with patch("leptonai.cli.job.APIClient", _FakeAPIClient):
+            return CliRunner().invoke(cli, args)
+
+    def test_job_create_without_node_group_fails(self):
+        result = self._invoke(_create_args(node_group=None))
+        self.assertEqual(result.exit_code, 1, result.output)
+        self.assertIn("Missing option '--node-group'", result.output)
+        self.assertIsNone(_FakeAPIClient.last_instance.job.created_job)
+
+    def test_spec_file_without_node_group_fails(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            json.dump({"resource_shape": config.DEFAULT_RESOURCE_SHAPE}, f)
+        self.addCleanup(os.remove, f.name)
+        result = self._invoke(_create_args("--file", f.name, node_group=None))
+        self.assertEqual(result.exit_code, 1, result.output)
+        self.assertIn("Missing option '--node-group'", result.output)
+        self.assertIsNone(_FakeAPIClient.last_instance.job.created_job)
+
+    def test_spec_file_node_group_satisfies_requirement(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            json.dump(
+                {
+                    "resource_shape": config.DEFAULT_RESOURCE_SHAPE,
+                    "affinity": {"allowed_dedicated_node_groups": ["ng-file"]},
+                },
+                f,
+            )
+        self.addCleanup(os.remove, f.name)
+        result = self._invoke(_create_args("--file", f.name, node_group=None))
+        self.assertEqual(result.exit_code, 0, result.output)
+        created = _FakeAPIClient.last_instance.job.created_job
+        self.assertEqual(
+            created.spec.affinity.allowed_dedicated_node_groups, ["ng-file"]
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()

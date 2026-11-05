@@ -523,7 +523,8 @@ def job():
     "-ng",
     "node_groups",
     help=(
-        "Node group for the job. You can repeat"
+        "Node group for the job. Required unless the spec from --file or --template"
+        " already sets allowed_dedicated_node_groups. You can repeat"
         " this flag multiple times to choose multiple node groups. Multiple node group"
         " option is currently not supported but coming soon for enterprise users. Only"
         " the first node group will be set if you input multiple node groups at this"
@@ -702,6 +703,16 @@ def create(
             return
     else:
         job_spec = LeptonJobUserSpec()
+
+    # The backend requires a dedicated node group for every job.
+    if not node_groups and not (
+        job_spec.affinity and job_spec.affinity.allowed_dedicated_node_groups
+    ):
+        console.print(
+            "[red]Error: Missing option '--node-group'.[/] Jobs must run on a"
+            " dedicated node group; run `lep node list` to see the available ones."
+        )
+        sys.exit(1)
 
     try:
         selector = _resolve_node_label_selector(

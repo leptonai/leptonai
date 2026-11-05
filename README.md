@@ -80,7 +80,8 @@ You can also launch batch jobs and dev pods:
 
 ```shell
 # Run a batch job
-lep job create -n my-job --container-image my-registry/my-trainer:latest --command "python train.py"
+lep job create -n my-job --container-image my-registry/my-trainer:latest --command "python train.py" \
+  --resource-shape gpu.a10 --node-group my-node-group
 
 # Launch an interactive dev pod
 lep pod create -n my-pod --resource-shape gpu.a10
