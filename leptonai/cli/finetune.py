@@ -209,10 +209,33 @@ class DynamicSchemaCommand(_ValidatedCommand):
         return options
 
 
-@click_group()
-def finetune():
-    """Manage finetuning workflows."""
-    pass
+# Fine-tune jobs are disabled for the OSS release (LEP-7170): the AutoModel
+# trainer must be refreshed and retested before the workflow is offered again.
+# The implementation below is kept intact; flip this flag to re-enable it.
+FINETUNE_ENABLED = False
+
+FINETUNE_UNAVAILABLE_MESSAGE = (
+    "Fine-tune jobs are not available in this release of the Lepton CLI."
+)
+
+
+@click_group(
+    hidden=not FINETUNE_ENABLED,
+    invoke_without_command=True,
+    no_args_is_help=False,
+    help=(
+        "Manage finetuning workflows."
+        if FINETUNE_ENABLED
+        else FINETUNE_UNAVAILABLE_MESSAGE
+    ),
+)
+@click.pass_context
+def finetune(ctx):
+    if not FINETUNE_ENABLED:
+        raise click.ClickException(FINETUNE_UNAVAILABLE_MESSAGE)
+    if ctx.invoked_subcommand is None:
+        click.echo(ctx.get_help())
+        ctx.exit()
 
 
 def _print_finetune_jobs_table(jobs, dashboard_base_url: Optional[str] = None):
@@ -867,6 +890,12 @@ def create_command(
     except Exception as e:
         console.print(f"[red]Failed to create finetune job[/]: {e}")
         sys.exit(1)
+
+
+if not FINETUNE_ENABLED:
+    # Keep `lep finetune --help` from listing the disabled subcommands.
+    for _command in finetune.commands.values():
+        _command.hidden = True
 
 
 def add_command(cli_group):
