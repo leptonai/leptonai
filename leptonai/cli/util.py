@@ -796,6 +796,22 @@ def _stringify_state(state: Optional[Union[str, Any]]) -> str:
     return str(value)
 
 
+def deployment_display_state(status: Any) -> Optional[Any]:
+    """The lifecycle state to show and filter on for an endpoint or pod.
+
+    The legacy /deployments API folds Stopping/Stopped into ``state="Not Ready"``
+    (so old CLIs don't break) and keeps the real lifecycle state in ``phase``.
+    The dashboard and the server-side ``status`` filter both use the real state,
+    so prefer ``phase`` and fall back to ``state`` when it is missing or unknown.
+    """
+    if status is None:
+        return None
+    phase = getattr(status, "phase", None)
+    if phase and _stringify_state(phase) not in ("", "UNK"):
+        return phase
+    return getattr(status, "state", None)
+
+
 def colorize_state(state: Optional[Union[str, Any]]) -> str:
     """Return rich-markup colored state string.
 
@@ -842,11 +858,12 @@ def make_name_id_cell(
 # ---------------------------------------------------------------------------
 # Shared list-filter helpers.
 #
-# The `lep <resource> list` commands mirror the web dashboard's filter bar: a
-# free-text search (case-insensitive substring), multi-select state filters
-# (exact, OR within the option) and creator filters. Different options are
-# combined with AND. These helpers keep the semantics identical across the
-# resource modules.
+# `lep <resource> list` filters follow the web dashboard and the api-server
+# exactly: when the dashboard sends a filter to the server, the CLI sends the
+# same parameter and does no local matching; when the dashboard filters in the
+# browser, the CLI copies that semantics. Match rules differ per resource, so
+# check the dashboard page and the server handler before reusing a helper.
+# CLI-only filters must say so in their help.
 # ---------------------------------------------------------------------------
 
 
@@ -888,6 +905,22 @@ class LooseChoice(click.Choice):
         ):
             return f"{{{choices_str}}}"
         return f"[{choices_str}]"
+
+
+def single_keyword(ctx, param, value):
+    """Click callback for ``--search/--keyword/-q``: accept it at most once.
+
+    The option is declared ``multiple=True`` only so that a repeat can be
+    detected; click would otherwise keep the last value silently. Repeats are
+    not ORed because the server-side ``q`` takes a single term.
+    """
+    if not value:
+        return None
+    if len(value) > 1:
+        raise click.BadParameter(
+            "can be given only once; use one search term.", ctx=ctx, param=param
+        )
+    return value[0]
 
 
 def normalize_keyword(keyword: Optional[str]) -> str:
@@ -948,6 +981,21 @@ def creator_matches(metadata: Any, creators) -> bool:
     created_by = getattr(metadata, "created_by", None) if metadata else None
     owner = getattr(metadata, "owner", None) if metadata else None
     return prefix_matches(created_by, creators) or prefix_matches(owner, creators)
+
+
+def created_by_equals(metadata: Any, creators) -> bool:
+    """Exact, case-insensitive match of ``metadata.created_by`` against ``creators``.
+
+    This is what the api-server does for the ``created_by`` filter the
+    dashboard sends on the endpoint, pod and Ray cluster lists.
+    """
+    if not creators:
+        return True
+    created_by = getattr(metadata, "created_by", None) if metadata else None
+    if not created_by:
+        return False
+    wanted = {str(c).strip().lower() for c in creators}
+    return str(created_by).lower() in wanted
 
 
 def node_group_matches(affinity: Any, node_group_terms) -> bool:

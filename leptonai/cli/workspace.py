@@ -11,6 +11,7 @@ from rich.table import Table
 from .client import APIClient
 from leptonai.api.v2.workspace_record import WorkspaceRecord
 from .util import (
+    single_keyword,
     click_group,
     check,
     keyword_matches,
@@ -205,6 +206,8 @@ def logout(purge):
     "keyword",
     type=str,
     help="Case-insensitive substring search across workspace name, ID and URL.",
+    multiple=True,
+    callback=single_keyword,
 )
 @click.option("--debug", is_flag=True, help="Debug mode", hidden=True)
 def list_command(debug, keyword=None):

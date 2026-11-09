@@ -40,24 +40,28 @@ def test_filter_secrets_keyword_matches_name_case_insensitively(secrets):
     assert _filter_secrets(secrets, keyword="hf", owners=["bob"]) == []
 
 
-def test_filter_secrets_keyword_matches_tags(secrets):
+def test_filter_secrets_keyword_matches_name_only(secrets):
+    # The dashboard searches secret names only, not tags.
     assert _names(_filter_secrets(secrets, keyword="HF")) == ["HF_TOKEN"]
     secrets[1].tags = ["github"]
-    assert _names(_filter_secrets(secrets, keyword="git")) == ["SSH_PUBLIC_KEY.alice"]
+    assert _filter_secrets(secrets, keyword="git") == []
 
 
-def test_filter_secrets_owner_prefix_and_visibility(secrets):
-    assert _names(_filter_secrets(secrets, owners=["ALICE"])) == [
+def test_filter_secrets_owner_exact_and_visibility(secrets):
+    # The dashboard matches the owner exactly and case-sensitively.
+    assert _names(_filter_secrets(secrets, owners=["alice@example.com"])) == [
         "HF_TOKEN",
         "SSH_PUBLIC_KEY.alice",
     ]
+    assert _filter_secrets(secrets, owners=["alice"]) == []
+    assert _filter_secrets(secrets, owners=["ALICE@example.com"]) == []
     assert _names(_filter_secrets(secrets, visibility="private")) == [
         "SSH_PUBLIC_KEY.alice",
         "ssh_key_bob",
     ]
-    assert _names(_filter_secrets(secrets, owners=["alice"], visibility="public")) == [
-        "HF_TOKEN"
-    ]
+    assert _names(
+        _filter_secrets(secrets, owners=["alice@example.com"], visibility="public")
+    ) == ["HF_TOKEN"]
     assert _filter_secrets(secrets, visibility="public", owners=["legacy"]) == []
 
 
@@ -69,7 +73,10 @@ def _invoke(items, args):
 
 def test_secret_list_applies_filters(secrets, monkeypatch):
     monkeypatch.setattr(secret_console, "width", 240)
-    result = _invoke(secrets, ["-q", "ssh", "--visibility", "Private", "-u", "alice"])
+    result = _invoke(
+        secrets,
+        ["-q", "ssh", "--visibility", "Private", "-u", "alice@example.com"],
+    )
     assert result.exit_code == 0, result.output
     assert "SSH_PUBLIC_KEY.alice" in result.output
     assert "ssh_key_bob" not in result.output

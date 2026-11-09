@@ -8,6 +8,7 @@ from requests import RequestException
 
 from .teleport import connect_node_teleport
 from .util import (
+    single_keyword,
     console,
     click_group,
     format_timestamp_ms,
@@ -78,6 +79,53 @@ LEAVING_NODE_STATUS_VALUES = {
     "RemoveFromNodeGroup",
 }
 
+# The dashboard's node group Type filter values and the labels its Type column
+# shows for them (node-group-list.tsx, @spec/ui NodeGroupTypeLabels).
+NODE_GROUP_TYPE_FILTER_VALUES = ("lepton", "byoc", "byok", "byoa")
+_NODE_GROUP_TYPE_LABELS = {
+    "lepton": "Lepton managed",
+    "byoc": "BYOC",
+    "byok": "BYOK",
+    "byoa": "BYOA",
+}
+# Node management type -> Type value, in the order the dashboard lists them.
+_NODE_GROUP_TYPE_BY_MANAGEMENT_TYPE = (
+    ("manual", "byoc"),
+    ("byok", "byok"),
+    ("api", "byoa"),
+)
+
+# A reservation open to every workspace user lists this user; the dashboard
+# shows it as "All".
+_ALL_RESERVATION_USERS = "*"
+
+
+def _node_group_matches(node_group, terms):
+    """Whether the node group's name or ID contains any of ``terms``, ignoring case."""
+    metadata = node_group.metadata
+    fields = ((metadata.name or "").lower(), (metadata.id_ or "").lower())
+    return any(term.lower() in field for term in terms for field in fields)
+
+
+def _select_node_groups(term):
+    """The node groups NAME/--node-group selects for list-nodes/list-reservations.
+
+    Like util.resolve_node_groups (including its warning when nothing matches),
+    but the substring match on name or ID ignores case.
+    """
+    node_groups = get_client().nodegroup.list_all()
+    matches = [ng for ng in node_groups if _node_group_matches(ng, [term])]
+    if not matches:
+        available = ", ".join(
+            sorted(f"{ng.metadata.name} ({ng.metadata.id_})" for ng in node_groups)
+        )
+        console.print(
+            "[yellow]Warning:[/yellow] No node groups with name/ID containing"
+            f" [bold]{term}[/bold] (case-insensitive).\n"
+            f"Available node groups: {available}"
+        )
+    return matches
+
 
 @click_group()
 def node():
@@ -144,14 +192,34 @@ def _is_node_usable(node):
     )
 
 
-def _node_group_type(node_group):
-    """Render whether a node group is Lepton-managed or customer BYOC."""
-    mode = getattr(node_group.spec, "node_mode", None)
-    if mode == "lepton-node":
-        return "[cyan]Lepton[/cyan]"
-    if mode == "customer-node":
-        return "[magenta]BYOC[/magenta]"
-    return "[dim]-[/dim]"
+def _node_group_types(node_group):
+    """The node group's Type values, derived as the dashboard does.
+
+    A node group with node_mode 'lepton-node' is 'lepton'. Any other gets one
+    value per node management type: manual -> byoc, byok -> byok, api -> byoa;
+    other management types (such as 'byoc') give none.
+    """
+    spec = getattr(node_group, "spec", None)
+    if getattr(spec, "node_mode", None) == "lepton-node":
+        return ["lepton"]
+    management_types = getattr(spec, "node_management_types", None) or []
+    if isinstance(management_types, str):
+        management_types = [management_types]
+    return [
+        node_group_type
+        for management_type, node_group_type in _NODE_GROUP_TYPE_BY_MANAGEMENT_TYPE
+        if management_type in management_types
+    ]
+
+
+def _format_node_group_type_cell(node_group):
+    """The Type column, with the dashboard's labels."""
+    types = _node_group_types(node_group)
+    if not types:
+        return "[dim]-[/dim]"
+    color = "cyan" if types == ["lepton"] else "magenta"
+    labels = ", ".join(_NODE_GROUP_TYPE_LABELS[value] for value in types)
+    return f"[{color}]{labels}[/{color}]"
 
 
 def _get_node_group_stats(nodes):
@@ -294,9 +362,9 @@ def _format_shape_entry(shape):
     "--node-group",
     "-ng",
     help=(
-        "Show only node groups whose IDs or names match. Can use partial name/ID"
-        " (e.g., 'h100' will match any name/ID containing 'h100'). Can specify"
-        " multiple values."
+        "CLI-only (the dashboard has no node group filter): case-insensitive"
+        " substring of the node group name or ID (for example, 'h100'). Repeat"
+        " for OR."
     ),
     type=str,
     required=False,
@@ -308,18 +376,37 @@ def _format_shape_entry(shape):
     "-q",
     "keyword",
     type=str,
-    help="Case-insensitive substring search across node group name and ID.",
+    help=(
+        "Search node groups by name (case-insensitive substring), as the"
+        " dashboard's search box does. Takes one term."
+    ),
+    multiple=True,
+    callback=single_keyword,
 )
-def list_command(detail=False, node_group=None, keyword=None):
+@click.option(
+    "--type",
+    "-t",
+    "types",
+    type=LooseChoice(NODE_GROUP_TYPE_FILTER_VALUES),
+    multiple=True,
+    help=(
+        "Filter by node group type, as the dashboard's Type filter does: lepton"
+        " (Lepton managed), byoc, byok or byoa (case-insensitive). Repeat for OR."
+    ),
+)
+def list_command(detail=False, node_group=(), keyword=None, types=()):
     """
     List node groups in the current workspace with a capacity summary.
 
-    For each node group this shows node health (healthy/error/total), whether it
-    is Lepton-managed or customer BYOC, and the aggregated GPU/CPU/memory/disk
-    usage. For per-node detail, use 'lep node list-nodes -ng <node-group>'.
+    For each node group this shows node health (healthy/error/total), its type
+    as the dashboard labels it (Lepton managed, BYOC, BYOK or BYOA), and the
+    aggregated GPU/CPU/memory/disk usage. For per-node detail, use
+    'lep node list-nodes -ng <node-group>'.
 
-    --search matches the node group name or ID; it is combined with
-    --node-group using AND.
+    --search and --type work like the dashboard's node group filters;
+    --node-group is CLI-only. Repeated values within one option (except
+    --search, which takes one term) are ORed together; different options are
+    combined with AND.
     """
     if detail:
         console.print(
@@ -329,18 +416,15 @@ def list_command(detail=False, node_group=None, keyword=None):
 
     client = get_client()
 
-    if node_group:
-        filtered_node_groups = resolve_node_groups(node_group, is_exact_match=False)
-    else:
-        filtered_node_groups = client.nodegroup.list_all()
-
     normalized_keyword = normalize_keyword(keyword)
     filtered_node_groups = [
         ng
-        for ng in filtered_node_groups
-        if keyword_matches(normalized_keyword, ng.metadata.name, ng.metadata.id_)
+        for ng in client.nodegroup.list_all()
+        if (not node_group or _node_group_matches(ng, node_group))
+        and keyword_matches(normalized_keyword, ng.metadata.name)
+        and (not types or any(value in types for value in _node_group_types(ng)))
     ]
-    if not filtered_node_groups and normalized_keyword:
+    if not filtered_node_groups and (node_group or normalized_keyword or types):
         console.print("[yellow]No node groups match the specified filters.[/yellow]")
         return
 
@@ -409,7 +493,7 @@ def list_command(detail=False, node_group=None, keyword=None):
 
         table.add_row(
             name_id,
-            _node_group_type(ng),
+            _format_node_group_type_cell(ng),
             health,
             gpu_cell,
             cpu_cell,
@@ -555,18 +639,28 @@ def _node_public_ip(spec):
 
 def _format_network_cell(node):
     spec = node.spec
-    hostname = (
-        (getattr(spec, "hostname", None) if spec else None)
-        or (getattr(node.status, "hostname", None) if node.status else None)
-        or "-"
+    reported = (getattr(spec, "hostname", None) if spec else None) or (
+        getattr(node.status, "hostname", None) if node.status else None
     )
+    # Like the dashboard's Hostname column, show the assigned hostname in place
+    # of the machine-reported one, which stays visible below it.
+    assigned = getattr(spec, "hostname_override", None) if spec else None
+    lines = [assigned or reported or "-"]
+    if assigned and reported and assigned != reported:
+        lines.append(f"[dim]reported: {reported}[/dim]")
     public_ip = _node_public_ip(spec) or "-"
     local_ip = (getattr(spec, "local_ip", None) if spec else None) or "-"
-    return f"{hostname}\n[dim]public: {public_ip}[/dim]\n[dim]local: {local_ip}[/dim]"
+    lines.append(f"[dim]public: {public_ip}[/dim]")
+    lines.append(f"[dim]local: {local_ip}[/dim]")
+    return "\n".join(lines)
 
 
 def _merge_nodes_with_machines(nodes, machines):
-    """Merge node and machine responses using the WebUI's machine_id rules."""
+    """Merge node and machine responses using the WebUI's machine_id rules.
+
+    The merged nodes carry the machine's hostname_override in
+    spec.hostname_override, as the dashboard's merged node rows do.
+    """
     machines_by_id = {
         machine.status.machine_id: machine
         for machine in machines
@@ -588,6 +682,9 @@ def _merge_nodes_with_machines(nodes, machines):
         machine_status = machine.status
         if spec:
             spec.hostname = machine_status.hostname or spec.hostname
+            spec.hostname_override = (
+                machine_status.hostname_override or spec.hostname_override
+            )
             spec.provider = spec.provider or machine_status.provider
             spec.provider_region = (
                 spec.provider_region or machine_status.provider_region
@@ -640,6 +737,7 @@ def _merge_nodes_with_machines(nodes, machines):
                     machine_id=machine_id,
                     capacity_type=machine_status.capacity_type,
                     hostname=machine_status.hostname,
+                    hostname_override=machine_status.hostname_override,
                     public_ip=machine_status.public_ip,
                     local_ip=machine_status.private_ip,
                     provider=machine_status.provider,
@@ -670,7 +768,13 @@ def _filter_nodes(
     cpu_types=(),
     unschedulable=False,
 ):
-    """Apply node filters, with CLI prefix matching for providers and labels."""
+    """Apply the dashboard's node list filters (its applyFilters).
+
+    The search is a case-insensitive substring of the node's searchable fields
+    joined with spaces, as the dashboard builds it. Labels, statuses, stages,
+    providers and GPU/CPU types match exactly (case-sensitive; the CLI options
+    canonicalize status and stage values first).
+    """
     normalized_keyword = keyword.strip().lower() if keyword else ""
     wanted_statuses = set(statuses)
     wanted_stages = set(stages)
@@ -689,17 +793,18 @@ def _filter_nodes(
                 getattr(metadata, "name", None) if metadata else None,
                 getattr(status, "hostname", None) if status else None,
                 getattr(spec, "hostname", None) if spec else None,
+                getattr(status, "hostname_override", None) if status else None,
+                getattr(spec, "hostname_override", None) if spec else None,
                 _node_public_ip(spec),
                 getattr(spec, "local_ip", None) if spec else None,
                 getattr(spec, "gpu_clique_id", None) if spec else None,
                 getattr(spec, "provider", None) if spec else None,
                 getattr(spec, "provider_region", None) if spec else None,
             )
-            if not any(
-                normalized_keyword in str(value).lower()
-                for value in keyword_fields
-                if value is not None
-            ):
+            haystack = " ".join(
+                "" if value is None else str(value) for value in keyword_fields
+            )
+            if normalized_keyword not in haystack.lower():
                 return False
 
         if wanted_statuses:
@@ -721,20 +826,17 @@ def _filter_nodes(
                 getattr(metadata, "labels", None) if metadata else None
             ) or {}
             for label_filter in labels:
-                key_prefix, separator, value_prefix = label_filter.partition(":")
-                if not key_prefix or not any(
-                    label_key.startswith(key_prefix)
-                    and (not separator or str(label_value).startswith(value_prefix))
-                    for label_key, label_value in node_labels.items()
-                ):
+                # KEY: the node has the label; KEY:VALUE: the label equals VALUE.
+                key, separator, value = label_filter.partition(":")
+                if not separator:
+                    if key not in node_labels:
+                        return False
+                elif node_labels.get(key) != value:
                     return False
 
         if wanted_providers:
             provider = (getattr(spec, "provider", None) if spec else None) or ""
-            if not any(
-                provider.lower().startswith(prefix.lower())
-                for prefix in wanted_providers
-            ):
+            if provider not in wanted_providers:
                 return False
 
         if wanted_gpu_types:
@@ -763,7 +865,10 @@ def _filter_nodes(
     "--node-group",
     "-ng",
     type=str,
-    help="Node group name or ID. Partial matching is supported (for example, 'h100').",
+    help=(
+        "Node group to list: case-insensitive substring of its name or ID (for"
+        " example, 'h100'). Every matching node group is listed."
+    ),
 )
 @click.option(
     "--search",
@@ -774,9 +879,13 @@ def _filter_nodes(
     "keyword",
     type=str,
     help=(
-        "Case-insensitive substring search across node name, hostnames, public/local"
-        " IPs, GPU clique ID, provider, and provider region."
+        "Search nodes, as the dashboard's search box does: case-insensitive"
+        " substring of the node name, hostname, assigned hostname"
+        " (hostname_override), public/local IP, GPU clique ID, provider or"
+        " provider region. Takes one term."
     ),
+    multiple=True,
+    callback=single_keyword,
 )
 @click.option(
     "--label",
@@ -787,49 +896,68 @@ def _filter_nodes(
     type=str,
     multiple=True,
     help=(
-        "Filter by case-sensitive label KEY_PREFIX or KEY_PREFIX:VALUE_PREFIX."
-        " Repeat for AND."
+        "Filter by label, as the dashboard's labels filter does: KEY keeps nodes"
+        " that have the label, KEY:VALUE those whose label KEY equals VALUE"
+        " (exact, case-sensitive). Repeat for AND."
     ),
 )
 @click.option(
     "--status",
     "statuses",
-    type=click.Choice(NODE_STATUS_FILTER_VALUES),
+    type=LooseChoice(NODE_STATUS_FILTER_VALUES),
     multiple=True,
-    help="Filter by machine/node status. Repeat for OR.",
+    help=(
+        "Filter by node status (case-insensitive), as the dashboard's status"
+        " filter does: matches the machine status or any of the node's"
+        " statuses. Repeat for OR."
+    ),
 )
 @click.option(
     "--stage",
     "stages",
-    type=click.Choice(NODE_STAGE_FILTER_VALUES),
+    type=LooseChoice(NODE_STAGE_FILTER_VALUES),
     multiple=True,
-    help="Filter by machine stage. Repeat for OR.",
+    help=(
+        "Filter by machine stage (case-insensitive), as the dashboard's stage"
+        " filter does. Repeat for OR."
+    ),
 )
 @click.option(
     "--provider",
     "providers",
     type=str,
     multiple=True,
-    help="Filter by case-insensitive provider prefix. Repeat for OR.",
+    help=(
+        "Filter by provider (exact, case-sensitive), as the dashboard's provider"
+        " filter does. Repeat for OR."
+    ),
 )
 @click.option(
     "--gpu-type",
     "gpu_types",
     type=str,
     multiple=True,
-    help="Filter by exact GPU product. Repeat for OR.",
+    help=(
+        "Filter by GPU product (exact, case-sensitive), as the dashboard's GPU"
+        " type filter does. Repeat for OR."
+    ),
 )
 @click.option(
     "--cpu-type",
     "cpu_types",
     type=str,
     multiple=True,
-    help="Filter by exact CPU type. Repeat for OR.",
+    help=(
+        "Filter by CPU type (exact, case-sensitive), as the dashboard's CPU type"
+        " filter does. Repeat for OR."
+    ),
 )
 @click.option(
     "--unschedulable",
     is_flag=True,
-    help="Show only nodes with unschedulable=true.",
+    help=(
+        "Show only unschedulable nodes, as the dashboard's Unschedulable checkbox does."
+    ),
 )
 def list_nodes_command(
     name=None,
@@ -846,14 +974,16 @@ def list_nodes_command(
     """
     List the nodes under a node group with per-node resource detail.
 
-    Use --node-group/-ng to select a node group. Partial name/ID matching is
-    supported (for example, 'h100'). The positional NAME form is deprecated.
-    For each node it shows name/ID/labels, provider/region/GPU clique ID,
-    status/stage/scheduling state, resources, hostname, and public/local IPs.
+    Use --node-group/-ng to select the node group: a case-insensitive substring
+    of its name or ID (for example, 'h100'). The positional NAME form is
+    deprecated. For each node it shows name/ID/labels, provider/region/GPU
+    clique ID, status/stage/scheduling state, resources, hostname, and
+    public/local IPs.
 
-    Repeat values within status, stage, provider, GPU type, or CPU type to OR
-    them together. Different filter categories and repeated label filters are
-    combined with AND.
+    The filters work like the dashboard's node list filters; its Slurm state
+    filter has no CLI equivalent. Repeat values within status, stage,
+    provider, GPU type, or CPU type to OR them together. Different filter
+    categories and repeated label filters are combined with AND.
     """
     if name:
         ignored = " and is ignored" if node_group else ""
@@ -866,7 +996,7 @@ def list_nodes_command(
     if not node_group:
         raise click.UsageError("Missing option '--node-group' / '-ng'.")
 
-    node_groups = resolve_node_groups([node_group], is_exact_match=False)
+    node_groups = _select_node_groups(node_group)
     if not node_groups:
         return
 
@@ -1000,6 +1130,16 @@ def _format_reservation_gpu_cell(reserved_nodes, node_gpu_by_id):
     )
 
 
+def _reservation_created_by(reservation):
+    """The dashboard's Created By value: spec.created_by ?? metadata.created_by."""
+    spec = getattr(reservation, "spec", None)
+    created_by = getattr(spec, "created_by", None) if spec else None
+    if created_by is None:
+        meta = getattr(reservation, "metadata", None)
+        created_by = getattr(meta, "created_by", None) if meta else None
+    return created_by
+
+
 def _format_reservation_row(reservation, node_gpu_by_id):
     """Build a single 'lep node list-reservations' table row from a NodeReservation."""
     meta = reservation.metadata
@@ -1031,10 +1171,13 @@ def _format_reservation_row(reservation, node_gpu_by_id):
     gpu_cell = _format_reservation_gpu_cell(reserved_nodes, node_gpu_by_id)
 
     users = (spec.users if spec else None) or []
-    users_cell = "\n".join(users) if users else "[dim]-[/dim]"
+    if _ALL_RESERVATION_USERS in users:
+        users_cell = "All"
+    else:
+        users_cell = "\n".join(users) if users else "[dim]-[/dim]"
 
     # Created: created_by plus created_at, which is in MILLISECONDS.
-    created_by = (spec.created_by if spec else None) or "-"
+    created_by = _reservation_created_by(reservation) or "-"
     created_cell = f"[dim]{created_by}[/dim]\n{format_timestamp_ms(meta.created_at)}"
 
     return (
@@ -1055,7 +1198,12 @@ RESERVATION_STATUS_FILTER_VALUES = tuple(
 
 
 def _filter_reservations(reservations, *, keyword=None, statuses=(), users=()):
-    """Apply the reservation list filters; different filters are combined with AND."""
+    """Apply the reservation list filters; different filters are combined with AND.
+
+    keyword matches metadata.name, as the dashboard's search does. statuses
+    and users are CLI-only: the reservation phase, and a case-insensitive
+    prefix of a listed user or of the Created By value.
+    """
     normalized_keyword = normalize_keyword(keyword)
 
     def matches(reservation):
@@ -1064,10 +1212,7 @@ def _filter_reservations(reservations, *, keyword=None, statuses=(), users=()):
         status = getattr(reservation, "status", None)
 
         if not keyword_matches(
-            normalized_keyword,
-            getattr(meta, "name", None) if meta else None,
-            getattr(spec, "display_name", None) if spec else None,
-            getattr(meta, "id_", None) if meta else None,
+            normalized_keyword, getattr(meta, "name", None) if meta else None
         ):
             return False
 
@@ -1078,7 +1223,7 @@ def _filter_reservations(reservations, *, keyword=None, statuses=(), users=()):
 
         if users:
             candidates = list((getattr(spec, "users", None) if spec else None) or [])
-            created_by = getattr(spec, "created_by", None) if spec else None
+            created_by = _reservation_created_by(reservation)
             if created_by:
                 candidates.append(created_by)
             if not any(prefix_matches(candidate, users) for candidate in candidates):
@@ -1097,7 +1242,12 @@ def _filter_reservations(reservations, *, keyword=None, statuses=(), users=()):
     "-q",
     "keyword",
     type=str,
-    help="Case-insensitive substring search across reservation name and ID.",
+    help=(
+        "Search reservations by name (case-insensitive substring), as the"
+        " dashboard's search box does. Takes one term."
+    ),
+    multiple=True,
+    callback=single_keyword,
 )
 @click.option(
     "--status",
@@ -1105,7 +1255,10 @@ def _filter_reservations(reservations, *, keyword=None, statuses=(), users=()):
     "statuses",
     type=LooseChoice(RESERVATION_STATUS_FILTER_VALUES),
     multiple=True,
-    help="Filter by reservation status (case-insensitive). Repeat for OR.",
+    help=(
+        "CLI-only (the dashboard has no status filter): filter by reservation"
+        " status (case-insensitive). Repeat for OR."
+    ),
 )
 @click.option(
     "--user",
@@ -1115,25 +1268,28 @@ def _filter_reservations(reservations, *, keyword=None, statuses=(), users=()):
     type=str,
     multiple=True,
     help=(
-        "Filter by authorized user or creator (case-insensitive prefix of the user"
-        " ID or email). Repeat for OR."
+        "CLI-only (the dashboard has no user filter): keep reservations where a"
+        " listed user or the creator (Created By) starts with this text,"
+        " ignoring case. A reservation open to all users lists '*' (shown as"
+        " All), which a user name does not match. Repeat for OR."
     ),
 )
 def list_reservations_command(name, keyword=None, statuses=(), users=()):
     """
     List node reservations under a node group.
 
-    NAME is the node group name or ID (partial match supported, e.g. 'h100').
-    For each reservation it shows the status, the desired/approved/reserved node
-    counts (with the reserved node IDs), the GPU usage on the reserved nodes, the
-    authorized users, and who created it and when.
+    NAME selects the node group: a case-insensitive substring of its name or ID
+    (for example, 'h100'). For each reservation it shows the status, the
+    desired/approved/reserved node counts (with the reserved node IDs), the GPU
+    usage on the reserved nodes, the authorized users ('All' when open to every
+    user), and who created it and when.
 
-    --search matches the reservation name or ID (as in the dashboard), --status
-    filters by reservation status and --user by authorized user or creator.
-    Repeated values within one option are ORed together; different options are
-    combined with AND.
+    --search works like the dashboard's reservation search; --status and
+    --user are CLI-only. Repeated values within one option (except --search,
+    which takes one term) are ORed together; different options are combined
+    with AND.
     """
-    node_groups = resolve_node_groups([name], is_exact_match=False)
+    node_groups = _select_node_groups(name)
     if not node_groups:
         return
 

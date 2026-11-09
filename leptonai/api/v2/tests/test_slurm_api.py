@@ -191,6 +191,45 @@ def test_list_jobs_maps_workspace_filters_and_response():
     )
 
 
+def test_list_jobs_sends_the_archive_window_only_when_given():
+    api, client = _api({"total": 0, "jobs": []})
+
+    api.list_jobs(
+        job_query_mode="archive_only", start_time=1_790_000_000, end_time=1_790_600_000
+    )
+    client._get.assert_called_once_with(
+        "/slurm/jobs",
+        params={
+            "job_query_mode": "archive_only",
+            "start_time": 1_790_000_000,
+            "end_time": 1_790_600_000,
+        },
+    )
+
+    client._get.reset_mock()
+    api.list_jobs(job_query_mode="alive_and_archive")
+    client._get.assert_called_once_with(
+        "/slurm/jobs", params={"job_query_mode": "alive_and_archive"}
+    )
+
+    client._get.reset_mock()
+    client._get.return_value = _Response([])
+    api.list_cluster_jobs(
+        "ns/cluster-a",
+        job_query_mode="archive_only",
+        partition=["batch,batch_long"],
+        end_time=1_790_600_000,
+    )
+    client._get.assert_called_once_with(
+        "/slurmclusters/ns/cluster-a/jobs",
+        params={
+            "job_query_mode": "archive_only",
+            "partition": ["batch,batch_long"],
+            "end_time": 1_790_600_000,
+        },
+    )
+
+
 def test_job_events_and_logs_use_cluster_scoped_parameters():
     event_payload = {
         "id": 42,

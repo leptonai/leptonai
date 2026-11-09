@@ -4,6 +4,7 @@ import sys
 import click
 
 from .util import (
+    single_keyword,
     console,
     click_group,
     resolve_save_path,
@@ -30,10 +31,11 @@ def _filter_templates(templates, *, keyword=None, workloads=()):
     def matches(template):
         meta = getattr(template, "metadata", None)
         spec = getattr(template, "spec", None)
+        # The dashboard's template page searches the name and description.
         if not keyword_matches(
             normalized_keyword,
             getattr(meta, "name", None) if meta else None,
-            getattr(meta, "id_", None) if meta else None,
+            getattr(meta, "description", None) if meta else None,
         ):
             return False
         if wanted_workloads:
@@ -58,7 +60,12 @@ def template():
     "-q",
     "keyword",
     type=str,
-    help="Case-insensitive substring search across template name and ID.",
+    help=(
+        "Search by template name or description (case-insensitive substring), as"
+        " the dashboard's search box does. Takes one term."
+    ),
+    multiple=True,
+    callback=single_keyword,
 )
 @click.option(
     "--workload",
@@ -67,8 +74,8 @@ def template():
     type=LooseChoice(TEMPLATE_WORKLOAD_FILTER_VALUES),
     multiple=True,
     help=(
-        "Filter by workload type ('endpoint' and 'deployment' are equivalent)."
-        " Repeat for OR."
+        "Filter by workload type, as the dashboard's type filter does for pod and"
+        " job ('endpoint'/'deployment' are CLI-only and equivalent). Repeat for OR."
     ),
 )
 @click.option(
@@ -80,9 +87,10 @@ def template():
 def list_command(keyword=None, workloads=(), public_only=False, private_only=False):
     """List all templates with Name/ID/Workload type.
 
-    --search matches the template name or ID and --workload filters by workload
-    type (as in the dashboard); --public/--private restrict the listing to one
-    template collection. Different filters are combined with AND.
+    --search and --workload work like the dashboard's template page filters.
+    The dashboard page lists private templates only; this command lists public
+    and private ones unless --public or --private (CLI-only) picks one
+    collection. Different filters are combined with AND.
     """
     if public_only and private_only:
         raise click.UsageError("--public and --private are mutually exclusive.")

@@ -128,6 +128,13 @@ class TestJobCliStorageAttachment(_NodeGroupLookupMixin, unittest.TestCase):
         self.assertIsNone(_FakeAPIClient.last_instance.job.created_job)
 
 
+def _job(name, *, state="Running", created_by="alice@example.com"):
+    return LeptonJob(
+        metadata=Metadata(id=name, name=name, created_by=created_by),
+        status={"state": state},
+    )
+
+
 class TestJobListFilters(unittest.TestCase):
     def _invoke(self, args, jobs=None):
         client = SimpleNamespace(
@@ -160,7 +167,25 @@ class TestJobListFilters(unittest.TestCase):
         kwargs = list_all.call_args.kwargs
         self.assertEqual(kwargs["job_query_mode"], "alive_and_archive")
         self.assertEqual(kwargs["created_by"], ["alice"])
-        self.assertIn("No jobs matched your filters.", result.output)
+        # LEP-7612: archived listing fetches one capped page, not every page.
+        self.assertEqual(kwargs["page"], 1)
+        self.assertEqual(kwargs["page_size"], 500)
+        self.assertIn("No jobs match the specified filters.", result.output)
+        self.assertNotIn("full user id", result.output)
+
+    def test_job_list_include_archived_warns_when_capped(self):
+        jobs = [_job(f"j{i}") for i in range(500)]
+        result, _, shown = self._invoke_with_table(["-ia"], jobs)
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertEqual(len(shown), 500)
+        self.assertIn("Showing the newest 500 matching jobs only.", result.output)
+
+    def test_job_list_rejects_repeated_search(self):
+        # LEP-7560: a repeated --search used to keep only the last value.
+        result, list_all = self._invoke(["-q", "a", "-q", "b"])
+        self.assertEqual(result.exit_code, 2)
+        self.assertIn("can be given only once", result.output)
+        list_all.assert_not_called()
 
     def test_job_list_accepts_shared_filter_names(self):
         result, list_all = self._invoke(
@@ -183,6 +208,40 @@ class TestJobListFilters(unittest.TestCase):
         self.assertEqual(kwargs["q"], "train")
         result, list_all = self._invoke(["-q", "train"])
         self.assertEqual(list_all.call_args.kwargs["q"], "train")
+
+    def _invoke_with_table(self, args, jobs):
+        with patch("leptonai.cli.job._display_jobs_table") as table:
+            result, list_all = self._invoke(args, jobs)
+        shown = table.call_args.args[0] if table.call_args else []
+        return result, list_all, [j.metadata.name for j in shown]
+
+    def test_job_list_passes_state_and_user_through_unchanged(self):
+        # The dashboard sends status/created_by to the server and shows what it
+        # returns; the CLI must not re-filter (LEP-7575/7566).
+        jobs = [
+            _job("a", state="Starting"),
+            _job("b", state="Restarting", created_by="malice@example.com"),
+        ]
+        result, list_all, shown = self._invoke_with_table(
+            ["-s", "starting", "-u", "alice"], jobs
+        )
+        self.assertEqual(result.exit_code, 0, result.output)
+        kwargs = list_all.call_args.kwargs
+        self.assertEqual(kwargs["status"], ["Starting"])
+        self.assertEqual(kwargs["created_by"], ["alice"])
+        self.assertEqual(shown, ["a", "b"])
+
+    def test_job_list_state_rejects_values_the_dashboard_does_not_offer(self):
+        result, list_all = self._invoke(["-s", "run"])
+        self.assertEqual(result.exit_code, 2)
+        list_all.assert_not_called()
+        result, list_all = self._invoke(["-s", "PendingRetry"])
+        self.assertEqual(result.exit_code, 2)
+
+    def test_job_list_allows_state_with_include_archived(self):
+        result, list_all = self._invoke(["-ia", "-s", "deleted"])
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertEqual(list_all.call_args.kwargs["status"], ["Deleted"])
 
     def test_job_list_state_help_is_derived_from_the_enum(self):
         result = CliRunner().invoke(cli, ["job", "list", "--help"])

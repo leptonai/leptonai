@@ -53,6 +53,8 @@ from ..api.v2.types.dynamo import (
     LeptonDynamoServiceSpec,
 )
 from .util import (
+    single_keyword,
+    LooseChoice,
     PathResolutionError,
     check,
     click_group,
@@ -104,10 +106,6 @@ def _state_text(state) -> str:
     return str(getattr(state, "value", state))
 
 
-def _normalize_token(value: str) -> str:
-    return "".join(ch for ch in value.lower() if ch.isalnum())
-
-
 def _colorize_health(health: Optional[str]) -> str:
     if not health:
         return "-"
@@ -139,12 +137,66 @@ _READINESS_RED = {
 # when choosing a default log target.
 _INACTIVE_REPLICA_REASONS = {"Deleting", "Deleted", "Terminated", "Completed"}
 
+# The dashboard's replica status filter: each group label and the readiness
+# reasons it covers, in its order. A missing or unlisted reason is Unknown.
+_REPLICA_STATUS_GROUPS = (
+    ("Ready", ("Ready",)),
+    ("Queueing", ("Queueing",)),
+    ("No Capacity", ("NoCapacity",)),
+    ("Waiting for Capacity", ("WaitingForCapacity",)),
+    ("In Progress", ("InProgress",)),
+    ("Migrating", ("Migrating",)),
+    ("User Code Error", ("UserCodeError",)),
+    ("System Error", ("SystemError",)),
+    ("Deployment Config Error", ("DeploymentConfigError",)),
+    ("Config Error", ("ConfigError",)),
+    ("Failed", ("Failed",)),
+    ("Require Approval", ("RequireReadinessApproval",)),
+    ("Unknown", ("Unknown",)),
+    ("Deleted", ("Deleted",)),
+    ("Deleting", ("Deleting",)),
+    ("Preempting", ("Preempting",)),
+    ("Completed", ("Completed",)),
+    ("Terminated", ("Terminated",)),
+)
+_REPLICA_STATUS_GROUP_LABELS = tuple(label for label, _ in _REPLICA_STATUS_GROUPS)
+_REPLICA_STATUS_GROUP_BY_REASON = {
+    reason: label for label, reasons in _REPLICA_STATUS_GROUPS for reason in reasons
+}
+
+# The dashboard's deployment status filter values, in its order. It compares
+# them exactly against the deployment state.
+_DYNAMO_STATE_FILTER_VALUES = (
+    "Not Ready",
+    "Ready",
+    "Starting",
+    "Updating",
+    "Stopping",
+    "Stopped",
+    "Scaling",
+    "Deleting",
+)
+
 
 def _replica_reason(replica: DynamoReplica) -> str:
+    """The raw readiness reason, as the dashboard's badge shows it.
+
+    A replica that reports no reason shows as Unknown.
+    """
     issue = replica.status.readiness_issue if replica.status else None
     if issue is None or issue.reason is None:
-        return "Terminated"
-    return _state_text(issue.reason)
+        return "Unknown"
+    return _state_text(issue.reason) or "Unknown"
+
+
+def _replica_status_group(replica: DynamoReplica) -> str:
+    """The dashboard's status group of a replica, which --state filters on."""
+    return _REPLICA_STATUS_GROUP_BY_REASON.get(_replica_reason(replica), "Unknown")
+
+
+def _replica_id(replica: DynamoReplica) -> Optional[str]:
+    """The replica (pod) ID; the deprecated top-level id carries the same value."""
+    return (replica.metadata.id_ if replica.metadata else None) or replica.id_
 
 
 def _colorize_readiness(reason: str) -> str:
@@ -497,17 +549,19 @@ def _print_dynamo_table(deployments: List[LeptonDynamoGraphDeployment]) -> None:
     "-q",
     "name",
     multiple=True,
-    help="Filter by name (case-insensitive substring). Can be repeated.",
+    callback=single_keyword,
+    help="Filter by deployment name (case-insensitive substring).",
 )
 @click.option(
     "--state",
     "--status",
     "-s",
     "state",
+    type=LooseChoice(_DYNAMO_STATE_FILTER_VALUES),
     multiple=True,
     help=(
-        "Filter by deployment state, e.g. Ready, 'Not Ready', Starting, Updating,"
-        " Deleting. Case-insensitive; can be repeated."
+        "Filter by deployment state (exact; 'not-ready' and 'NotReady' are"
+        " accepted for 'Not Ready'). Repeat for OR."
     ),
 )
 @click.option(
@@ -516,32 +570,32 @@ def _print_dynamo_table(deployments: List[LeptonDynamoGraphDeployment]) -> None:
     "-u",
     "created_by",
     multiple=True,
-    help="Filter by creator username. Can be repeated.",
+    help=(
+        "Filter by creator: the exact, case-sensitive user the deployment was"
+        " created by. Repeat for OR."
+    ),
 )
 def list_command(name, state, created_by):
     """
     Lists Dynamo deployments in the current workspace, newest first.
+
+    The filters are the dashboard's Dynamo list filters. Repeated --state or
+    --created-by values are ORed; different options are combined with AND.
     """
     client = APIClient()
     deployments = client.dynamo.list_all()
 
-    if name:
-        needles = [n.lower() for n in name]
+    keyword = normalize_keyword(name)
+    if keyword:
         deployments = [
             d
             for d in deployments
-            if d.metadata
-            and any(
-                needle in (d.metadata.name or d.metadata.id_ or "").lower()
-                for needle in needles
-            )
+            if keyword_matches(keyword, (d.metadata.name if d.metadata else None) or "")
         ]
     if state:
-        wanted = {_normalize_token(s) for s in state}
+        wanted = set(state)
         deployments = [
-            d
-            for d in deployments
-            if d.status and _normalize_token(_state_text(d.status.state)) in wanted
+            d for d in deployments if d.status and _state_text(d.status.state) in wanted
         ]
     if created_by:
         wanted_users = set(created_by)
@@ -673,7 +727,7 @@ def _replicas_table(rows: Iterable[Tuple[str, DynamoReplica]]) -> Tuple[Table, i
         reason = _replica_reason(replica)
         node = replica.status.node if replica.status else None
         table.add_row(
-            replica.metadata.id_ or replica.id_ or "-",
+            _replica_id(replica) or "-",
             svc_name,
             _colorize_readiness(reason),
             (node.name or node.id_ or "-") if node else "-",
@@ -799,7 +853,9 @@ def service_group():
     "-q",
     "keyword",
     type=str,
-    help="Case-insensitive substring search on the service name.",
+    help="CLI-only: case-insensitive substring search on the service name.",
+    multiple=True,
+    callback=single_keyword,
 )
 def list_services(name, keyword=None):
     """
@@ -995,10 +1051,14 @@ def replica_group():
     "--state",
     "--status",
     "state",
+    type=LooseChoice(_REPLICA_STATUS_GROUP_LABELS),
     multiple=True,
     help=(
-        "Filter by replica readiness status, e.g. Ready, InProgress, Failed,"
-        " Terminated. Case-insensitive; can be repeated."
+        "Filter by status group, as the dashboard's replica filter does; repeat"
+        " for OR. Each group covers the readiness reason of the same name in"
+        " the Status column ('In Progress' is InProgress); 'Require Approval' is"
+        " RequireReadinessApproval, and a missing or unlisted reason is"
+        " 'Unknown'."
     ),
 )
 @click.option(
@@ -1007,11 +1067,17 @@ def replica_group():
     "-q",
     "keyword",
     type=str,
-    help="Case-insensitive substring search across replica ID, service and node.",
+    help="Filter by replica ID (case-insensitive substring).",
+    multiple=True,
+    callback=single_keyword,
 )
 def list_replicas(name, service, state, keyword=None):
     """
     Lists the replicas (pods) of a Dynamo deployment, per service.
+
+    The Status column shows each replica's readiness reason, as the
+    dashboard's badge does; --state and --search are the dashboard's replica
+    filters and are combined with AND.
     """
     client = APIClient()
     dep = client.dynamo.get(name)
@@ -1026,22 +1092,14 @@ def list_replicas(name, service, state, keyword=None):
         services_ = [service]
     rows = _collect_replicas(client, name, services_)
     if state:
-        wanted = {_normalize_token(s) for s in state}
-        rows = [
-            (s, r) for s, r in rows if _normalize_token(_replica_reason(r)) in wanted
-        ]
+        wanted = set(state)
+        rows = [(s, r) for s, r in rows if _replica_status_group(r) in wanted]
     normalized_keyword = normalize_keyword(keyword)
     if normalized_keyword:
         rows = [
             (s, r)
             for s, r in rows
-            if keyword_matches(
-                normalized_keyword,
-                r.metadata.id_ if r.metadata else None,
-                r.id_,
-                s,
-                r.status.node.name if r.status and r.status.node else None,
-            )
+            if keyword_matches(normalized_keyword, _replica_id(r) or "")
         ]
     table, count = _replicas_table(rows)
     if not count:

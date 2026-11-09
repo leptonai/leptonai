@@ -11,7 +11,7 @@ os.environ.setdefault("LEPTON_CACHE_DIR", tempfile.mkdtemp())
 import pytest
 import responses
 from click.testing import CliRunner
-from ray.job_submission import JobStatus, JobSubmissionClient
+from ray.job_submission import JobSubmissionClient
 
 from leptonai.api.v2.workspace_record import WorkspaceRecord, _LocalWorkspaceRecord
 from leptonai.api.v2.types.common import Metadata
@@ -19,6 +19,7 @@ from leptonai.api.v2.types.raycluster import (
     LeptonRayCluster,
     LeptonRayClusterStatus,
     LeptonRayClusterUserSpec,
+    LeptonRayJob,
 )
 from leptonai.cli.client import APIClient
 from leptonai.cli.raycluster import (
@@ -56,115 +57,224 @@ def _names(items):
     return [item.metadata.name for item in items]
 
 
-def test_filter_rayclusters_keyword_matches_name_or_id_case_insensitively(clusters):
-    assert _names(_filter_rayclusters(clusters, keyword="RAY")) == [
+def test_filter_rayclusters_applies_only_the_cli_only_name_filter(clusters):
+    # Case-insensitive substrings, ORed; no filter keeps everything.
+    assert _names(_filter_rayclusters(clusters, names=["RAY"])) == [
         "Alpha-Ray",
         "beta-ray",
     ]
-    assert _names(_filter_rayclusters(clusters, keyword="gamma-id")) == ["gamma"]
+    assert _names(_filter_rayclusters(clusters, names=["gamma", "ALPHA"])) == [
+        "Alpha-Ray",
+        "gamma",
+    ]
+    assert _names(_filter_rayclusters(clusters)) == ["Alpha-Ray", "beta-ray", "gamma"]
 
 
-def test_filter_rayclusters_state_and_creator_combine_with_and(clusters):
-    assert _names(_filter_rayclusters(clusters, states=["Not Ready"])) == ["beta-ray"]
-    assert _names(
-        _filter_rayclusters(clusters, states=["ready", "stopped"], creators=["alice"])
-    ) == ["Alpha-Ray", "gamma"]
-    assert _filter_rayclusters(clusters, names=["gamma"], states=["Ready"]) == []
-
-
-def _ray_job(submission_id=None, job_id=None, entrypoint=None, status=None):
-    return SimpleNamespace(
-        submission_id=submission_id,
-        job_id=job_id,
-        entrypoint=entrypoint,
-        status=status,
-        start_time=None,
-        end_time=None,
-        message=None,
+def _ray_job(job_id, state=None, entrypoint="python run.py"):
+    return LeptonRayJob(
+        metadata={"id": job_id, "name": job_id},
+        spec={"entrypoint": entrypoint},
+        status=None if state is None else {"state": state},
     )
 
 
-def test_filter_ray_jobs_matches_id_entrypoint_and_status():
+def _job_ids(jobs):
+    return [job.metadata.id_ for job in jobs]
+
+
+def test_filter_ray_jobs_matches_like_the_dashboard_jobs_tab():
     jobs = [
-        _ray_job("raysubmit_1", None, "python train.py", JobStatus.RUNNING),
-        _ray_job("raysubmit_2", None, "python eval.py", JobStatus.FAILED),
-        _ray_job(None, "03000000", "bash run.sh", "SUCCEEDED"),
+        _ray_job("raysubmit_train", "Running", "python train.py"),
+        _ray_job("raysubmit_eval", "Failed", "python eval.py"),
+        _ray_job("03000000", "Completed", "bash run.sh"),
+        _ray_job("raysubmit_new"),
     ]
-    assert [j.entrypoint for j in _filter_ray_jobs(jobs, keyword="PYTHON")] == [
-        "python train.py",
-        "python eval.py",
+    # The search matches the job ID or name only, not the entrypoint.
+    assert _job_ids(_filter_ray_jobs(jobs, keyword="EVAL")) == ["raysubmit_eval"]
+    assert _filter_ray_jobs(jobs, keyword="python") == []
+    assert _job_ids(_filter_ray_jobs(jobs, keyword="0300")) == ["03000000"]
+    # The state filter is exact on the Lepton state; a job without a state
+    # always passes it.
+    assert _job_ids(_filter_ray_jobs(jobs, statuses=["Failed", "Completed"])) == [
+        "raysubmit_eval",
+        "03000000",
+        "raysubmit_new",
     ]
-    assert [j.job_id for j in _filter_ray_jobs(jobs, keyword="0300")] == ["03000000"]
-    assert [
-        j.entrypoint for j in _filter_ray_jobs(jobs, statuses=["FAILED", "SUCCEEDED"])
-    ] == ["python eval.py", "bash run.sh"]
-    assert _filter_ray_jobs(jobs, keyword="train", statuses=["FAILED"]) == []
+    assert _job_ids(_filter_ray_jobs(jobs, statuses=["Awaiting"])) == ["raysubmit_new"]
+    assert _filter_ray_jobs(jobs, keyword="train", statuses=["Failed"]) == []
 
 
 def _invoke_list(items, args):
-    fake_client = SimpleNamespace(raycluster=SimpleNamespace(list_all=lambda: items))
+    calls = []
+
+    def list_all(**kwargs):
+        calls.append(kwargs)
+        return items
+
+    fake_client = SimpleNamespace(raycluster=SimpleNamespace(list_all=list_all))
     with patch("leptonai.cli.raycluster.APIClient", return_value=fake_client):
-        return CliRunner().invoke(raycluster, ["list", *args])
+        result = CliRunner().invoke(raycluster, ["list", *args])
+    return result, calls
 
 
-def test_raycluster_list_applies_filters(clusters, monkeypatch):
+def test_raycluster_list_sends_no_filters_by_default(clusters):
+    result, calls = _invoke_list(clusters, [])
+    assert result.exit_code == 0, result.output
+    assert calls == [{"q": None, "status": None, "created_by": None}]
+
+
+def test_raycluster_list_passes_dashboard_filters_to_the_server(clusters, monkeypatch):
     monkeypatch.setattr(raycluster_console, "width", 400)
-    result = _invoke_list(
-        clusters, ["-u", "alice", "--state", "not-ready", "--state", "stopped"]
+    result, calls = _invoke_list(
+        clusters,
+        [
+            "-q",
+            "Ray",
+            "--state",
+            "not-ready",
+            "-s",
+            "STOPPED",
+            "-u",
+            "Alice@Example.com",
+        ],
     )
     assert result.exit_code == 0, result.output
+    # Canonical state names, the creator as typed; the server matches them.
+    assert calls == [{
+        "q": "Ray",
+        "status": ["Not Ready", "Stopped"],
+        "created_by": ["Alice@Example.com"],
+    }]
+    # No local re-matching: every cluster the server returns is listed.
+    for name in ("Alpha-Ray", "beta-ray", "gamma"):
+        assert name in result.output
+
+
+def test_raycluster_list_name_filter_is_local_and_labelled_cli_only(
+    clusters, monkeypatch
+):
+    monkeypatch.setattr(raycluster_console, "width", 400)
+    result, calls = _invoke_list(clusters, ["-n", "GAMMA", "-n", "alpha"])
+    assert result.exit_code == 0, result.output
+    assert calls == [{"q": None, "status": None, "created_by": None}]
     assert "gamma" in result.output
-    assert "Alpha-Ray" not in result.output
+    assert "Alpha-Ray" in result.output
     assert "beta-ray" not in result.output
 
+    help_result = CliRunner().invoke(raycluster, ["list", "--help"])
+    assert help_result.exit_code == 0, help_result.output
+    assert "CLI-only" in help_result.output
+    assert "exact user ID or email" in help_result.output
 
-def test_raycluster_list_reports_when_nothing_matches(clusters):
-    result = _invoke_list(clusters, ["--search", "nothing"])
+
+def test_raycluster_list_reports_when_nothing_matches():
+    result, calls = _invoke_list([], ["--search", "nothing"])
     assert result.exit_code == 0, result.output
+    assert calls == [{"q": "nothing", "status": None, "created_by": None}]
     assert "No Ray clusters match the specified filters." in result.output
 
 
 def test_raycluster_list_rejects_unknown_state(clusters):
-    result = _invoke_list(clusters, ["--state", "bogus"])
+    result, calls = _invoke_list(clusters, ["--state", "bogus"])
     assert result.exit_code == 2
     assert "Invalid value for '--state'" in result.output
+    assert calls == []
 
 
-def test_raycluster_list_jobs_applies_filters(monkeypatch):
+def _invoke_list_jobs(jobs, args):
+    calls = []
+
+    def list_jobs(name):
+        calls.append(name)
+        return jobs
+
+    fake_client = SimpleNamespace(raycluster=SimpleNamespace(list_jobs=list_jobs))
+    with patch("leptonai.cli.raycluster.APIClient", return_value=fake_client):
+        result = CliRunner().invoke(
+            raycluster, ["list-jobs", "-n", "my-cluster", *args]
+        )
+    return result, calls
+
+
+def test_raycluster_list_jobs_shows_and_filters_lepton_states(monkeypatch):
     monkeypatch.setattr(raycluster_console, "width", 240)
     jobs = [
-        _ray_job("raysubmit_train", None, "python train.py", JobStatus.RUNNING),
-        _ray_job("raysubmit_eval", None, "python eval.py", JobStatus.FAILED),
+        _ray_job("raysubmit_train", "Running", "python train.py"),
+        _ray_job("raysubmit_eval", "Failed", "python eval.py"),
+        _ray_job("raysubmit_wait", "Awaiting", "python wait.py"),
     ]
-    fake_client = SimpleNamespace(
-        raycluster=SimpleNamespace(get=lambda name: object()),
-        url="https://example.com/api/v2/workspaces/ws",
-        token=lambda: "token",
-        get_workspace_origin=lambda: "https://example.com",
-    )
-    fake_submission = SimpleNamespace(list_jobs=lambda: jobs)
-    with patch("leptonai.cli.raycluster.APIClient", return_value=fake_client):
-        with patch(
-            "leptonai.cli.raycluster.JobSubmissionClient",
-            return_value=fake_submission,
-        ) as submission_client:
-            result = CliRunner().invoke(
-                raycluster,
-                ["list-jobs", "-n", "my-cluster", "--status", "failed"],
-            )
-            no_match = CliRunner().invoke(
-                raycluster,
-                ["list-jobs", "-n", "my-cluster", "-q", "train", "-s", "failed"],
-            )
-    assert all(
-        call.kwargs["headers"]["X-Lepton-Client"] == "cli"
-        for call in submission_client.call_args_list
-    )
-    assert result.exit_code == 0, result.output
-    assert "raysubmit_eval" in result.output
-    assert "raysubmit_train" not in result.output
+
+    listed, calls = _invoke_list_jobs(jobs, [])
+    failed, _ = _invoke_list_jobs(jobs, ["--status", "failed"])
+    awaiting, _ = _invoke_list_jobs(jobs, ["-s", "AWAITING"])
+    no_match, _ = _invoke_list_jobs(jobs, ["-q", "train", "-s", "failed"])
+
+    assert calls == ["my-cluster"]
+    assert listed.exit_code == 0, listed.output
+    # The Lepton state the dashboard shows, not the Ray-native status.
+    for state in ("Running", "Failed", "Awaiting"):
+        assert state in listed.output
+    assert "PENDING" not in listed.output
+    assert failed.exit_code == 0, failed.output
+    assert "raysubmit_eval" in failed.output
+    assert "raysubmit_train" not in failed.output
+    assert awaiting.exit_code == 0, awaiting.output
+    assert "raysubmit_wait" in awaiting.output
+    assert "raysubmit_eval" not in awaiting.output
     assert no_match.exit_code == 0, no_match.output
     assert "No Ray jobs match the specified filters on this cluster." in no_match.output
+
+
+def test_raycluster_list_jobs_rejects_ray_native_statuses():
+    result, calls = _invoke_list_jobs([], ["--status", "SUCCEEDED"])
+    assert result.exit_code == 2, result.output
+    assert "'Completed'" in result.output
+    assert calls == []
+
+
+@responses.activate
+def test_raycluster_list_jobs_reads_the_api_server_route(monkeypatch):
+    monkeypatch.setattr(WorkspaceRecord, "_singleton_record", _LocalWorkspaceRecord())
+    workspace_url = "https://gateway.example.com/api/v2/workspaces/ws1"
+    client = APIClient(workspace_id="ws1", auth_token="token", url=workspace_url)
+    monkeypatch.setattr("leptonai.cli.raycluster.APIClient", lambda: client)
+    submission_client = Mock(wraps=JobSubmissionClient)
+    monkeypatch.setattr(
+        "leptonai.cli.raycluster.JobSubmissionClient", submission_client
+    )
+    responses.add(
+        responses.GET,
+        workspace_url + "/rayclusters/my-cluster/jobs",
+        json=[{
+            "metadata": {"id": "raysubmit_1", "name": "raysubmit_1"},
+            "spec": {"entrypoint": "python train.py --ids [1,2]"},
+            "status": {"state": "Completed", "message": "Job finished [ok]"},
+        }],
+    )
+    responses.add(
+        responses.GET,
+        workspace_url + "/rayclusters/missing/jobs",
+        status=404,
+        json={"code": "ResourceNotFound", "message": "ray cluster missing not found"},
+    )
+
+    result = CliRunner().invoke(raycluster, ["list-jobs", "-n", "my-cluster"])
+    missing = CliRunner().invoke(raycluster, ["list-jobs", "-n", "missing"])
+
+    assert result.exit_code == 0, result.output or repr(result.exception)
+    assert "raysubmit_1" in result.output
+    assert "Completed" in result.output
+    # Entrypoints and messages are printed verbatim, not as rich markup.
+    assert "[1,2]" in result.output
+    assert "[ok]" in result.output
+    # The Ray dashboard proxy is no longer used for listing; the api-server
+    # request identifies the CLI.
+    submission_client.assert_not_called()
+    assert all("/dashboard" not in call.request.url for call in responses.calls)
+    assert responses.calls[0].request.headers["X-Lepton-Client"] == "cli"
+    # A missing cluster still exits 1.
+    assert missing.exit_code == 1
+    assert "404" in missing.output
 
 
 @pytest.mark.parametrize(
@@ -199,9 +309,8 @@ def test_raycluster_list_jobs_applies_filters(monkeypatch):
             "/api/jobs/raysubmit_test/stop",
             {"stopped": True},
         ),
-        (["list-jobs", "-n", "my-cluster"], "GET", "/api/jobs/", []),
     ],
-    ids=["submit-job", "stop-job", "list-jobs"],
+    ids=["submit-job", "stop-job"],
 )
 @responses.activate
 def test_ray_job_requests_use_workspace_origin(

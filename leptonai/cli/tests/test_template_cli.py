@@ -40,11 +40,15 @@ def _names(items):
     return [item.metadata.name for item in items]
 
 
-def test_filter_templates_keyword_matches_name_or_id(public_templates):
+def test_filter_templates_keyword_matches_name_or_description(public_templates):
     assert _names(_filter_templates(public_templates, keyword="NEMO")) == ["nemo-train"]
-    assert _names(_filter_templates(public_templates, keyword="notebook-id")) == [
-        "Dev-Notebook"
-    ]
+    # The dashboard searches name and description, not the ID.
+    assert _filter_templates(public_templates, keyword="notebook-id") == []
+    described = LeptonTemplate(
+        metadata=Metadata(id="t-id", name="t", description="Jupyter Lab image"),
+        spec=LeptonTemplateUserSpec(workload_type="pod"),
+    )
+    assert _names(_filter_templates([described], keyword="jupyter")) == ["t"]
 
 
 def test_filter_templates_workload_treats_endpoint_and_deployment_alike(

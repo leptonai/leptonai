@@ -31,6 +31,7 @@ from ..api.v2.types.slurm import (
 from .log import _preprocess_time
 from .teleport import connect_node_teleport
 from .util import (
+    single_keyword,
     LooseChoice,
     click_group,
     colorize_state,
@@ -46,6 +47,19 @@ from .util import (
 
 
 OUTPUT_FORMAT = click.Choice(("table", "json"), case_sensitive=False)
+
+# The dashboard's Slurm cluster status filter values, in its order. It labels
+# NotReady "Not Ready" and compares the raw cluster state exactly.
+_SLURM_CLUSTER_STATES = (
+    "Ready",
+    "NotReady",
+    "Creating",
+    "Starting",
+    "Updating",
+    "Deleting",
+    "Error",
+    "Unrecoverable",
+)
 
 # The Lepton states the server maps Slurm job states onto, in dashboard order.
 # The job list's status filter matches these rather than the native Slurm
@@ -83,6 +97,10 @@ _MAX_CLUSTER_EVENTS = 1000
 # The logging backend's max entries per query and max query length.
 _MAX_LOG_LINES = 20000
 _MAX_LOG_WINDOW_NS = 31 * 24 * 60 * 60 * 1_000_000_000
+# The job list's longest archive window, plus the minute of clock skew the
+# server allows a client asking for it.
+_MAX_ARCHIVE_WINDOW_S = 30 * 24 * 60 * 60
+_ARCHIVE_WINDOW_GRACE_S = 60
 # Dev Pod resource request formats (LeptonSlurmCluster ResourceList CRD).
 _DEVPOD_CPU_PATTERN = re.compile(r"[0-9]+m?|[0-9]+\.[0-9]+")
 _DEVPOD_MEMORY_PATTERN = re.compile(r"[0-9]+([EPTGMK]i?)?")
@@ -285,26 +303,62 @@ def _diagnosis(reason: Optional[str], error: Optional[str]) -> str:
 def _filter_clusters(
     clusters: Iterable[LeptonSlurmCluster],
     *,
-    names: Iterable[str] = (),
+    keyword: Optional[str] = None,
     statuses: Iterable[str] = (),
 ) -> List[LeptonSlurmCluster]:
-    """Apply the dashboard's client-side cluster name and status filters.
+    """Apply the dashboard's client-side cluster filters exactly as it does.
 
-    Status values compare against the normalized state the table shows.
+    The keyword is a case-insensitive substring of the cluster name; the
+    statuses (canonical values of _SLURM_CLUSTER_STATES) match the raw
+    cluster state exactly. The two are combined with AND.
     """
-    name_filters = tuple(value.strip().casefold() for value in names if value.strip())
-    status_filters = {value.strip().casefold() for value in statuses if value.strip()}
-    filtered = []
-    for item in clusters:
-        name = (item.metadata.name or "").casefold()
-        state = _normalize_state(item.status.state if item.status else None)
-        state = "" if state == "-" else state.casefold()
-        if name_filters and not any(value in name for value in name_filters):
-            continue
-        if status_filters and state not in status_filters:
-            continue
-        filtered.append(item)
-    return filtered
+    normalized_keyword = normalize_keyword(keyword)
+    wanted = set(statuses)
+    return [
+        item
+        for item in clusters
+        if keyword_matches(normalized_keyword, item.metadata.name or "")
+        and (not wanted or ((item.status.state if item.status else None) in wanted))
+    ]
+
+
+def _single_value(ctx, param, value: Tuple[str, ...]) -> Optional[str]:
+    """Click callback: accept a ``multiple=True`` option at most once.
+
+    For filters the dashboard takes as one typed value; ``multiple=True`` only
+    lets a repeat fail instead of click silently keeping the last one.
+    """
+    if not value:
+        return None
+    if len(value) > 1:
+        raise click.BadParameter("can be given only once.", ctx=ctx, param=param)
+    return value[0]
+
+
+def _archive_window(
+    start: Optional[str], end: Optional[str]
+) -> Tuple[Optional[int], Optional[int]]:
+    """Convert job list --start/--end into the server's start_time/end_time.
+
+    Both are Unix seconds bounding when archived jobs ended. The server
+    defaults end_time to now and start_time to 7 days before end_time, and
+    rejects a window longer than 30 days; check that here so a bad window
+    fails as a usage error.
+    """
+    start_s = _preprocess_time(start, epoch=True) // 1_000_000_000 if start else None
+    end_s = _preprocess_time(end, epoch=True) // 1_000_000_000 if end else None
+    if start_s is not None:
+        window_end = end_s if end_s is not None else int(time.time())
+        until = "--end" if end_s is not None else "now"
+        if window_end <= start_s:
+            raise click.UsageError(f"--start must be earlier than {until}.")
+        if window_end - start_s > _MAX_ARCHIVE_WINDOW_S + _ARCHIVE_WINDOW_GRACE_S:
+            raise click.UsageError(
+                f"The archive window from --start to {until} exceeds 30 days;"
+                " pick a later --start"
+                + (" or an earlier --end." if end_s is not None else ".")
+            )
+    return start_s, end_s
 
 
 def _print_clusters_table(
@@ -1044,26 +1098,31 @@ def cluster():
     "--name",
     "--search",
     "--keyword",
-    "names",
+    "keyword",
     "-n",
     "-q",
     multiple=True,
-    help="Filter by cluster name substring (case-insensitive; repeatable).",
+    callback=single_keyword,
+    help="Filter by cluster name (case-insensitive substring).",
 )
 @click.option(
     "--status",
     "statuses",
     "-s",
+    type=LooseChoice(_SLURM_CLUSTER_STATES),
     multiple=True,
-    help="Filter by exact cluster status (case-insensitive; repeatable).",
+    help=(
+        "Filter by cluster status (exact; 'Not Ready' and 'not-ready' are"
+        " accepted for NotReady). Repeat for OR."
+    ),
 )
 @click.option("--output", "output_format", "-o", type=OUTPUT_FORMAT, default="table")
 def list_clusters(
-    names: Tuple[str, ...], statuses: Tuple[str, ...], output_format: str
+    keyword: Optional[str], statuses: Tuple[str, ...], output_format: str
 ) -> None:
     """List Slurm clusters, optionally filtering by name and status."""
     api = APIClient().slurm
-    clusters = _filter_clusters(api.list_clusters(), names=names, statuses=statuses)
+    clusters = _filter_clusters(api.list_clusters(), keyword=keyword, statuses=statuses)
     if output_format == "json":
         _print_json(clusters)
     else:
@@ -1229,7 +1288,25 @@ def job():
     "-ia",
     is_flag=True,
     default=False,
-    help="Include archived jobs in the list.",
+    help=(
+        "Also list archived jobs: those that ended inside the archive window"
+        " (--start/--end; the last 7 days by default, at most 30 days)."
+    ),
+)
+@click.option(
+    "--start",
+    help=(
+        "With --include-archived: list archived jobs that ended at or after"
+        " this UTC time or epoch (seconds/ms/us/ns). Defaults to 7 days before"
+        " --end; the window spans at most 30 days."
+    ),
+)
+@click.option(
+    "--end",
+    help=(
+        "With --include-archived: list archived jobs that ended at or before"
+        " this UTC time or epoch (seconds/ms/us/ns). Defaults to now."
+    ),
 )
 @click.option(
     "--search",
@@ -1237,7 +1314,9 @@ def job():
     "--query",
     "q",
     "-q",
-    help="Filter by job name substring or job ID.",
+    help="Filter by job name substring (case-insensitive) or exact job ID.",
+    multiple=True,
+    callback=single_keyword,
 )
 @click.option(
     "--created-by",
@@ -1245,18 +1324,48 @@ def job():
     "-u",
     "created_by",
     multiple=True,
-    help="Creator email; repeatable.",
+    help="Filter by creator email (exact, case-insensitive); repeatable.",
+)
+@click.option(
+    "--partition",
+    multiple=True,
+    callback=_single_value,
+    help=(
+        "Filter by partition (exact, case-sensitive). A job submitted to several"
+        " partitions matches only their whole comma-joined value, e.g."
+        " 'batch,batch_long'."
+    ),
+)
+@click.option(
+    "--qos",
+    multiple=True,
+    callback=_single_value,
+    help="Filter by QoS (exact, case-sensitive).",
 )
 @click.option("--output", "output_format", "-o", type=OUTPUT_FORMAT, default="table")
 def list_jobs(
     cluster_names: Tuple[str, ...],
     statuses: Tuple[str, ...],
     include_archived: bool,
+    start: Optional[str],
+    end: Optional[str],
     q: Optional[str],
     created_by: Tuple[str, ...],
+    partition: Optional[str],
+    qos: Optional[str],
     output_format: str,
 ) -> None:
-    """List Slurm jobs across one or more clusters."""
+    """List Slurm jobs across one or more clusters.
+
+    The filters are the dashboard's Slurm job filters, applied by the server.
+    Archived jobs come from Slurm accounting by the time they ended, so
+    --include-archived lists those that ended in the archive window.
+    """
+    if (start or end) and not include_archived:
+        raise click.UsageError(
+            "--start and --end bound archived jobs; add --include-archived."
+        )
+    start_time, end_time = _archive_window(start, end)
     mode = "alive_and_archive" if include_archived else "alive_only"
     api = APIClient().slurm
     resolved_clusters: Optional[List[str]] = None
@@ -1270,12 +1379,18 @@ def list_jobs(
                 for value in cluster_names
             )
         )
+    # Partition and QoS travel as one literal value, as the dashboard sends
+    # them: a comma can be part of the scheduler's value.
     result = api.list_jobs(
         cluster_names=resolved_clusters,
         job_query_mode=mode,
         q=q,
         status=list(statuses) or None,
         created_by=list(created_by) or None,
+        partition=[partition] if partition else None,
+        qos=[qos] if qos else None,
+        start_time=start_time,
+        end_time=end_time,
     )
     if output_format == "json":
         _print_json(result)
@@ -1629,7 +1744,9 @@ def devpod():
     "--keyword",
     "-q",
     "keyword",
-    help="Case-insensitive substring search across Dev Pod name and ID.",
+    help="CLI-only: case-insensitive substring search across Dev Pod name and ID.",
+    multiple=True,
+    callback=single_keyword,
 )
 @click.option("--output", "output_format", "-o", type=OUTPUT_FORMAT, default="table")
 def list_devpods(

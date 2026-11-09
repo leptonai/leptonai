@@ -13,6 +13,7 @@ from .teleport import connect_job_teleport
 from leptonai.cli.log import _epoch_to_time_str, _preprocess_time
 
 from .util import (
+    single_keyword,
     console,
     click_group,
     catch_deprecated_flag,
@@ -29,6 +30,7 @@ from .util import (
     resolve_save_path,
     PathResolutionError,
     labels_to_selector,
+    LooseChoice,
 )
 
 from .util import make_container_port_from_string  # noqa: F401
@@ -95,7 +97,7 @@ def _display_jobs_table(
         "Name / ID",
         "Created At",
         "State",
-        "User ID",
+        "Creator",
         "Node Group ID",
         "Workers",
         "Shape",
@@ -133,7 +135,7 @@ def _display_jobs_table(
             name_id_cell,
             created_ts,
             state_cell,
-            job.metadata.owner,
+            job.metadata.created_by or "",
             ng_str,
             str(workers),
             shape,
@@ -912,9 +914,24 @@ def create(
     )
 
 
-JOB_STATE_NAMES = ", ".join(
-    state.value for state in LeptonJobState if state is not LeptonJobState.Unknown
+# The dashboard's job status filter values (jobs-list-route.ts): the current
+# tab's states plus "Deleted" from the archived tab, since -ia lists both.
+JOB_STATE_FILTER_VALUES = (
+    "Starting",
+    "Running",
+    "Stopped",
+    "Stopping",
+    "Failed",
+    "Completed",
+    "Deleting",
+    "Restarting",
+    "Queueing",
+    "Awaiting",
+    "Terminating",
+    "Deleted",
 )
+# Archived jobs are paged from BigQuery; `job list -ia` stops after one page.
+ARCHIVED_JOB_LIST_LIMIT = 500
 
 
 @job.command(name="list")
@@ -923,22 +940,20 @@ JOB_STATE_NAMES = ", ".join(
     "--status",
     "-s",
     help=(
-        "Filter jobs by state. Case-insensitive and matches the beginning of the state"
-        f" name. Available states: {JOB_STATE_NAMES}. Example: 'run' will match"
-        " 'Running'. Can specify multiple states."
+        "Filter jobs by state, as the dashboard's status filter does. Case and"
+        " spacing are ignored. Repeat for OR."
     ),
-    type=str,
+    type=LooseChoice(JOB_STATE_FILTER_VALUES),
     required=False,
     multiple=True,
-    callback=_warn_state_patterns,
 )
 @click.option(
     "--user",
     "--created-by",
     "-u",
     help=(
-        "Filter jobs by user. Case-insensitive and matches the beginning of the"
-        " username. Can specify multiple users. Example: 'alice' will match 'alice123'"
+        "Filter jobs by creator, as the dashboard's creator filter does: the server"
+        " matches a case-insensitive substring of the creator. Repeat for OR."
     ),
     type=str,
     required=False,
@@ -952,19 +967,21 @@ JOB_STATE_NAMES = ", ".join(
     "-q",
     "name_or_id",
     help=(
-        "Filter jobs by name or id. Case-insensitive and matches any part of the name"
-        " or id. Does not support multiple values. Example: 'train' will match"
-        " 'training-job-123'"
+        "Search jobs, as the dashboard's search box does: the server matches a"
+        " case-insensitive substring of the job ID (derived from the name). Takes"
+        " one term."
     ),
     type=str,
     required=False,
+    multiple=True,
+    callback=single_keyword,
 )
 @click.option(
     "--node-group",
     "-ng",
     help=(
-        "Filter jobs by node group. Case-insensitive and matches any part of the node"
-        " group name."
+        "CLI-only (the dashboard has no node group filter). The server matches a"
+        " case-insensitive substring of the job's node group IDs. Repeat for OR."
     ),
     type=str,
     required=False,
@@ -987,32 +1004,20 @@ JOB_STATE_NAMES = ", ".join(
     is_flag=True,
     default=False,
     help=(
-        "Include archived jobs in the list. Please use full user id to filter archived"
-        " jobs."
+        "Include archived jobs in the list. Shows at most the newest"
+        f" {ARCHIVED_JOB_LIST_LIMIT} matching jobs; narrow with the other filters."
     ),
 )
 def list_command(state, user, name_or_id, node_group, include_archived, labels=()):
     """
     Lists all jobs in the current workspace.
 
-    You can filter jobs by:
-    - State (--state/--status/-s): Case-insensitive prefix match (e.g., 'run'
-      matches 'Running')
-    - User (--user/--created-by/-u): Case-insensitive prefix match (e.g.,
-      'alice' matches 'alice123')
-    - Name/ID (--name-or-id/--search/--keyword/-n/-q): Case-insensitive
-      substring match (e.g., 'train' matches 'training-job-123')
-    - Node Group: Case-insensitive substring match
-    - Label: KEY, KEY=VALUE or KEY:VALUE (repeat for AND), as in the dashboard
-
-    Repeated values of the same filter are ORed (except labels); different
-    filters are combined with AND. For example:
-    lep job list -s queue -u alice -q train -ng h100 -l team=research
+    Filters are sent to the server unchanged, the same way the dashboard sends
+    them, so results match the dashboard's job list. Repeated values of the
+    same filter are ORed (labels are ANDed; --search takes one term) and
+    different filters are combined with AND. For example:
+    lep job list -s running -u alice -q train -l team=research
     """
-
-    if include_archived and state:
-        console.print("[red]Error[/]: --include-archived cannot be used with --state.")
-        sys.exit(1)
 
     client = get_client()
 
@@ -1037,19 +1042,30 @@ def list_command(state, user, name_or_id, node_group, include_archived, labels=(
         if include_archived
         else LeptonJobQueryMode.AliveOnly.value
     )
-    jobs = client.job.list_all(job_query_mode=job_query_mode, **list_params)
-
-    if len(jobs) == 0 and include_archived:
-        console.print(
-            "[yellow]No jobs matched your filters.[/] \n[dim]Note[/]: Please use full"
-            " user id to filter archived jobs."
+    if include_archived:
+        # Archived jobs live in BigQuery; fetching every page is slow and can
+        # return thousands of rows. One page holds the newest matches.
+        jobs = client.job.list_all(
+            job_query_mode=job_query_mode,
+            page=1,
+            page_size=ARCHIVED_JOB_LIST_LIMIT,
+            **list_params,
         )
-        sys.exit(0)
-    if len(jobs) == 0 and list_params:
+    else:
+        jobs = client.job.list_all(job_query_mode=job_query_mode, **list_params)
+    capped = include_archived and len(jobs) >= ARCHIVED_JOB_LIST_LIMIT
+
+    if len(jobs) == 0 and (list_params or include_archived):
         console.print("[yellow]No jobs match the specified filters.[/yellow]")
         return
 
     _display_jobs_table(jobs, dashboard_base_url=client.get_dashboard_base_url())
+    if capped:
+        console.print(
+            f"[yellow]Showing the newest {ARCHIVED_JOB_LIST_LIMIT} matching jobs"
+            " only.[/] Narrow the list with --search, --user, --node-group or"
+            " --label."
+        )
 
 
 @job.command()

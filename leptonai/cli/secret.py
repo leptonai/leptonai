@@ -7,13 +7,13 @@ import click
 from rich.table import Table
 
 from .util import (
+    single_keyword,
     console,
     check,
     click_group,
     LooseChoice,
     keyword_matches,
     normalize_keyword,
-    prefix_matches,
     state_matches,
 )
 from leptonai.config import LEPTON_RESERVED_ENV_NAMES
@@ -101,13 +101,11 @@ def _filter_secrets(secrets, *, keyword=None, owners=(), visibility=None):
     wanted_visibility = (visibility,) if visibility else ()
 
     def matches(secret):
-        if not keyword_matches(
-            normalized_keyword,
-            getattr(secret, "name", None),
-            *(getattr(secret, "tags", None) or ()),
-        ):
+        # The dashboard filters secrets in the browser: a case-insensitive
+        # substring of the name, and an exact (case-sensitive) owner match.
+        if not keyword_matches(normalized_keyword, getattr(secret, "name", None)):
             return False
-        if not prefix_matches(getattr(secret, "owner", None), owners):
+        if owners and (getattr(secret, "owner", None) or "") not in owners:
             return False
         return state_matches(wanted_visibility, getattr(secret, "visibility", None))
 
@@ -121,7 +119,12 @@ def _filter_secrets(secrets, *, keyword=None, owners=(), visibility=None):
     "-q",
     "keyword",
     type=str,
-    help="Case-insensitive substring search on the secret name and tags.",
+    help=(
+        "Search by secret name (case-insensitive substring), as the dashboard's"
+        " search box does. Takes one term."
+    ),
+    multiple=True,
+    callback=single_keyword,
 )
 @click.option(
     "--owner",
@@ -132,14 +135,14 @@ def _filter_secrets(secrets, *, keyword=None, owners=(), visibility=None):
     type=str,
     multiple=True,
     help=(
-        "Filter by owner (case-insensitive prefix of the user ID or email). Repeat"
-        " for OR."
+        "Filter by owner, as the dashboard's creator filter does: an exact,"
+        " case-sensitive match on the Owner column. Repeat for OR."
     ),
 )
 @click.option(
     "--visibility",
     type=LooseChoice(SECRET_VISIBILITY_FILTER_VALUES),
-    help="Show only public or only private secrets.",
+    help="CLI-only: show only public or only private secrets.",
 )
 def list_command(keyword=None, owners=(), visibility=None):
     """
