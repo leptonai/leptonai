@@ -14,21 +14,24 @@ from rich.table import Table
 from rich.prompt import Confirm
 
 from .util import (
+    single_keyword,
     console,
     check,
     click_group,
     _validate_queue_priority,
     apply_nodegroup_and_queue_config,
+    require_node_group,
     make_name_id_cell,
     colorize_state,
     format_timestamp_ms,
     resolve_save_path,
     PathResolutionError,
     LooseChoice,
-    creator_matches,
+    created_by_equals,
     keyword_matches,
     node_group_matches,
     normalize_keyword,
+    deployment_display_state,
     state_matches,
 )
 
@@ -571,7 +574,7 @@ def _print_deployments_table(
     table.add_column("Name / ID")
     table.add_column("Created At")
     table.add_column("State")
-    table.add_column("User ID")
+    table.add_column("Creator")
     table.add_column("Node Group ID")
     table.add_column("Replicas")
     table.add_column("Shape")
@@ -588,10 +591,10 @@ def _print_deployments_table(
         name = d.metadata.name if d.metadata else "-"
         dep_id = d.metadata.id_ if d.metadata else "-"
         created_ts = format_timestamp_ms(getattr(d.metadata, "created_at", None))
-        state_raw = d.status.state if d.status and d.status.state else "-"
+        state_raw = deployment_display_state(d.status) or "-"
         state_str = getattr(state_raw, "value", state_raw)
         state_cell = colorize_state(state_raw)
-        owner = d.metadata.owner if d.metadata and d.metadata.owner else ""
+        owner = d.metadata.created_by if d.metadata and d.metadata.created_by else ""
 
         ng_list = []
         rr = d.spec.resource_requirement if d.spec else None
@@ -924,11 +927,11 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "-ng",
     "node_groups",
     help=(
-        "Node group for the endpoint. If not set, use on-demand resources. You can"
-        " repeat this flag multiple times to choose multiple node groups. Multiple node"
-        " group option is currently not supported but coming soon for enterprise users."
-        " Only the first node group will be set if you input multiple node groups at"
-        " this time."
+        "Node group for the endpoint. Required unless the spec from --file already sets"
+        " allowed_dedicated_node_groups. You can repeat this flag multiple times to"
+        " choose multiple node groups. Multiple node group option is currently not"
+        " supported but coming soon for enterprise users. Only the first node group"
+        " will be set if you input multiple node groups at this time."
     ),
     type=str,
     multiple=True,
@@ -1194,6 +1197,13 @@ def create(
             sys.exit(1)
     else:
         spec = LeptonDeploymentUserSpec()
+
+    rr = spec.resource_requirement
+    require_node_group(
+        node_groups,
+        rr.affinity if rr else None,
+        "Pods" if spec.is_pod else "Endpoints",
+    )
 
     if (
         file
@@ -1725,24 +1735,17 @@ def _filter_endpoints(
         ):
             return False
 
-        if not keyword_matches(
-            normalized_keyword,
-            name,
-            getattr(metadata, "id_", None) if metadata else None,
-        ):
+        if not keyword_matches(normalized_keyword, name):
             return False
 
-        # The legacy API folds Stopping/Stopped into state="Not Ready" and keeps
-        # the real lifecycle state in `phase`; accept a match on either so that
-        # both `--state "Not Ready"` and `--state Stopped` find a stopped endpoint.
-        if not state_matches(
-            states,
-            getattr(status, "state", None) if status else None,
-            getattr(status, "phase", None) if status else None,
-        ):
+        # Filter on the state the table shows: the real lifecycle state, as the
+        # dashboard and the server-side status filter do.
+        if not state_matches(states, deployment_display_state(status)):
             return False
 
-        if not creator_matches(metadata, creators):
+        # The dashboard sends created_by to the server, which matches it
+        # exactly (case-insensitive) against metadata.created_by.
+        if not created_by_equals(metadata, creators):
             return False
 
         rr = getattr(spec, "resource_requirement", None) if spec else None
@@ -1760,8 +1763,8 @@ def _filter_endpoints(
     "--name",
     "-n",
     help=(
-        "Filter endpoints by name (case-insensitive substring). Can be specified"
-        " multiple times."
+        "CLI-only: filter endpoints by name (case-insensitive substring). Can be"
+        " specified multiple times."
     ),
     type=str,
     required=False,
@@ -1773,7 +1776,12 @@ def _filter_endpoints(
     "-q",
     "keyword",
     type=str,
-    help="Case-insensitive substring search across endpoint name and ID.",
+    help=(
+        "Search endpoints by name (case-insensitive substring), as the dashboard's"
+        " search box does. Takes one term."
+    ),
+    multiple=True,
+    callback=single_keyword,
 )
 @click.option(
     "--state",
@@ -1784,8 +1792,8 @@ def _filter_endpoints(
     multiple=True,
     help=(
         "Filter by endpoint state (case-insensitive; 'not-ready' and 'NotReady' are"
-        " accepted for 'Not Ready'). Matches the displayed state or the underlying"
-        " lifecycle phase. Repeat for OR."
+        " accepted for 'Not Ready'). Matches the State column exactly, as the"
+        " dashboard's status filter does. Repeat for OR."
     ),
 )
 @click.option(
@@ -1796,8 +1804,8 @@ def _filter_endpoints(
     type=str,
     multiple=True,
     help=(
-        "Filter by creator (case-insensitive prefix of the user ID or email)."
-        " Repeat for OR."
+        "Filter by creator, as the dashboard's creator filter does: an exact,"
+        " case-insensitive match on the Creator column. Repeat for OR."
     ),
 )
 @click.option(
@@ -1807,19 +1815,19 @@ def _filter_endpoints(
     type=str,
     multiple=True,
     help=(
-        "Filter by node group (case-insensitive substring of the node group"
-        " name/ID). Repeat for OR."
+        "CLI-only (the dashboard has no node group filter): case-insensitive"
+        " substring of the node group IDs. Repeat for OR."
     ),
 )
 def list_command(name, keyword=None, states=(), creators=(), node_groups=()):
     """
     Lists all endpoints in the current workspace.
 
-    Filters mirror the dashboard's endpoint list: --search matches the name or
-    ID, --state filters by lifecycle state and --created-by by creator.
-    Repeated values within one option are ORed together; different options
-    are combined with AND. Example:
-    lep endpoint list -s ready -s starting -u alice -ng h100
+    --search, --state and --created-by work like the dashboard's endpoint list
+    filters; --name and --node-group are CLI-only. Repeated values within one
+    option (except --search, which takes one term) are ORed together;
+    different options are combined with AND. Example:
+    lep endpoint list -s ready -s starting -u alice@example.com
     """
 
     client = APIClient()
@@ -1896,7 +1904,7 @@ def status(name, show_tokens, detail):
         dep_info.metadata.created_at / 1000  # type: ignore
     ).strftime("%Y-%m-%d %H:%M:%S")
 
-    state = dep_info.status.state
+    state = deployment_display_state(dep_info.status)
     if state in ("Running", "Ready"):
         state = f"[green]{state}[/]"
     else:

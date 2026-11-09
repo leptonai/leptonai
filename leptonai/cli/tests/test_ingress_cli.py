@@ -173,3 +173,26 @@ def test_ingress_list_rejects_unknown_status(ingresses):
     result = _invoke_ingress_list(ingresses, ["--status", "bogus"])
     assert result.exit_code == 2
     assert "Invalid value for '--status'" in result.output
+
+
+def test_ingress_list_status_column_uses_dashboard_labels(ingresses, monkeypatch):
+    # LEP-7618: Status shows the dashboard's label for the value --status
+    # filters on; like the dashboard, the message is shown only on failure.
+    monkeypatch.setattr(ingress_console, "width", 240)
+    result = _invoke_ingress_list(ingresses, [])
+    assert result.exit_code == 0, result.output
+    rows = {
+        name: next(line for line in result.output.splitlines() if name in line)
+        for name in ("custom-shop", "default-li-api", "custom-new")
+    }
+    assert "Validation Failed" in rows["custom-shop"]
+    assert "dns check failed" in rows["custom-shop"]
+    assert "Valid Configuration" in rows["default-li-api"]
+    assert "domain name active" not in result.output
+    assert "Pending Update" in rows["custom-new"]
+
+
+def test_ingress_list_has_no_domain_option(ingresses):
+    # The dashboard has no separate domain filter; --search covers it.
+    result = _invoke_ingress_list(ingresses, ["-d", "shop"])
+    assert result.exit_code == 2

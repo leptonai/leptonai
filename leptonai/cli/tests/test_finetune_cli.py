@@ -101,3 +101,29 @@ def test_finetune_list_trainers_reports_when_nothing_matches():
     result = _invoke_trainers(["--search", "missing"])
     assert result.exit_code == 0, result.output
     assert "No trainers match the specified filters." in result.output
+
+
+def test_finetune_list_state_takes_the_dashboard_values():
+    result, list_all = _invoke(["--status", "not-a-state"])
+    assert result.exit_code == 2
+    list_all.assert_not_called()
+    result, list_all = _invoke(["-s", "running"])
+    assert result.exit_code == 0, result.output
+    assert list_all.call_args.kwargs["status"] == ["Running"]
+
+
+def test_finetune_list_passes_creator_through_without_local_matching():
+    # The dashboard sends created_by to the server and shows what it returns.
+    from leptonai.api.v2.types.common import Metadata
+    from leptonai.api.v2.types.finetune import LeptonFineTuneJob
+
+    job = LeptonFineTuneJob(metadata=Metadata(id="j", name="j", created_by="malice@x"))
+    client = SimpleNamespace(
+        finetune=SimpleNamespace(list_all=Mock(return_value=[job])),
+        get_dashboard_base_url=lambda: None,
+    )
+    with patch("leptonai.cli.finetune.APIClient", return_value=client):
+        result = CliRunner().invoke(finetune, ["list", "-u", "alice"])
+    assert result.exit_code == 0, result.output
+    assert client.finetune.list_all.call_args.kwargs["created_by"] == ["alice"]
+    assert "No finetune jobs match" not in result.output

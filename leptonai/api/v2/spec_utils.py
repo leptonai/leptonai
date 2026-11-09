@@ -200,7 +200,7 @@ def make_env_vars_from_strings(
         try:
             k, v = s.split("=", 1)
         except ValueError:
-            raise ValueError(f"Invalid environment definition: [red]{s}[/]")
+            raise ValueError(f"Invalid environment definition: {s!r}")
         validate_environment_variable_name(k)
         env_list.append(EnvVar(name=k, value=v))
     for s in secret if secret else []:

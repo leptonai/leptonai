@@ -410,6 +410,49 @@ def test_list_accepts_shared_filter_names(fake):
     assert "solo" in result.output and "my-dynamo" not in result.output
 
 
+def test_list_filters_like_the_dashboard(fake):
+    payload = _deployment("alpha", state="Not Ready", created_by="Carol")
+    payload["metadata"]["id"] = "dgd-xyz"
+    fake.add_deployment(payload)
+
+    # The search matches the deployment name only, case-insensitively.
+    result = run("list", "-q", "ALP")
+    assert result.exit_code == 0, result.output
+    assert "alpha" in result.output and "my-dynamo" not in result.output
+    result = run("list", "-q", "xyz")
+    assert result.exit_code == 0, result.output
+    assert "No Dynamo deployments found" in result.output
+    # It takes one keyword, as the dashboard search box does.
+    result = run("list", "-q", "alpha", "-q", "solo")
+    assert result.exit_code == 2, result.output
+    assert "can be given only once" in result.output
+
+    # States are the dashboard's eight, matched exactly; repeats are ORed.
+    for spelling in ("not-ready", "NotReady", "Not Ready"):
+        result = run("list", "-s", spelling)
+        assert result.exit_code == 0, result.output
+        assert "alpha" in result.output
+        assert "my-dynamo" not in result.output and "solo" not in result.output
+    result = run("list", "-s", "Not Ready", "-s", "starting")
+    assert "alpha" in result.output and "solo" in result.output
+    assert "my-dynamo" not in result.output
+    result = run("list", "-s", "bogus")
+    assert result.exit_code == 2, result.output
+    assert "'Not Ready'" in result.output and "'Scaling'" in result.output
+
+    # The creator match is exact and case-sensitive.
+    result = run("list", "-u", "carol")
+    assert "No Dynamo deployments found" in result.output
+    result = run("list", "-u", "Carol")
+    assert "alpha" in result.output and "solo" not in result.output
+
+    result = run("list", "--help")
+    assert (
+        "Not Ready|Ready|Starting|Updating|Stopping|Stopped|Scaling|Deleting"
+        in result.output
+    )
+
+
 def test_get_prints_json_and_saves_spec(fake, tmp_path):
     result = run("get", "-n", "my-dynamo", "-p", str(tmp_path))
     assert result.exit_code == 0, result.output
@@ -470,6 +513,69 @@ def test_service_list_and_get(fake):
     result = run("service", "get", "-n", "my-dynamo", "-s", "nope")
     assert result.exit_code == 1
     assert "404" in result.output
+
+
+def test_service_list_search_is_labelled_cli_only():
+    # The dashboard has no service search.
+    result = run("service", "list", "--help")
+    assert result.exit_code == 0, result.output
+    assert "CLI-only" in result.output
+
+
+def test_replica_list_filters_by_dashboard_status_group_and_id(fake):
+    no_reason = _replica("worker-none")
+    del no_reason["status"]["readiness_issue"]
+    fake.replicas[("my-dynamo", "worker")] = [
+        _replica("worker-xyz", "InProgress"),
+        _replica("worker-appr", "RequireReadinessApproval"),
+        _replica("worker-nnr", "NodeNotReady"),
+        no_reason,
+    ]
+
+    def listed(*args):
+        result = run("replica", "list", "-n", "my-dynamo", *args)
+        assert result.exit_code == 0, result.output
+        return {
+            rid
+            for rid in (
+                "frontend-abc",
+                "worker-xyz",
+                "worker-appr",
+                "worker-nnr",
+                "worker-none",
+            )
+            if rid in result.output
+        }
+
+    # The Status column shows the raw readiness reason, as the dashboard's
+    # badge does; a replica without one is Unknown, not Terminated.
+    result = run("replica", "list", "-n", "my-dynamo", "-s", "worker")
+    assert result.exit_code == 0, result.output
+    assert "RequireReadinessApproval" in result.output
+    assert "NodeNotReady" in result.output
+    assert "Unknown" in result.output
+    assert "Terminated" not in result.output
+
+    # --state takes the dashboard's group labels, loosely spelled.
+    assert listed("--state", "Require Approval") == {"worker-appr"}
+    assert listed("--state", "require-approval") == {"worker-appr"}
+    assert listed("--state", "in-progress") == {"worker-xyz"}
+    # A missing or unlisted reason falls into the Unknown group.
+    assert listed("--state", "unknown") == {"worker-nnr", "worker-none"}
+    assert listed("--state", "ready", "--state", "In Progress") == {
+        "frontend-abc",
+        "worker-xyz",
+    }
+    result = run("replica", "list", "-n", "my-dynamo", "--state", "Terminated")
+    assert "No replicas match the specified filters." in result.output
+    result = run("replica", "list", "-n", "my-dynamo", "--state", "bogus")
+    assert result.exit_code == 2, result.output
+    assert "'Require Approval'" in result.output
+
+    # The search matches the replica ID only, not the service or node.
+    assert listed("-q", "APPR") == {"worker-appr"}
+    result = run("replica", "list", "-n", "my-dynamo", "-q", "node-1")
+    assert "No replicas match the specified filters." in result.output
 
 
 def test_replicas_filters(fake):

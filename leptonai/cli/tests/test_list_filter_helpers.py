@@ -9,11 +9,14 @@ from click.testing import CliRunner
 from leptonai.api.v2.types.deployment import LeptonDeploymentState
 from leptonai.cli.util import (
     LooseChoice,
+    created_by_equals,
     creator_matches,
+    deployment_display_state,
     keyword_matches,
     labels_to_selector,
     node_group_matches,
     normalize_keyword,
+    plural,
     prefix_matches,
     state_matches,
 )
@@ -41,6 +44,33 @@ def test_loose_choice_rejects_unknown_value_listing_canonical_choices():
     with pytest.raises(click.BadParameter) as excinfo:
         choice.convert("bogus", None, None)
     assert "'bogus' is not one of 'Ready', 'Not Ready'." in str(excinfo.value)
+
+
+def test_loose_choice_rejects_abbreviations():
+    # Values must be whole (only case/space/hyphen/underscore are loose), like
+    # picking a value in the dashboard's filter.
+    choice = LooseChoice(("Running", "Stopped"))
+    with pytest.raises(click.BadParameter):
+        choice.convert("run", None, None)
+
+
+def test_created_by_equals_is_exact_and_case_insensitive():
+    md = SimpleNamespace(created_by="Alice@Example.com", owner="bob")
+    assert created_by_equals(md, ()) is True
+    assert created_by_equals(md, ["alice@example.com"]) is True
+    assert created_by_equals(md, ["alice"]) is False
+    assert created_by_equals(md, ["bob"]) is False
+    assert created_by_equals(SimpleNamespace(created_by=None), ["x"]) is False
+
+
+def test_deployment_display_state_prefers_phase():
+    stopped = SimpleNamespace(state="Not Ready", phase=LeptonDeploymentState.Stopped)
+    assert deployment_display_state(stopped) == LeptonDeploymentState.Stopped
+    no_phase = SimpleNamespace(state="Ready", phase=None)
+    assert deployment_display_state(no_phase) == "Ready"
+    unknown_phase = SimpleNamespace(state="Ready", phase=LeptonDeploymentState.Unknown)
+    assert deployment_display_state(unknown_phase) == "Ready"
+    assert deployment_display_state(None) is None
 
 
 def test_loose_choice_help_lists_canonical_spellings():
@@ -131,3 +161,11 @@ def test_node_group_matches_substring():
 )
 def test_labels_to_selector(labels, base_query, expected):
     assert labels_to_selector(labels, base_query=base_query) == expected
+
+
+def test_plural_uses_singular_only_for_one():
+    # LEP-7556: "1 pods" in the pod list summary.
+    assert plural(1, "pod") == "pod"
+    assert plural(0, "pod") == "pods"
+    assert plural(2, "line") == "lines"
+    assert plural(3, "entry", "entries") == "entries"

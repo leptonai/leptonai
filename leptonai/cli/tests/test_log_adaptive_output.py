@@ -327,7 +327,7 @@ class TestProgressBarAndSummaryFormat(unittest.TestCase):
         self.assertEqual(cm.exception.code, 0)
         output = buf.getvalue()
         self.assertIn("👆Time range: UTC|", output)
-        self.assertIn("total 1 lines", output)
+        self.assertIn("total 1 line", output)
         self.assertNotIn("Total:", output)
         self.assertNotIn("Duration:", output)
         self.assertNotIn("Successfully saved", output)
