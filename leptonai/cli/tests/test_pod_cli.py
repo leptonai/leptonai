@@ -84,14 +84,16 @@ def test_filter_pods_pattern_is_a_regex_on_the_name(pods):
     assert _names(_filter_pods(pods, pattern="box$")) == ["scratch-box"]
 
 
-def test_filter_pods_keyword_matches_name_or_id_case_insensitively(pods):
+def test_filter_pods_keyword_matches_name_case_insensitively(pods):
     assert _names(_filter_pods(pods, keyword="BOX")) == ["Dev-Box", "scratch-box"]
-    assert _names(_filter_pods(pods, keyword="notebook-id")) == ["notebook"]
+    # Name only, like the server's q.
+    assert _filter_pods(pods, keyword="notebook-id") == []
 
 
-def test_filter_pods_state_matches_displayed_state_or_phase(pods):
+def test_filter_pods_state_matches_real_lifecycle_state(pods):
+    # LEP-7611: a stopped pod is matched by Stopped only, not by "Not Ready".
     assert _names(_filter_pods(pods, states=["Stopped"])) == ["notebook"]
-    assert _names(_filter_pods(pods, states=["Not Ready"])) == ["notebook"]
+    assert _names(_filter_pods(pods, states=["Not Ready"])) == []
     assert _names(_filter_pods(pods, states=["ready", "starting"])) == [
         "Dev-Box",
         "scratch-box",
@@ -99,10 +101,13 @@ def test_filter_pods_state_matches_displayed_state_or_phase(pods):
 
 
 def test_filter_pods_combines_creator_node_group_and_state_with_and(pods):
-    assert _names(_filter_pods(pods, creators=["alice"], node_groups=["h100"])) == [
-        "Dev-Box"
-    ]
-    assert _filter_pods(pods, creators=["alice"], states=["Not Ready"]) == []
+    assert _names(
+        _filter_pods(pods, creators=["alice@example.com"], node_groups=["h100"])
+    ) == ["Dev-Box"]
+    assert _filter_pods(pods, creators=["alice"]) == []  # exact, not prefix
+    assert (
+        _filter_pods(pods, creators=["alice@example.com"], states=["Not Ready"]) == []
+    )
 
 
 def _invoke_pod_list(items, args):
@@ -121,7 +126,8 @@ def _invoke_pod_list(items, args):
 def test_pod_list_applies_filters(pods, monkeypatch):
     monkeypatch.setattr(pod_console, "width", 240)
     result = _invoke_pod_list(
-        pods, ["-u", "alice", "-s", "ready", "-s", "starting", "-ng", "h100"]
+        pods,
+        ["-u", "alice@example.com", "-s", "ready", "-s", "starting", "-ng", "h100"],
     )
     assert result.exit_code == 0, result.output
     assert "Dev-Box" in result.output

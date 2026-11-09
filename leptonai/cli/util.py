@@ -20,6 +20,7 @@ from leptonai.api.v2.utils import (
 
 from rich.console import Console
 from rich.markup import escape
+from rich.text import Text
 from leptonai.api.v2.types.job import LeptonJob, LeptonJobQueryMode
 from .client import APIClient
 
@@ -29,6 +30,8 @@ from leptonai.api.v2.types.deployment import (
 )
 
 console = Console(highlight=False)
+# Errors, hints and tracebacks go to stderr so stdout carries only results.
+err_console = Console(stderr=True, highlight=False)
 
 
 class PathResolutionError(Exception):
@@ -164,18 +167,19 @@ def click_group(*args, **kwargs):
             try:
                 return super().invoke(ctx)
             except WorkspaceConfigurationError as e:
-                console.print(f"[red]Workspace configuration error[/]: {e}")
+                _print_error("Workspace configuration error", e)
                 sys.exit(1)
             except WorkspaceError as e:
-                console.print(f"[red]{e.__class__.__name__}[/]: {e}")
+                _print_error(e.__class__.__name__, e)
                 sys.exit(1)
             except ClientError as e:
                 resp = getattr(e, "response", None)
                 status = getattr(resp, "status_code", None)
                 text = getattr(resp, "text", str(e))
                 if status == 401:
-                    console.print(
-                        f"\n[red]401 Unauthorized[/]: {text}\n\n[yellow]Hint:[/yellow]"
+                    _print_error("401 Unauthorized", text, leading_newline=True)
+                    err_console.print(
+                        "\n[yellow]Hint:[/yellow]"
                         " This may be caused by an invalid or mismatched workspace"
                         " token.\n[white] \n Check your local workspace info and"
                         " token:[/white]\n [dim]lep workspace list[/dim]\n [dim]lep"
@@ -184,8 +188,9 @@ def click_group(*args, **kwargs):
                         " <workspace_id>:<new_token>.\n"
                     )
                 elif status == 403:
-                    console.print(
-                        f"\n[red]403 Forbidden[/]: {text}\n\n[yellow]Hint:[/yellow]"
+                    _print_error("403 Forbidden", text, leading_newline=True)
+                    err_console.print(
+                        "\n[yellow]Hint:[/yellow]"
                         " This may be caused by insufficient permissions or an expired"
                         " workspace token.\n\n[white]Check your local workspace info"
                         " and token:[/white]\n [dim]lep workspace list[/dim]\n"
@@ -194,29 +199,44 @@ def click_group(*args, **kwargs):
                         " again with `lep login -c <workspace_id>:<new_token>`.\n"
                     )
                 elif status == 404:
-                    console.print(f"[red]404 Not Found[/]:{text}")
+                    _print_error("404 Not Found", text, separator=":")
                 else:
-                    console.print(f"[red]{status} Error[/]: {text}")
+                    _print_error(f"{status} Error", text)
                 sys.exit(1)
             except ServerError as e:
                 resp = getattr(e, "response", None)
                 status = getattr(resp, "status_code", None)
-                text = getattr(resp, "text", str(e))
-                console.print(f"[red]{status} Error[/]: {text}")
+                _print_error(f"{status} Error", getattr(resp, "text", str(e)))
                 sys.exit(1)
             except (click.ClickException, click.exceptions.Exit, click.Abort):
                 # Abort (Ctrl-C or EOF at a prompt) gets click's "Aborted!".
                 raise
             except ValueError as e:
-                console.print(f"[red]Error[/]: {e}")
+                _print_error("Error", e)
                 logger.trace(traceback.format_exc())
                 sys.exit(1)
             except Exception as e:
-                console.print(f"[red]Unexpected error[/]: {e}")
-                console.print(traceback.format_exc())
+                _print_error("Unexpected error", e)
+                err_console.print(traceback.format_exc(), markup=False)
                 sys.exit(1)
 
     return click.group(*args, cls=ClickAliasedGroup, **kwargs)
+
+
+def _print_error(
+    label: str, detail: Any, *, separator: str = ": ", leading_newline: bool = False
+) -> None:
+    """Print a red label followed by error text verbatim on stderr.
+
+    The detail is server or exception text, not markup: rich would otherwise
+    drop "[...]" spans (a list of valid values, a config dump) and the
+    backslash of a "\\[" in it.
+    """
+    err_console.print(
+        Text.assemble(
+            "\n" if leading_newline else "", (label, "red"), separator, str(detail)
+        )
+    )
 
 
 def is_valid_url(candidate_str: str) -> bool:
@@ -243,7 +263,7 @@ def check(condition: Any, message: str) -> None:
     :param message: The message to print if the condition is false.
     """
     if not condition:
-        console.print(message)
+        err_console.print(message)
         sys.exit(1)
 
 
@@ -670,6 +690,29 @@ def _validate_queue_priority(ctx, param, value):
     raise ValueError(f"invalid priority '{value}'. valid options: {opts}")
 
 
+def require_node_group(node_groups, affinity: Any, workload: str) -> None:
+    """Exit with a usage error unless a dedicated node group is chosen.
+
+    ``node_groups`` are the --node-group values; ``affinity`` is the spec's
+    affinity loaded from --file/--template (it may already name node groups).
+    The dashboard requires a node group for every workload it creates, and
+    without one the server falls back to public node groups and usually
+    fails late with "no available node groups found".
+    """
+    if node_groups:
+        return
+    if affinity is not None and getattr(
+        affinity, "allowed_dedicated_node_groups", None
+    ):
+        return
+    console.print(
+        "[red]Error: Missing option '--node-group'.[/] "
+        f"{workload} must run on a dedicated node group; run `lep node list` to"
+        " see the available ones."
+    )
+    sys.exit(1)
+
+
 def apply_nodegroup_and_queue_config(
     *,
     spec,
@@ -811,6 +854,22 @@ def _stringify_state(state: Optional[Union[str, Any]]) -> str:
     return str(value)
 
 
+def deployment_display_state(status: Any) -> Optional[Any]:
+    """The lifecycle state to show and filter on for an endpoint or pod.
+
+    The legacy /deployments API folds Stopping/Stopped into ``state="Not Ready"``
+    (so old CLIs don't break) and keeps the real lifecycle state in ``phase``.
+    The dashboard and the server-side ``status`` filter both use the real state,
+    so prefer ``phase`` and fall back to ``state`` when it is missing or unknown.
+    """
+    if status is None:
+        return None
+    phase = getattr(status, "phase", None)
+    if phase and _stringify_state(phase) not in ("", "UNK"):
+        return phase
+    return getattr(status, "state", None)
+
+
 def colorize_state(state: Optional[Union[str, Any]]) -> str:
     """Return rich-markup colored state string.
 
@@ -857,11 +916,12 @@ def make_name_id_cell(
 # ---------------------------------------------------------------------------
 # Shared list-filter helpers.
 #
-# The `lep <resource> list` commands mirror the web dashboard's filter bar: a
-# free-text search (case-insensitive substring), multi-select state filters
-# (exact, OR within the option) and creator filters. Different options are
-# combined with AND. These helpers keep the semantics identical across the
-# resource modules.
+# `lep <resource> list` filters follow the web dashboard and the api-server
+# exactly: when the dashboard sends a filter to the server, the CLI sends the
+# same parameter and does no local matching; when the dashboard filters in the
+# browser, the CLI copies that semantics. Match rules differ per resource, so
+# check the dashboard page and the server handler before reusing a helper.
+# CLI-only filters must say so in their help.
 # ---------------------------------------------------------------------------
 
 
@@ -903,6 +963,27 @@ class LooseChoice(click.Choice):
         ):
             return f"{{{choices_str}}}"
         return f"[{choices_str}]"
+
+
+def plural(count: int, word: str, plural_word: Optional[str] = None) -> str:
+    """Return ``word`` for a count of 1 and its plural otherwise ("1 pod", "2 pods")."""
+    return word if count == 1 else (plural_word or f"{word}s")
+
+
+def single_keyword(ctx, param, value):
+    """Click callback for ``--search/--keyword/-q``: accept it at most once.
+
+    The option is declared ``multiple=True`` only so that a repeat can be
+    detected; click would otherwise keep the last value silently. Repeats are
+    not ORed because the server-side ``q`` takes a single term.
+    """
+    if not value:
+        return None
+    if len(value) > 1:
+        raise click.BadParameter(
+            "can be given only once; use one search term.", ctx=ctx, param=param
+        )
+    return value[0]
 
 
 def normalize_keyword(keyword: Optional[str]) -> str:
@@ -963,6 +1044,21 @@ def creator_matches(metadata: Any, creators) -> bool:
     created_by = getattr(metadata, "created_by", None) if metadata else None
     owner = getattr(metadata, "owner", None) if metadata else None
     return prefix_matches(created_by, creators) or prefix_matches(owner, creators)
+
+
+def created_by_equals(metadata: Any, creators) -> bool:
+    """Exact, case-insensitive match of ``metadata.created_by`` against ``creators``.
+
+    This is what the api-server does for the ``created_by`` filter the
+    dashboard sends on the endpoint, pod and Ray cluster lists.
+    """
+    if not creators:
+        return True
+    created_by = getattr(metadata, "created_by", None) if metadata else None
+    if not created_by:
+        return False
+    wanted = {str(c).strip().lower() for c in creators}
+    return str(created_by).lower() in wanted
 
 
 def node_group_matches(affinity: Any, node_group_terms) -> bool:

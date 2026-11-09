@@ -60,18 +60,21 @@ class JobAPI(APIResourse):
             response = self._get("/jobs", params=params_base)
             return self.ensure_list(response, LeptonJob, list_key="jobs")
 
-        # Otherwise auto-paginate until empty result set
+        # Otherwise auto-paginate until a short (or empty) page
         results: List[LeptonJob] = []
         current_page = 1
+        page_size = 500
         while True:
             params = dict(params_base)
             params["page"] = current_page
-            params["page_size"] = 500
+            params["page_size"] = page_size
             response = self._get("/jobs", params=params)
             items = self.ensure_list(response, LeptonJob, list_key="jobs")
-            if not items:
-                break
             results.extend(items)
+            # A short page is the last one; skip the extra empty-page request
+            # (in archive mode each page is a BigQuery query plus a count).
+            if len(items) < page_size:
+                break
             current_page += 1
         return results
 

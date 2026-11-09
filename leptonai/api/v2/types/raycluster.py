@@ -1,6 +1,6 @@
 from enum import Enum
 from pydantic import BaseModel, Field
-from typing import Optional, List, Dict
+from typing import Any, Optional, List, Dict
 from loguru import logger
 
 from leptonai.config import compatible_field_validator, v2only_field_validator
@@ -184,3 +184,46 @@ class LeptonRayCluster(BaseModel):
     metadata: Optional[Metadata] = None
     spec: Optional[LeptonRayClusterUserSpec] = None
     status: Optional[LeptonRayClusterStatus] = None
+
+
+class RayJobDriverInfo(BaseModel):
+    id_: Optional[str] = Field(default=None, alias="id")
+    node_ip_address: Optional[str] = None
+    pid: Optional[str] = None
+
+
+class RayJobSpec(BaseModel):
+    # SUBMISSION or DRIVER.
+    type_: Optional[str] = Field(default=None, alias="type")
+    entrypoint: Optional[str] = None
+    job_id: Optional[str] = None
+    submission_id: Optional[str] = None
+    driver_info: Optional[RayJobDriverInfo] = None
+    metadata: Optional[Dict[str, str]] = None
+    runtime_env: Optional[Dict[str, Any]] = None
+
+
+class RayJobStatus(BaseModel):
+    # The Lepton job state the server maps the Ray job status onto: PENDING is
+    # Awaiting, RUNNING Running, SUCCEEDED Completed, FAILED and STOPPED
+    # Failed. Kept as the raw string; an unmapped status arrives as "".
+    state: Optional[str] = None
+    message: Optional[str] = None
+    error_type: Optional[str] = None
+    # Epoch milliseconds, as Ray reports them.
+    start_time: Optional[int] = None
+    end_time: Optional[int] = None
+    driver_agent_http_address: Optional[str] = None
+    driver_node_id: Optional[str] = None
+
+
+class LeptonRayJob(BaseModel):
+    """A Ray job as ``GET /rayclusters/:id/jobs`` returns it.
+
+    ``metadata.id`` and ``metadata.name`` are both the job's submission ID, or
+    its Ray job ID when it has none.
+    """
+
+    metadata: Optional[Metadata] = None
+    spec: Optional[RayJobSpec] = None
+    status: Optional[RayJobStatus] = None

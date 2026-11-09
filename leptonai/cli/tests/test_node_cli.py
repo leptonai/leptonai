@@ -34,8 +34,12 @@ from leptonai.cli.node import (
     _filter_nodes,
     _filter_reservations,
     _format_network_cell,
+    _format_reservation_row,
     _merge_nodes_with_machines,
+    _node_group_types,
     console as node_console,
+    list_command as node_list_command,
+    list_reservations_command,
     node,
 )
 
@@ -1234,28 +1238,46 @@ def test_filter_nodes_status_matches_machine_status_or_status_array(nodes):
     assert [item.metadata.id_ for item in secondary] == ["node-2"]
 
 
-def test_filter_nodes_requires_every_label_prefix_condition(nodes):
-    filtered = _filter_nodes(nodes, labels=("en:pro", "ra:r2", "pa"))
+def test_filter_nodes_requires_every_label_condition(nodes):
+    filtered = _filter_nodes(nodes, labels=("env:prod", "rack:r2", "paused"))
 
     assert [item.metadata.id_ for item in filtered] == ["node-2"]
 
 
-def test_filter_nodes_label_prefix_is_case_sensitive(nodes):
-    filtered = _filter_nodes(nodes, labels=("EN:pro",))
-
-    assert filtered == []
-
-
-def test_filter_nodes_label_with_empty_value_prefix_matches_any_value(nodes):
-    filtered = _filter_nodes(nodes, labels=("env:",))
-
-    assert [item.metadata.id_ for item in filtered] == ["node-1", "node-2", "node-3"]
+@pytest.mark.parametrize(
+    "label", ["EN:pro", "en:prod", "env:pro", "ENV:prod", "env:PROD", "en"]
+)
+def test_filter_nodes_label_is_exact_and_case_sensitive(nodes, label):
+    # The dashboard matches an exact key, or an exact key and value; no prefixes.
+    assert _filter_nodes(nodes, labels=(label,)) == []
 
 
-def test_filter_nodes_provider_prefix_is_case_insensitive(nodes):
-    filtered = _filter_nodes(nodes, providers=("AW",))
+def test_filter_nodes_label_key_matches_any_value(nodes):
+    assert [item.metadata.id_ for item in _filter_nodes(nodes, labels=("env",))] == [
+        "node-1",
+        "node-2",
+        "node-3",
+    ]
+    assert [item.metadata.id_ for item in _filter_nodes(nodes, labels=("paused",))] == [
+        "node-2"
+    ]
 
-    assert [item.metadata.id_ for item in filtered] == ["node-1"]
+
+def test_filter_nodes_label_with_empty_value_matches_only_empty_value(nodes):
+    assert _filter_nodes(nodes, labels=("env:",)) == []
+    assert [
+        item.metadata.id_ for item in _filter_nodes(nodes, labels=("paused:",))
+    ] == ["node-2"]
+
+
+@pytest.mark.parametrize(
+    ("provider", "expected"),
+    [("aws", ["node-1"]), ("AWS", []), ("AW", []), ("aw", [])],
+)
+def test_filter_nodes_provider_is_exact_and_case_sensitive(nodes, provider, expected):
+    filtered = _filter_nodes(nodes, providers=(provider,))
+
+    assert [item.metadata.id_ for item in filtered] == expected
 
 
 def test_filter_nodes_unschedulable_only(nodes):
@@ -1382,34 +1404,117 @@ def test_list_machines_api_uses_node_group_machines_endpoint():
     assert machines[0].status.hostname == "machine-host-1"
 
 
-def test_list_nodes_command_applies_repeatable_filters(nodes):
-    node_group = SimpleNamespace(metadata=SimpleNamespace(name="gpu-group", id_="ng-1"))
-    client = SimpleNamespace(
-        nodegroup=SimpleNamespace(
-            list_nodes=Mock(return_value=nodes),
-            list_machines=Mock(return_value=[]),
-        )
+def _http_client_returning(payload):
+    response = Mock(status_code=200)
+    response.json.return_value = payload
+    return SimpleNamespace(
+        _get=Mock(return_value=response),
+        _post=Mock(),
+        _put=Mock(),
+        _patch=Mock(),
+        _delete=Mock(),
+        _head=Mock(),
     )
 
-    with patch("leptonai.cli.node.resolve_node_groups", return_value=[node_group]):
-        with patch("leptonai.cli.node.get_client", return_value=client):
-            result = CliRunner().invoke(
-                node,
-                [
-                    "list-nodes",
-                    "--node-group",
-                    "gpu-group",
-                    "--status",
-                    "Draining",
-                    "--status",
-                    "Offline",
-                    "--provider",
-                    "gc",
-                    "--label",
-                    "en:pro",
-                    "--unschedulable",
-                ],
-            )
+
+def test_list_machines_keeps_hostname_override():
+    # The dashboard shows and searches status.hostname_override.
+    http_client = _http_client_returning([{
+        "metadata": {"name": "machine-1"},
+        "status": {
+            "machine_id": "machine-1",
+            "hostname": "ip-10-0-1-4",
+            "hostname_override": "pool0-0001",
+        },
+    }])
+    machines = DedicatedNodeGroupAPI(http_client).list_machines("ng-1")
+
+    http_client._get.assert_called_once_with("/dedicated-node-groups/ng-1/machines")
+    assert machines[0].status.hostname == "ip-10-0-1-4"
+    assert machines[0].status.hostname_override == "pool0-0001"
+
+
+def _machine_with_override(machine_id, hostname_override, *, hostname=None):
+    api = DedicatedNodeGroupAPI(
+        _http_client_returning([{
+            "metadata": {"name": machine_id},
+            "status": {
+                "machine_id": machine_id,
+                "hostname": hostname,
+                "hostname_override": hostname_override,
+                "status": "Healthy",
+            },
+        }])
+    )
+    return api.list_machines("ng-1")[0]
+
+
+def test_merge_carries_machine_hostname_override_into_search_and_network_cell(
+    nodes,
+):
+    nodes[0].spec.machine_id = "machine-1"
+    matched = _machine_with_override("machine-1", "pool0-0001", hostname="ip-10-0-1-4")
+    provisioning = _machine_with_override("machine-9", "pool0-0009")
+
+    merged = _merge_nodes_with_machines(nodes, [matched, provisioning])
+
+    by_id = {item.metadata.id_: item for item in merged}
+    assert by_id["node-1"].spec.hostname_override == "pool0-0001"
+    assert by_id["machine-9"].spec.hostname_override == "pool0-0009"
+    assert by_id["node-2"].spec.hostname_override is None
+    # As in the dashboard, the search covers the assigned hostname too.
+    assert [item.metadata.id_ for item in _filter_nodes(merged, keyword="POOL0")] == [
+        "node-1",
+        "machine-9",
+    ]
+    # The Network cell shows the assigned hostname, as the dashboard's Hostname
+    # column does, and keeps the machine-reported one visible.
+    cell = _format_network_cell(by_id["node-1"])
+    assert cell.splitlines()[:2] == ["pool0-0001", "[dim]reported: ip-10-0-1-4[/dim]"]
+    assert _format_network_cell(by_id["machine-9"]).splitlines()[0] == "pool0-0009"
+    # The original response objects are not modified.
+    assert nodes[0].spec.hostname == "spec-host-1"
+
+
+_GPU_GROUP = SimpleNamespace(metadata=SimpleNamespace(name="gpu-group", id_="ng-1"))
+_LEGACY_GROUP = SimpleNamespace(
+    metadata=SimpleNamespace(name="legacy-group", id_="ng-legacy")
+)
+_PREFERRED_GROUP = SimpleNamespace(
+    metadata=SimpleNamespace(name="preferred-group", id_="ng-preferred")
+)
+
+
+def _invoke_list_nodes(args, nodes, *, node_groups=(_GPU_GROUP,), list_machines=None):
+    """Run `lep node list-nodes` against fake node groups, nodes and machines."""
+    client = SimpleNamespace(
+        nodegroup=SimpleNamespace(
+            list_all=Mock(return_value=list(node_groups)),
+            list_nodes=Mock(return_value=nodes),
+            list_machines=list_machines or Mock(return_value=[]),
+        )
+    )
+    with patch("leptonai.cli.node.get_client", return_value=client):
+        return CliRunner().invoke(node, ["list-nodes", *args])
+
+
+def test_list_nodes_command_applies_repeatable_filters(nodes):
+    result = _invoke_list_nodes(
+        [
+            "--node-group",
+            "gpu-group",
+            "--status",
+            "Draining",
+            "--status",
+            "Offline",
+            "--provider",
+            "gcp",
+            "--label",
+            "env:prod",
+            "--unschedulable",
+        ],
+        nodes,
+    )
 
     assert result.exit_code == 0, result.output
     assert "node-2" in result.output
@@ -1417,42 +1522,85 @@ def test_list_nodes_command_applies_repeatable_filters(nodes):
     assert "node-3" not in result.output
 
 
-@pytest.mark.parametrize("flag", ["--node-group", "-ng"])
-def test_list_nodes_command_accepts_node_group_option(flag):
-    resolve = Mock(return_value=[])
+@pytest.mark.parametrize(
+    ("args", "expected"),
+    [
+        (["--status", "healthy"], "Alpha-Node"),
+        (["--status", "WAIT_FOR_DRAINING"], "Beta-Node"),
+        # The dashboard also accepts its stage labels, such as ReadyToRepair.
+        (["--stage", "ReadyToRepair"], "Beta-Node"),
+        (["--stage", "REPAIRING"], "Gamma-Node"),
+    ],
+)
+def test_list_nodes_command_status_and_stage_ignore_case(
+    nodes, monkeypatch, args, expected
+):
+    monkeypatch.setattr(node_console, "width", 240)
 
-    with patch("leptonai.cli.node.resolve_node_groups", resolve):
-        result = CliRunner().invoke(node, ["list-nodes", flag, "gpu-group"])
+    result = _invoke_list_nodes(["-ng", "gpu-group", *args], nodes)
 
     assert result.exit_code == 0, result.output
-    resolve.assert_called_once_with(["gpu-group"], is_exact_match=False)
+    shown = [
+        name
+        for name in ("Alpha-Node", "Beta-Node", "Gamma-Node")
+        if name in result.output
+    ]
+    assert shown == [expected]
+
+
+@pytest.mark.parametrize("flag", ["--node-group", "-ng"])
+def test_list_nodes_command_accepts_node_group_option(flag):
+    result = _invoke_list_nodes([flag, "gpu-group"], [])
+
+    assert result.exit_code == 0, result.output
+    assert "No nodes found in node group gpu-group (ng-1)." in result.output
     assert "deprecated" not in result.output
 
 
-def test_list_nodes_command_deprecates_positional_node_group():
-    resolve = Mock(return_value=[])
-
-    with patch("leptonai.cli.node.resolve_node_groups", resolve):
-        result = CliRunner().invoke(node, ["list-nodes", "legacy-group"])
+@pytest.mark.parametrize("term", ["GPU-GROUP", "Gpu", "NG-1"])
+def test_list_nodes_command_selects_node_group_ignoring_case(term):
+    result = _invoke_list_nodes(
+        ["-ng", term], [], node_groups=(_GPU_GROUP, _LEGACY_GROUP)
+    )
 
     assert result.exit_code == 0, result.output
-    resolve.assert_called_once_with(["legacy-group"], is_exact_match=False)
+    assert "No nodes found in node group gpu-group (ng-1)." in result.output
+    assert "legacy-group" not in result.output
+
+
+def test_list_nodes_command_warns_when_no_node_group_matches():
+    result = _invoke_list_nodes(["-ng", "missing"], [])
+
+    output = " ".join(result.output.split())
+    assert result.exit_code == 0, result.output
+    assert "No node groups with name/ID containing missing" in output
+    assert "Available node groups: gpu-group (ng-1)" in output
+
+
+def test_list_nodes_command_deprecates_positional_node_group():
+    result = _invoke_list_nodes(
+        ["legacy-group"], [], node_groups=(_LEGACY_GROUP, _PREFERRED_GROUP)
+    )
+
+    assert result.exit_code == 0, result.output
     assert "Positional NODE_GROUP is deprecated" in result.output
     assert "--node-group/-ng" in result.output
+    assert "No nodes found in node group legacy-group (ng-legacy)." in result.output
 
 
 def test_list_nodes_command_node_group_option_wins_over_positional():
-    resolve = Mock(return_value=[])
-
-    with patch("leptonai.cli.node.resolve_node_groups", resolve):
-        result = CliRunner().invoke(
-            node,
-            ["list-nodes", "legacy-group", "-ng", "preferred-group"],
-        )
+    result = _invoke_list_nodes(
+        ["legacy-group", "-ng", "preferred-group"],
+        [],
+        node_groups=(_LEGACY_GROUP, _PREFERRED_GROUP),
+    )
 
     assert result.exit_code == 0, result.output
-    resolve.assert_called_once_with(["preferred-group"], is_exact_match=False)
     assert "Positional NODE_GROUP is deprecated and is ignored" in result.output
+    assert (
+        "No nodes found in node group preferred-group (ng-preferred)." in result.output
+    )
+    assert "legacy-group (ng-legacy)" not in result.output
 
 
 def test_list_nodes_command_requires_a_node_group():
@@ -1475,40 +1623,18 @@ def test_list_nodes_command_requires_a_node_group():
 def test_list_nodes_command_accepts_documented_single_dash_aliases(
     nodes, monkeypatch, flag, value, expected
 ):
-    node_group = SimpleNamespace(metadata=SimpleNamespace(name="gpu-group", id_="ng-1"))
-    client = SimpleNamespace(
-        nodegroup=SimpleNamespace(
-            list_nodes=Mock(return_value=nodes),
-            list_machines=Mock(return_value=[]),
-        )
-    )
     monkeypatch.setattr(node_console, "width", 240)
 
-    with patch("leptonai.cli.node.resolve_node_groups", return_value=[node_group]):
-        with patch("leptonai.cli.node.get_client", return_value=client):
-            result = CliRunner().invoke(
-                node, ["list-nodes", "-ng", "gpu-group", flag, value]
-            )
+    result = _invoke_list_nodes(["-ng", "gpu-group", flag, value], nodes)
 
     assert result.exit_code == 0, result.output
     assert expected in result.output
 
 
 def test_list_nodes_command_displays_webui_inventory_fields(nodes, monkeypatch):
-    node_group = SimpleNamespace(metadata=SimpleNamespace(name="gpu-group", id_="ng-1"))
-    client = SimpleNamespace(
-        nodegroup=SimpleNamespace(
-            list_nodes=Mock(return_value=[nodes[0]]),
-            list_machines=Mock(return_value=[]),
-        )
-    )
     monkeypatch.setattr(node_console, "width", 240)
 
-    with patch("leptonai.cli.node.resolve_node_groups", return_value=[node_group]):
-        with patch("leptonai.cli.node.get_client", return_value=client):
-            result = CliRunner().invoke(
-                node, ["list-nodes", "--node-group", "gpu-group"]
-            )
+    result = _invoke_list_nodes(["--node-group", "gpu-group"], [nodes[0]])
 
     assert result.exit_code == 0, result.output
     for value in (
@@ -1523,23 +1649,37 @@ def test_list_nodes_command_displays_webui_inventory_fields(nodes, monkeypatch):
         assert value in result.output
 
 
+def test_list_nodes_command_searches_and_shows_assigned_hostname(nodes, monkeypatch):
+    monkeypatch.setattr(node_console, "width", 240)
+    nodes[1].spec.machine_id = "machine-2"
+    machines = [
+        _machine_with_override("machine-2", "pool0-0002", hostname="ip-10-0-0-20")
+    ]
+
+    result = _invoke_list_nodes(
+        ["-ng", "gpu-group", "-q", "POOL0-0002"],
+        nodes,
+        list_machines=Mock(return_value=machines),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Beta-Node" in result.output
+    assert "pool0-0002" in result.output
+    assert "reported: ip-10-0-0-20" in result.output
+    assert "Alpha-Node" not in result.output
+    assert "Gamma-Node" not in result.output
+
+
 def test_list_nodes_command_warns_and_keeps_nodes_when_machines_fail(
     nodes, monkeypatch
 ):
-    node_group = SimpleNamespace(metadata=SimpleNamespace(name="gpu-group", id_="ng-1"))
-    client = SimpleNamespace(
-        nodegroup=SimpleNamespace(
-            list_nodes=Mock(return_value=[nodes[0]]),
-            list_machines=Mock(side_effect=RuntimeError("machines unavailable")),
-        )
-    )
     monkeypatch.setattr(node_console, "width", 240)
 
-    with patch("leptonai.cli.node.resolve_node_groups", return_value=[node_group]):
-        with patch("leptonai.cli.node.get_client", return_value=client):
-            result = CliRunner().invoke(
-                node, ["list-nodes", "--node-group", "gpu-group"]
-            )
+    result = _invoke_list_nodes(
+        ["--node-group", "gpu-group"],
+        [nodes[0]],
+        list_machines=Mock(side_effect=RuntimeError("machines unavailable")),
+    )
 
     assert result.exit_code == 0, result.output
     assert "Warning:" in result.output
@@ -1563,10 +1703,21 @@ def test_list_nodes_command_rejects_unknown_status():
 
 
 def _reservation(
-    name, *, phase="Reserved", users=None, created_by=None, display_name=None
+    name,
+    *,
+    phase="Reserved",
+    users=None,
+    created_by=None,
+    display_name=None,
+    metadata_created_by=None,
 ):
     return NodeReservation(
-        metadata=Metadata(id=f"{name}-id", name=name, created_at=1000),
+        metadata=Metadata(
+            id=f"{name}-id",
+            name=name,
+            created_at=1000,
+            created_by=metadata_created_by,
+        ),
         spec=NodeReservationSpec(
             users=users,
             created_by=created_by,
@@ -1607,16 +1758,14 @@ def _reservation_names(items):
     return [item.metadata.name for item in items]
 
 
-def test_filter_reservations_keyword_matches_name_display_name_or_id(reservations):
+def test_filter_reservations_keyword_matches_name_only(reservations):
+    # The dashboard's search matches metadata.name only.
     assert _reservation_names(
         _filter_reservations(reservations, keyword="TRAINING")
     ) == ["Training-Q3"]
-    assert _reservation_names(
-        _filter_reservations(reservations, keyword="old batch")
-    ) == ["expired-batch"]
-    assert _reservation_names(
-        _filter_reservations(reservations, keyword="eval-run-id")
-    ) == ["eval-run"]
+    # Neither spec.display_name nor the ID is searched.
+    assert _filter_reservations(reservations, keyword="old batch") == []
+    assert _filter_reservations(reservations, keyword="eval-run-id") == []
 
 
 def test_filter_reservations_status_values_are_ored(reservations):
@@ -1639,32 +1788,73 @@ def test_filter_reservations_user_matches_authorized_users_or_creator(reservatio
     ) == ["Training-Q3"]
 
 
-def test_list_reservations_command_applies_filters(reservations, monkeypatch):
-    monkeypatch.setattr(node_console, "width", 240)
-    node_group = SimpleNamespace(metadata=SimpleNamespace(name="gpu-group", id_="ng-1"))
-    client = SimpleNamespace(
+def test_filter_reservations_user_matches_created_by_fallback_and_star_literally():
+    reservations = [
+        _reservation(
+            "open-to-all", users=["*"], metadata_created_by="carol@example.com"
+        ),
+    ]
+
+    # The creator falls back to metadata.created_by, as Created By does.
+    assert _reservation_names(_filter_reservations(reservations, users=["carol"])) == [
+        "open-to-all"
+    ]
+    # '*' (all users) is matched as listed, not as every user name.
+    assert _filter_reservations(reservations, users=["alice"]) == []
+    assert _reservation_names(_filter_reservations(reservations, users=["*"])) == [
+        "open-to-all"
+    ]
+
+
+def test_reservation_row_shows_all_users_and_dashboard_created_by():
+    open_to_all = _reservation(
+        "open-to-all", users=["*"], metadata_created_by="carol@example.com"
+    )
+    named = _reservation(
+        "named",
+        users=["alice@example.com", "bob@example.com"],
+        created_by="admin@example.com",
+        metadata_created_by="ignored@example.com",
+    )
+
+    _, _, _, _, users_cell, created_cell = _format_reservation_row(open_to_all, {})
+    assert users_cell == "All"
+    assert created_cell.startswith("[dim]carol@example.com[/dim]")
+
+    _, _, _, _, users_cell, created_cell = _format_reservation_row(named, {})
+    assert users_cell == "alice@example.com\nbob@example.com"
+    assert created_cell.startswith("[dim]admin@example.com[/dim]")
+
+
+def _reservations_client(reservations, node_groups=(_GPU_GROUP,)):
+    return SimpleNamespace(
         nodegroup=SimpleNamespace(
+            list_all=Mock(return_value=list(node_groups)),
             list_reservations=Mock(return_value=reservations),
             list_nodes=Mock(return_value=[]),
         )
     )
 
-    with patch("leptonai.cli.node.resolve_node_groups", return_value=[node_group]):
-        with patch("leptonai.cli.node.get_client", return_value=client):
-            result = CliRunner().invoke(
-                node,
-                [
-                    "list-reservations",
-                    "gpu-group",
-                    "--status",
-                    "pending-approval",
-                    "-u",
-                    "bob",
-                ],
-            )
-            no_match = CliRunner().invoke(
-                node, ["list-reservations", "gpu-group", "--search", "nothing"]
-            )
+
+def test_list_reservations_command_applies_filters(reservations, monkeypatch):
+    monkeypatch.setattr(node_console, "width", 240)
+    client = _reservations_client(reservations)
+
+    with patch("leptonai.cli.node.get_client", return_value=client):
+        result = CliRunner().invoke(
+            node,
+            [
+                "list-reservations",
+                "gpu-group",
+                "--status",
+                "pending-approval",
+                "-u",
+                "bob",
+            ],
+        )
+        no_match = CliRunner().invoke(
+            node, ["list-reservations", "gpu-group", "--search", "nothing"]
+        )
 
     assert result.exit_code == 0, result.output
     assert "eval-run" in result.output
@@ -1677,6 +1867,31 @@ def test_list_reservations_command_applies_filters(reservations, monkeypatch):
     )
     # Nodes are only fetched (for GPU usage) when there is something to display.
     assert client.nodegroup.list_nodes.call_count == 1
+
+
+@pytest.mark.parametrize("term", ["GPU-GROUP", "NG-1"])
+def test_list_reservations_command_selects_node_group_ignoring_case(
+    reservations, monkeypatch, term
+):
+    monkeypatch.setattr(node_console, "width", 240)
+    client = _reservations_client(reservations, node_groups=(_GPU_GROUP, _LEGACY_GROUP))
+
+    with patch("leptonai.cli.node.get_client", return_value=client):
+        result = CliRunner().invoke(node, ["list-reservations", term])
+
+    assert result.exit_code == 0, result.output
+    assert "Reservations in gpu-group (ng-1)" in result.output
+    client.nodegroup.list_reservations.assert_called_once_with(_GPU_GROUP)
+
+
+def test_list_reservations_help_marks_cli_only_filters():
+    helps = {param.name: param.help or "" for param in list_reservations_command.params}
+
+    assert helps["keyword"].startswith("Search reservations by name")
+    assert "dashboard's search box" in helps["keyword"]
+    assert helps["statuses"].startswith("CLI-only")
+    assert helps["users"].startswith("CLI-only")
+    assert "as in the dashboard" not in (list_reservations_command.help or "")
 
 
 def test_list_reservations_command_rejects_unknown_status():
@@ -1697,13 +1912,7 @@ def _invoke_node_group_list(args, node_groups):
         )
     )
     with patch("leptonai.cli.node.get_client", return_value=client):
-        with patch(
-            "leptonai.cli.node.resolve_node_groups",
-            side_effect=lambda terms, **_: [
-                ng for ng in node_groups if any(t in ng.metadata.name for t in terms)
-            ],
-        ):
-            return CliRunner().invoke(node, ["list", *args])
+        return CliRunner().invoke(node, ["list", *args])
 
 
 @pytest.fixture
@@ -1721,7 +1930,7 @@ def node_groups():
     ]
 
 
-def test_node_group_list_search_matches_name_and_id(node_groups, monkeypatch):
+def test_node_group_list_search_matches_name_only(node_groups, monkeypatch):
     monkeypatch.setattr(node_console, "width", 240)
     result = _invoke_node_group_list(["--search", "TRAIN"], node_groups)
     assert result.exit_code == 0, result.output
@@ -1729,10 +1938,32 @@ def test_node_group_list_search_matches_name_and_id(node_groups, monkeypatch):
     assert "a100-train" in result.output
     assert "h100-infer" not in result.output
 
+    # The dashboard's search matches the name only, not the ID.
     result = _invoke_node_group_list(["-q", "ng-bbb"], node_groups)
     assert result.exit_code == 0, result.output
-    assert "h100-infer" in result.output
-    assert "h100-train" not in result.output
+    assert "No node groups match the specified filters." in result.output
+    assert "h100-infer" not in result.output
+
+
+@pytest.mark.parametrize(
+    ("term", "expected"),
+    [
+        ("H100", ["h100-train", "h100-infer"]),
+        ("NG-CCC", ["a100-train"]),
+    ],
+)
+def test_node_group_list_node_group_filter_ignores_case(
+    node_groups, monkeypatch, term, expected
+):
+    monkeypatch.setattr(node_console, "width", 240)
+
+    result = _invoke_node_group_list(["-ng", term], node_groups)
+
+    assert result.exit_code == 0, result.output
+    shown = [
+        ng.metadata.name for ng in node_groups if ng.metadata.name in result.output
+    ]
+    assert shown == expected
 
 
 def test_node_group_list_search_combines_with_node_group(node_groups, monkeypatch):
@@ -1748,3 +1979,129 @@ def test_node_group_list_reports_when_nothing_matches(node_groups):
     result = _invoke_node_group_list(["--keyword", "missing"], node_groups)
     assert result.exit_code == 0, result.output
     assert "No node groups match the specified filters." in result.output
+
+
+# ---------------------------------------------------------------------------
+# `lep node list --type`: the dashboard's node group Type filter and column
+# ---------------------------------------------------------------------------
+
+
+def _typed_group(name, node_mode=None, management_types=None):
+    return SimpleNamespace(
+        metadata=SimpleNamespace(name=name, id_=f"ng-{name}"),
+        spec=SimpleNamespace(
+            node_mode=node_mode, node_management_types=management_types
+        ),
+    )
+
+
+@pytest.fixture
+def typed_node_groups():
+    return [
+        _typed_group("lepton-od", "lepton-node", ["api"]),
+        _typed_group("lepton-reserved", "lepton-node", ["manual"]),
+        _typed_group("cust-manual", "customer-node", ["manual"]),
+        _typed_group("cust-byok", "customer-node", ["byok"]),
+        _typed_group("cust-api", "customer-node", ["api", "byoc"]),
+        _typed_group("cust-byoc-only", "customer-node", ["byoc"]),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("node_mode", "management_types", "expected"),
+    [
+        ("lepton-node", ["api"], ["lepton"]),
+        ("lepton-node", ["manual"], ["lepton"]),
+        ("customer-node", ["manual"], ["byoc"]),
+        ("customer-node", ["byok"], ["byok"]),
+        ("customer-node", ["api", "byoc"], ["byoa"]),
+        # The dashboard gives a node group with only 'byoc' no type.
+        ("customer-node", ["byoc"], []),
+        # A single management type may arrive as a plain string.
+        ("customer-node", "byok", ["byok"]),
+        # Without node_mode, the management types decide, as in the dashboard.
+        (None, ["manual"], ["byoc"]),
+        (None, None, []),
+    ],
+)
+def test_node_group_types_follow_the_dashboard(node_mode, management_types, expected):
+    group = _typed_group("group", node_mode, management_types)
+
+    assert _node_group_types(group) == expected
+
+
+@pytest.mark.parametrize(
+    ("args", "expected"),
+    [
+        (["--type", "lepton"], ["lepton-od", "lepton-reserved"]),
+        (["--type", "byoc"], ["cust-manual"]),
+        (["-t", "BYOK"], ["cust-byok"]),
+        (["-t", "byoa"], ["cust-api"]),
+        (["-t", "byok", "-t", "byoa"], ["cust-byok", "cust-api"]),
+        (["-t", "byoc", "-q", "MANUAL"], ["cust-manual"]),
+    ],
+)
+def test_node_group_list_type_filter(typed_node_groups, monkeypatch, args, expected):
+    monkeypatch.setattr(node_console, "width", 240)
+
+    result = _invoke_node_group_list(args, typed_node_groups)
+
+    assert result.exit_code == 0, result.output
+    shown = [
+        ng.metadata.name
+        for ng in typed_node_groups
+        if ng.metadata.name in result.output
+    ]
+    assert shown == expected
+
+
+def test_node_group_list_type_filter_reports_no_match(typed_node_groups):
+    result = _invoke_node_group_list(["-t", "byok", "-q", "manual"], typed_node_groups)
+
+    assert result.exit_code == 0, result.output
+    assert "No node groups match the specified filters." in result.output
+
+
+def test_node_group_list_rejects_unknown_type(typed_node_groups):
+    result = _invoke_node_group_list(["--type", "on-demand"], typed_node_groups)
+
+    assert result.exit_code == 2
+    assert "Invalid value for '--type'" in result.output
+
+
+def test_node_group_list_type_column_uses_dashboard_labels(
+    typed_node_groups, monkeypatch
+):
+    monkeypatch.setattr(node_console, "width", 240)
+
+    result = _invoke_node_group_list([], typed_node_groups)
+
+    assert result.exit_code == 0, result.output
+    for label in ("Lepton managed", "BYOC", "BYOK", "BYOA"):
+        assert label in result.output
+    row = next(line for line in result.output.splitlines() if "cust-byoc-only" in line)
+    assert "BYOC" not in row
+
+
+def test_list_node_groups_keeps_node_management_types():
+    # The dashboard derives a node group's Type from spec.node_management_types.
+    http_client = _http_client_returning([{
+        "metadata": {"id": "ng-1", "name": "byok-group"},
+        "spec": {"node_mode": "customer-node", "node_management_types": ["byok"]},
+        "status": {},
+    }])
+    node_groups = DedicatedNodeGroupAPI(http_client).list_all()
+
+    http_client._get.assert_called_once_with("/dedicated-node-groups")
+    assert node_groups[0].spec.node_management_types == ["byok"]
+    assert _node_group_types(node_groups[0]) == ["byok"]
+
+
+def test_node_group_list_help_marks_cli_only_and_dashboard_filters():
+    helps = {param.name: param.help or "" for param in node_list_command.params}
+
+    assert helps["node_group"].startswith("CLI-only")
+    assert "dashboard's search box" in helps["keyword"]
+    assert "dashboard's Type filter" in helps["types"]
+    type_option = next(p for p in node_list_command.params if p.name == "types")
+    assert type_option.opts == ["--type", "-t"]
