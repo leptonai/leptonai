@@ -15,6 +15,7 @@ from .util import (
     make_name_id_cell,
     _validate_queue_priority,
     apply_nodegroup_and_queue_config,
+    require_node_group,
     resolve_save_path,
     PathResolutionError,
     labels_to_selector,
@@ -648,7 +649,8 @@ def list_trainers_command(keyword=None):
     "-ng",
     "node_groups",
     help=(
-        "[job] Node group for the job. You can repeat"
+        "[job] Node group for the job. Required unless the spec from --file already"
+        " sets allowed_dedicated_node_groups. You can repeat"
         " this flag multiple times to choose multiple node groups. Multiple node group"
         " option is currently not supported but coming soon for enterprise users. Only"
         " the first node group will be set if you input multiple node groups at this"
@@ -812,6 +814,8 @@ def create_command(
             sys.exit(1)
     else:
         spec = LeptonFineTuneJobSpec()
+
+    require_node_group(node_groups, spec.affinity, "Fine-tune jobs")
 
     # Apply simple presence-based overrides (no defaults for job params)
     if resource_shape is not None:

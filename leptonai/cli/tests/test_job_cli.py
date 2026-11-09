@@ -417,3 +417,14 @@ class TestJobCreateRequiresNodeGroup(_NodeGroupLookupMixin, unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_job_create_with_unparseable_file_exits_non_zero(tmp_path):
+    bad = tmp_path / "bad.json"
+    bad.write_text("{not json")
+    with patch("leptonai.cli.job.APIClient", _FakeAPIClient):
+        result = CliRunner().invoke(
+            cli, ["job", "create", "-n", "j", "--file", str(bad), "-ng", "ng-1"]
+        )
+    assert result.exit_code == 1, result.output
+    assert "Cannot load job spec from file" in result.output

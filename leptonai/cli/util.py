@@ -655,6 +655,29 @@ def _validate_queue_priority(ctx, param, value):
     raise ValueError(f"invalid priority '{value}'. valid options: {opts}")
 
 
+def require_node_group(node_groups, affinity: Any, workload: str) -> None:
+    """Exit with a usage error unless a dedicated node group is chosen.
+
+    ``node_groups`` are the --node-group values; ``affinity`` is the spec's
+    affinity loaded from --file/--template (it may already name node groups).
+    The dashboard requires a node group for every workload it creates, and
+    without one the server falls back to public node groups and usually
+    fails late with "no available node groups found".
+    """
+    if node_groups:
+        return
+    if affinity is not None and getattr(
+        affinity, "allowed_dedicated_node_groups", None
+    ):
+        return
+    console.print(
+        "[red]Error: Missing option '--node-group'.[/] "
+        f"{workload} must run on a dedicated node group; run `lep node list` to"
+        " see the available ones."
+    )
+    sys.exit(1)
+
+
 def apply_nodegroup_and_queue_config(
     *,
     spec,
@@ -905,6 +928,11 @@ class LooseChoice(click.Choice):
         ):
             return f"{{{choices_str}}}"
         return f"[{choices_str}]"
+
+
+def plural(count: int, word: str, plural_word: Optional[str] = None) -> str:
+    """Return ``word`` for a count of 1 and its plural otherwise ("1 pod", "2 pods")."""
+    return word if count == 1 else (plural_word or f"{word}s")
 
 
 def single_keyword(ctx, param, value):

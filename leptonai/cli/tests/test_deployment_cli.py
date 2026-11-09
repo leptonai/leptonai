@@ -30,6 +30,15 @@ from leptonai.cli.deployment import _filter_endpoints, console as deployment_con
 logger.info(f"Using cache dir: {config.CACHE_DIR}")
 
 
+@pytest.fixture(autouse=True)
+def _skip_node_group_requirement(monkeypatch):
+    """These tests exercise other create options; the --node-group requirement
+    (LEP-7553) is covered in test_node_group_required.py."""
+    monkeypatch.setattr(
+        "leptonai.cli.deployment.require_node_group", lambda *a, **k: None
+    )
+
+
 class _FakeDeploymentAPI:
     def __init__(self):
         self.created_spec = None

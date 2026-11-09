@@ -12,6 +12,7 @@ from .client import APIClient
 from leptonai.api.v2.workspace_record import WorkspaceRecord
 from .util import (
     single_keyword,
+    err_console,
     click_group,
     check,
     keyword_matches,
@@ -315,8 +316,8 @@ def remove(workspace_id: str):
     you will be logged out.
     """
     if not WorkspaceRecord.has(workspace_id):
-        console.print(f"Workspace not exist: [red]{workspace_id}.[/]")
-        return
+        err_console.print(f"[red]Error[/]: Workspace not found: {workspace_id}")
+        sys.exit(1)
     WorkspaceRecord.remove(workspace_id)
     console.print(f"Successfully removed workspace: [green]{workspace_id}.[/]")
 

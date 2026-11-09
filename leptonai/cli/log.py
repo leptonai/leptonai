@@ -11,7 +11,7 @@ from typing import Callable, List, NoReturn, Optional, Tuple
 
 from loguru import logger
 from .util import _get_newest_job_by_name
-from .util import click_group, console, epoch_scale
+from .util import click_group, console, epoch_scale, plural
 from .util import resolve_save_path, PathResolutionError
 
 from .client import APIClient
@@ -181,11 +181,14 @@ def _epoch_to_time_str(nanoseconds, local_time=False):
     return time_obj.strftime(str_time_format)
 
 
-def safe_load_json(string):
-    try:
-        return json.loads(string)
-    except json.JSONDecodeError:
-        return string
+def _print_log_line(line: str) -> None:
+    """Print a raw log line verbatim, as the dashboard shows it.
+
+    Lines used to go through json.loads/json.dumps, which quoted plain text and
+    rewrote JSON values (1180700e84 -> 1.1807e+90, true -> True in files).
+    Rich markup, emoji codes and highlighting are off so the text is unchanged.
+    """
+    console.print(line, markup=False, emoji=False, highlight=False, soft_wrap=True)
 
 
 ########################################################################
@@ -495,9 +498,9 @@ def _render_time_range_summary(
     shared by both the `--path` and stdout completion branches of `run()`.
     """
     return (
-        f"\n[bold]Time range[/]: [bold cyan]UTC|{first_utc_time}[/]"
-        f" → [blue]UTC|{last_utc_time}[/]\n[bold]Total[/]:"
-        f" [green]{total_lines}[/] lines \n[bold cyan]Duration[/]:"
+        f"\n[bold]Time range[/]: [bold cyan]UTC|{first_utc_time}[/] →"
+        f" [blue]UTC|{last_utc_time}[/]\n[bold]Total[/]: [green]{total_lines}[/]"
+        f" {plural(total_lines, 'line')} \n[bold cyan]Duration[/]:"
         f" [magenta]{elapsed_sec:.2f}s[/]\n"
     )
 
@@ -515,7 +518,7 @@ def _render_file_footer_text(
     """
     text = (
         f"Time range: UTC|{first_utc_time} → "
-        f"UTC|{last_utc_time} | total {total_lines} lines \n"
+        f"UTC|{last_utc_time} | total {total_lines} {plural(total_lines, 'line')} \n"
     )
     if failed_units:
         capped = failed_units[:_FAILED_RANGES_FILE_CAP]
@@ -765,7 +768,7 @@ class _LazyFileSink:
         self.ensure_open()
         for entry in entries:
             utc_time = _epoch_to_time_str(entry.timestamp_ns)
-            cur_line = safe_load_json(entry.line)
+            cur_line = entry.line
             if self.without_timestamp:
                 self._f.write(f"{cur_line}\n")
             else:
@@ -788,10 +791,9 @@ def _make_stdout_sink(without_timestamp: bool, bookkeeping: _EmitBookkeeping) ->
     def emit(entries: List[LogEntry]) -> None:
         for entry in entries:
             utc_time = _epoch_to_time_str(entry.timestamp_ns)
-            cur_line = safe_load_json(entry.line)
             if not without_timestamp:
                 console.print(f"[green]{utc_time}|[/]", end="")
-            console.print(json.dumps(cur_line, ensure_ascii=False), markup=False)
+            _print_log_line(entry.line)
             bookkeeping.record(utc_time)
 
     return emit
@@ -1306,7 +1308,7 @@ class _AdaptiveLogScheduler:
             console.print(
                 f"\n👆Time range: [blue]UTC|{first_utc_time}[/] →"
                 f" [blue]UTC|{last_utc_time}[/] total"
-                f" [green]{total_lines}[/] lines \n"
+                f" [green]{total_lines}[/] {plural(total_lines, 'line')} \n"
             )
             if self.failed_units:
                 console.print(
@@ -1890,19 +1892,19 @@ def log_command(
         if path and limit is not None:
             with open(path, "w", encoding="utf-8") as f:
                 f.write(
-                    f"Time range: UTC|{first_utc_time} → "
-                    f"UTC|{last_utc_time} | total {len(log_list)} lines \n"
+                    f"Time range: UTC|{first_utc_time} → UTC|{last_utc_time} | total"
+                    f" {len(log_list)} {plural(len(log_list), 'line')} \n"
                 )
                 for log in reversed(log_list):
                     utc_time = _epoch_to_time_str(log[0])
-                    cur_line = safe_load_json(log[1])
+                    cur_line = log[1]
                     if without_timestamp:
                         f.write(f"{cur_line}\n")
                     else:
                         f.write(f"{utc_time}｜{cur_line}\n")
             console.print(
-                f"Time range: UTC|{first_utc_time} → "
-                f"UTC|{last_utc_time} | total {len(log_list)} lines \n"
+                f"Time range: UTC|{first_utc_time} → UTC|{last_utc_time} | total"
+                f" {len(log_list)} {plural(len(log_list), 'line')} \n"
             )
             console.print(
                 f"\n[bold green]Successfully saved the log to:[/bold green] {path}\n"
@@ -1911,15 +1913,14 @@ def log_command(
         else:
             for log in reversed(log_list):
                 utc_time = _epoch_to_time_str(log[0])
-                cur_line = safe_load_json(log[1])
                 if not without_timestamp:
                     console.print(f"[green]{utc_time}|[/]", end="")
-                console.print(json.dumps(cur_line, ensure_ascii=False), markup=False)
+                _print_log_line(log[1])
 
             console.print(
                 f"\n👆Time range: [blue]UTC|{first_utc_time}[/] →"
                 f" [blue]UTC|{last_utc_time}[/] total"
-                f" [green]{len(log_list)}[/] lines \n"
+                f" [green]{len(log_list)}[/] {plural(len(log_list), 'line')} \n"
             )
         return first_utc_time, last_utc_time
 

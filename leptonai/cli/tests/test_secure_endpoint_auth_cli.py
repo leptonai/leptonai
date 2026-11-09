@@ -5,6 +5,8 @@ import json
 import os
 import tempfile
 import unittest
+
+import pytest
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
@@ -38,6 +40,15 @@ _LONG_FILE_SECRET = (
 )
 _TOKEN_LABEL = "Generated API Token (save this value):"
 _UNSET = object()
+
+
+@pytest.fixture(autouse=True)
+def _skip_node_group_requirement(monkeypatch):
+    """These tests exercise other create options; the --node-group requirement
+    (LEP-7553) is covered in test_node_group_required.py."""
+    monkeypatch.setattr(
+        "leptonai.cli.deployment.require_node_group", lambda *a, **k: None
+    )
 
 
 def _deployment(

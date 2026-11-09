@@ -13,6 +13,7 @@ from .teleport import connect_job_teleport
 from leptonai.cli.log import _epoch_to_time_str, _preprocess_time
 
 from .util import (
+    plural,
     single_keyword,
     console,
     click_group,
@@ -22,6 +23,7 @@ from .util import (
     make_container_ports_from_str_list,
     _validate_queue_priority,
     apply_nodegroup_and_queue_config,
+    require_node_group,
     _get_newest_job_by_name,
     resolve_node_groups,
     make_name_id_cell,
@@ -702,19 +704,11 @@ def create(
                 job_spec = LeptonJobUserSpec.parse_raw(content)
         except Exception as e:
             console.print(f"Cannot load job spec from file [red]{file}[/]: {e}")
-            return
+            sys.exit(1)
     else:
         job_spec = LeptonJobUserSpec()
 
-    # The backend requires a dedicated node group for every job.
-    if not node_groups and not (
-        job_spec.affinity and job_spec.affinity.allowed_dedicated_node_groups
-    ):
-        console.print(
-            "[red]Error: Missing option '--node-group'.[/] Jobs must run on a"
-            " dedicated node group; run `lep node list` to see the available ones."
-        )
-        sys.exit(1)
+    require_node_group(node_groups, job_spec.affinity, "Jobs")
 
     try:
         selector = _resolve_node_label_selector(
@@ -1164,7 +1158,10 @@ def remove_all(state, user, name, node_group):
 
     user_set = set(job.metadata.owner for job in job_filtered)
 
-    console.print(f"Total [red]{len(job_filtered)}[/] jobs to delete.")
+    console.print(
+        f"Total [red]{len(job_filtered)}[/] {plural(len(job_filtered), 'job')} to"
+        " delete."
+    )
     console.print(
         f"These jobs belong to [green]{len(user_set)}[/] user(s):"
         f" [green]{', '.join(user_set)}[/]"
@@ -1175,7 +1172,8 @@ def remove_all(state, user, name, node_group):
         confirm_count = int(click.prompt("Number of jobs to delete", type=int))
         if confirm_count != len(job_filtered):
             console.print(
-                f"[red]Error[/]: Number mismatch. Expected {len(job_filtered)} jobs."
+                "[red]Error[/]: Number mismatch. Expected"
+                f" {len(job_filtered)} {plural(len(job_filtered), 'job')}."
             )
             sys.exit(1)
     except ValueError:
@@ -1283,7 +1281,9 @@ def stop_all(state, user, name, node_group):
 
     user_set = set(job.metadata.owner for job in job_filtered)
 
-    console.print(f"Total [red]{len(job_filtered)}[/] jobs to stop.")
+    console.print(
+        f"Total [red]{len(job_filtered)}[/] {plural(len(job_filtered), 'job')} to stop."
+    )
     console.print(
         f"These jobs belong to [green]{len(user_set)}[/] user(s):"
         f" [green]{', '.join(user_set)}[/]"
@@ -1294,7 +1294,8 @@ def stop_all(state, user, name, node_group):
         confirm_count = int(click.prompt("Number of jobs to stop", type=int))
         if confirm_count != len(job_filtered):
             console.print(
-                f"[red]Error[/]: Number mismatch. Expected {len(job_filtered)} jobs."
+                "[red]Error[/]: Number mismatch. Expected"
+                f" {len(job_filtered)} {plural(len(job_filtered), 'job')}."
             )
             sys.exit(1)
     except ValueError:

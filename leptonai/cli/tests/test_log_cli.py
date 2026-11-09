@@ -185,9 +185,9 @@ class TestUnderLimitSingleUnit(unittest.TestCase):
         self.assertEqual(len(fake.unit_calls()), 1)
         self.assertEqual(fake.unit_calls()[0]["direction"], "forward")
         # Chronological order regardless of Loki response order.
-        idx_a = result.output.index('"a"')
-        idx_b = result.output.index('"b"')
-        idx_c = result.output.index('"c"')
+        idx_a = result.output.index("|a\n")
+        idx_b = result.output.index("|b\n")
+        idx_c = result.output.index("|c\n")
         self.assertTrue(idx_a < idx_b < idx_c)
         self.assertIn("👆Time range: UTC|", result.output)
         self.assertIn("total 3 lines", result.output)
@@ -204,6 +204,26 @@ class TestUnderLimitSingleUnit(unittest.TestCase):
 
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertEqual(len(fake.calls), 1)
+
+
+class TestRawLogLines(unittest.TestCase):
+    def test_stdout_prints_lines_verbatim(self):
+        """LEP-7550: a line that happens to be JSON is not re-encoded, plain
+        text is not quoted, and rich markup/emoji codes are not interpreted."""
+        lines = ["1180700e84", "plain text", '{"a": true}', "[bold]x[/] :thumbs_up:"]
+        fake = _FakeLogAPI({
+            (UNIX_START, UNIX_END): _loki_response(
+                [(UNIX_START + i + 1, line, {}) for i, line in enumerate(lines)]
+            )
+        })
+
+        result, _ = _invoke(_base_args("--without-timestamp"), fake)
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        for line in lines:
+            self.assertIn(line + "\n", result.output)
+        self.assertNotIn("1.1807e+90", result.output)
+        self.assertNotIn('"plain text"', result.output)
 
 
 # ---------------------------------------------------------------------------
@@ -327,7 +347,7 @@ class TestApiFailuresAndRetries(unittest.TestCase):
         ]
         self.assertEqual(len(failing_calls), 5)
         # Sibling data is still emitted.
-        self.assertIn('"ok-sibling"', result.output)
+        self.assertIn("|ok-sibling\n", result.output)
         # A warning names the failed range. Normalize whitespace first since
         # the rich console line-wraps long sentences.
         normalized = " ".join(result.output.split())
@@ -408,8 +428,7 @@ class TestPathOutputAndProgressBar(unittest.TestCase):
             content = f.read()
         lines = content.splitlines(keepends=True)
         self.assertEqual(len(lines), 3)
-        # File sink writes safe_load_json(line) directly (no json.dumps),
-        # unlike the stdout sink -- plain strings appear unquoted.
+        # The file sink writes each raw line verbatim.
         self.assertRegex(
             lines[0],
             r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6}\｜hello\n$",

@@ -39,7 +39,8 @@ lep login
 Deploy a container image as an endpoint, then inspect it:
 
 ```shell
-lep endpoint create -n my-endpoint --container-image my-registry/my-app:latest
+lep endpoint create -n my-endpoint --container-image my-registry/my-app:latest \
+  --resource-shape gpu.a10 --node-group my-node-group
 lep endpoint list
 lep endpoint status -n my-endpoint
 ```
@@ -84,7 +85,7 @@ lep job create -n my-job --container-image my-registry/my-trainer:latest --comma
   --resource-shape gpu.a10 --node-group my-node-group
 
 # Launch an interactive dev pod
-lep pod create -n my-pod --resource-shape gpu.a10
+lep pod create -n my-pod --resource-shape gpu.a10 --node-group my-node-group
 
 # Open a shell in the pod through the workspace API (no SSH setup needed)
 lep pod shell -n my-pod

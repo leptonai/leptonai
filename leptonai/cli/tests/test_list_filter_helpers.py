@@ -16,6 +16,7 @@ from leptonai.cli.util import (
     labels_to_selector,
     node_group_matches,
     normalize_keyword,
+    plural,
     prefix_matches,
     state_matches,
 )
@@ -160,3 +161,11 @@ def test_node_group_matches_substring():
 )
 def test_labels_to_selector(labels, base_query, expected):
     assert labels_to_selector(labels, base_query=base_query) == expected
+
+
+def test_plural_uses_singular_only_for_one():
+    # LEP-7556: "1 pods" in the pod list summary.
+    assert plural(1, "pod") == "pod"
+    assert plural(0, "pod") == "pods"
+    assert plural(2, "line") == "lines"
+    assert plural(3, "entry", "entries") == "entries"

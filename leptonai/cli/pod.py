@@ -28,11 +28,13 @@ from leptonai.config import (
 )
 from leptonai.api.v2 import types
 from .util import (
+    plural,
     single_keyword,
     click_group,
     _get_only_replica_public_ip,
     _validate_queue_priority,
     apply_nodegroup_and_queue_config,
+    require_node_group,
     make_name_id_cell,
     colorize_state,
     format_timestamp_ms,
@@ -179,8 +181,9 @@ def pod():
     "-ng",
     "node_groups",
     help=(
-        "Node group for the pod. If not set, use on-demand resources. You can repeat"
-        " this flag multiple times to choose multiple node groups. Multiple node group"
+        "Node group for the pod. Required unless the spec from --file or --template"
+        " already sets allowed_dedicated_node_groups. You can repeat this flag"
+        " multiple times to choose multiple node groups. Multiple node group"
         " option is currently not supported but coming soon for enterprise users. Only"
         " the first node group will be set if you input multiple node groups at this"
         " time."
@@ -339,6 +342,9 @@ def create(
             sys.exit(1)
 
     deployment_user_spec = spec_from_file or types.deployment.LeptonDeploymentUserSpec()
+
+    rr = deployment_user_spec.resource_requirement
+    require_node_group(node_groups, rr.affinity if rr else None, "Pods")
 
     if container_image or container_command:
         if container_image is None and not file:
@@ -844,8 +850,9 @@ def list_command(pattern, detail, keyword=None, states=(), creators=(), node_gro
             shape_totals[shape] = shape_totals.get(shape, 0) + 1
 
     console.print(
-        f"[bold]Resource Utilization Summary for above [cyan]{len(pods)}[/] pods (Ready"
-        " / Running / Starting / Updating / Scaling / Deleting only):[/]"
+        f"[bold]Resource Utilization Summary for above [cyan]{len(pods)}[/]"
+        f" {plural(len(pods), 'pod')} (Ready / Running / Starting / Updating / Scaling"
+        " / Deleting only):[/]"
     )
     for shape, total in sorted(
         shape_totals.items(), key=lambda kv: kv[1], reverse=True

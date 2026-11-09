@@ -2,6 +2,8 @@
 Secret is a module that provides a way to manage secrets on a workspace.
 """
 
+import sys
+
 import click
 
 from rich.table import Table
@@ -9,6 +11,7 @@ from rich.table import Table
 from .util import (
     single_keyword,
     console,
+    err_console,
     check,
     click_group,
     LooseChoice,
@@ -185,9 +188,19 @@ def remove(name):
     client = APIClient()
     existing_secrets = client.secret.list_all()
     existing_names = {s.name for s in existing_secrets}
-    if not existing_secrets or name not in existing_names:
-        console.print(f"[yellow]⚠ Secret [bold]{name}[/] does not exist.[/]")
-        return
+    if name not in existing_names:
+        # The delete API is idempotent (200 for a missing key), so this check is
+        # the only place a typo surfaces; fail like the other remove commands.
+        err_console.print(f"[red]Error[/]: Secret [bold]{name}[/] does not exist.")
+        # Private secrets are stored as "<name>.<user>"; point at the real key.
+        candidates = sorted(n for n in existing_names if n.startswith(f"{name}."))
+        if candidates:
+            err_console.print(
+                "Did you mean "
+                + " or ".join(f"[bold]{c}[/]" for c in candidates)
+                + "? Private secrets are stored with a user suffix."
+            )
+        sys.exit(1)
 
     client.secret.delete(name)
     console.print(f"Secret [green]{name}[/] deleted successfully.")

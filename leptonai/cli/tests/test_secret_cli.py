@@ -93,3 +93,35 @@ def test_secret_list_rejects_unknown_visibility(secrets):
     result = _invoke(secrets, ["--visibility", "internal"])
     assert result.exit_code == 2
     assert "Invalid value for '--visibility'" in result.output
+
+
+def _invoke_remove(items, name):
+    client = SimpleNamespace(
+        secret=SimpleNamespace(
+            list_all=lambda: items, delete=lambda n: setattr(client, "deleted", n)
+        )
+    )
+    with patch("leptonai.cli.secret.APIClient", return_value=client):
+        result = CliRunner().invoke(secret, ["remove", "-n", name])
+    return result, client
+
+
+def test_remove_missing_secret_exits_non_zero_with_suffix_hint(secrets):
+    # LEP-7619: the delete API returns 200 for a missing key.
+    result, client = _invoke_remove(secrets, "SSH_PUBLIC_KEY")
+    assert result.exit_code == 1, result.output
+    assert "does not exist" in result.output
+    assert "Did you mean SSH_PUBLIC_KEY.alice?" in result.output
+    assert not hasattr(client, "deleted")
+
+
+def test_remove_missing_secret_without_candidates(secrets):
+    result, _ = _invoke_remove(secrets, "nope")
+    assert result.exit_code == 1, result.output
+    assert "Did you mean" not in result.output
+
+
+def test_remove_existing_secret(secrets):
+    result, client = _invoke_remove(secrets, "HF_TOKEN")
+    assert result.exit_code == 0, result.output
+    assert client.deleted == "HF_TOKEN"

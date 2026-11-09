@@ -20,6 +20,7 @@ from .util import (
     click_group,
     _validate_queue_priority,
     apply_nodegroup_and_queue_config,
+    require_node_group,
     make_name_id_cell,
     colorize_state,
     format_timestamp_ms,
@@ -926,11 +927,11 @@ def _create_workspace_token_secret_var_if_not_existing(client: APIClient):
     "-ng",
     "node_groups",
     help=(
-        "Node group for the endpoint. If not set, use on-demand resources. You can"
-        " repeat this flag multiple times to choose multiple node groups. Multiple node"
-        " group option is currently not supported but coming soon for enterprise users."
-        " Only the first node group will be set if you input multiple node groups at"
-        " this time."
+        "Node group for the endpoint. Required unless the spec from --file already sets"
+        " allowed_dedicated_node_groups. You can repeat this flag multiple times to"
+        " choose multiple node groups. Multiple node group option is currently not"
+        " supported but coming soon for enterprise users. Only the first node group"
+        " will be set if you input multiple node groups at this time."
     ),
     type=str,
     multiple=True,
@@ -1196,6 +1197,13 @@ def create(
             sys.exit(1)
     else:
         spec = LeptonDeploymentUserSpec()
+
+    rr = spec.resource_requirement
+    require_node_group(
+        node_groups,
+        rr.affinity if rr else None,
+        "Pods" if spec.is_pod else "Endpoints",
+    )
 
     if (
         file
