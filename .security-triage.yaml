@@ -1,0 +1,21 @@
+# Triage decisions for security tooling that reads SECURITY.md.
+version: "1.0"
+project: "leptonai"
+last_updated: "2026-11-09T00:00:00Z"
+
+repository_exposure_classification:
+  visibility: "Public"
+  basis: "origin remote is github.com/leptonai/leptonai; GitHub reports visibility PUBLIC"
+  confirmed_by: "Wenzhao Hu"
+  date: "2026-11-09"
+
+service_exposure_classification:
+  tier: "External / Regulated"
+  confidence: "high"
+  basis: "externally distributed on PyPI; customer-facing SDK/CLI; handles customer workspace API tokens and workload secrets"
+  confirmed_by: "Wenzhao Hu"
+  date: "2026-11-09"
+
+false_positives: []
+accepted_risks: []
+suppressed_cves: []
