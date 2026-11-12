@@ -109,8 +109,14 @@ class FineTuneAPI(APIResourse):
         )
         return self.ensure_ok(response)
 
-    def list_supported_models(self) -> List[FineTuneModelInfo]:
-        response = self._get("/finetune/supported-models")
+    def list_supported_models(
+        self, trainer: str = "automodel"
+    ) -> List[FineTuneModelInfo]:
+        """
+        ``trainer`` is a trainer name such as ``automodel``, not a ``trainer_id``
+        from ``list_trainers()``.
+        """
+        response = self._get("/finetune/supported-models", params={"trainer": trainer})
         return self.ensure_list(response, FineTuneModelInfo)
 
     def list_trainers(self, default_only: bool = True) -> List[TrainerInfo]:
