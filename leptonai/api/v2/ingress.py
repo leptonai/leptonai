@@ -47,9 +47,11 @@ class IngressAPI(APIResourse):
         """
         Create a ingressEndpoint with the given LeptonIngress IngressEndpoint spec.
         """
+        # The HTTP body is {metadata, spec}. Workload fields live under spec;
+        # a bare LeptonIngressEndpoint is read as an empty spec and rejected.
         response = self._post(
             f"/ingress/{self._to_name(name_or_ingress)}/endpoint/deployment",
-            json=self.safe_json(spec),
+            json={"spec": self.safe_json(spec)},
         )
         return self.ensure_type(response, LeptonIngress)
 
