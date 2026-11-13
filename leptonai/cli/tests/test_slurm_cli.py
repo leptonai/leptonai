@@ -172,7 +172,9 @@ def test_cluster_list_and_job_attempts_tables():
     assert "login.example.com" in clusters.output
     assert attempts.exit_code == 0, attempts.output
     # The bare job ID resolves to its cluster through the jobs list.
-    api.get_job_events.assert_called_once_with("ns/cluster-a", "42")
+    api.get_job_events.assert_called_once_with(
+        "ns/cluster-a", "42", start_time=None, end_time=None
+    )
     assert "42.batch" in attempts.output
     # Raw Slurm states (COMPLETED) are normalized to CLI casing (Completed).
     assert "Completed" in attempts.output
@@ -673,7 +675,9 @@ def test_job_attempts_with_cluster_id_and_archived_skips_job_listing():
     api.list_jobs.assert_not_called()
     api.list_cluster_jobs.assert_not_called()
     assert api.get_job_events.call_count == 2
-    api.get_job_events.assert_called_with("ns/cluster-a", "42")
+    api.get_job_events.assert_called_with(
+        "ns/cluster-a", "42", start_time=None, end_time=None
+    )
 
 
 @pytest.mark.parametrize("command", ["get", "attempts", "log"])
@@ -769,7 +773,9 @@ def test_job_attempts_name_resolved_inside_selected_cluster():
     api.list_jobs.assert_not_called()
     assert api.list_cluster_jobs.call_args.args == ("ns-b/cluster-b",)
     assert api.list_cluster_jobs.call_args.kwargs["q"] == "train"
-    api.get_job_events.assert_called_once_with("ns-b/cluster-b", "7")
+    api.get_job_events.assert_called_once_with(
+        "ns-b/cluster-b", "7", start_time=None, end_time=None
+    )
 
 
 def test_job_get_prints_all_jobs_sharing_a_name():
@@ -813,6 +819,120 @@ def test_job_resolution_zero_match_hints_archived():
     assert archived.exit_code == 1, archived.output
     assert "--include-archived" not in archived.output
     assert api.list_jobs.call_args.kwargs["job_query_mode"] == "alive_and_archive"
+
+
+@pytest.mark.parametrize(
+    "command, route", [("get", "get_job"), ("attempts", "get_job_events")]
+)
+@pytest.mark.parametrize(
+    "selector, lookup",
+    [
+        (["-i", "42"], "list_jobs"),
+        (["-n", "train", "-c", "cluster-a"], "list_cluster_jobs"),
+        (["-i", "42", "-c", "cluster-a"], None),
+    ],
+    ids=["workspace-lookup", "cluster-lookup", "single-job-route"],
+)
+def test_job_get_and_attempts_send_the_archive_window(command, route, selector, lookup):
+    client, api = _fake_client()
+    api.list_cluster_jobs.return_value = [
+        SlurmJob(
+            metadata={"id": "42", "name": "train"},
+            spec={"job_id": 42},
+            status={"state": "Completed", "job_state": "COMPLETED"},
+        )
+    ]
+    start = int(datetime(2026, 10, 20, tzinfo=timezone.utc).timestamp())
+    end = int(datetime(2026, 11, 10, tzinfo=timezone.utc).timestamp())
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        result = CliRunner().invoke(
+            lep,
+            [
+                "slurm",
+                "job",
+                command,
+                *selector,
+                "-ia",
+                "--start",
+                "2026-10-20 00:00:00",
+                "--end",
+                str(end),
+            ],
+        )
+
+    assert result.exit_code == 0, result.output
+    # The lookup and the single-job route search the same window, so a job
+    # one of them finds is not missed by the other.
+    for method in ("list_jobs", "list_cluster_jobs"):
+        listed = getattr(api, method)
+        if method != lookup:
+            listed.assert_not_called()
+            continue
+        listed.assert_called_once()
+        assert listed.call_args.kwargs["job_query_mode"] == "alive_and_archive"
+        assert listed.call_args.kwargs["start_time"] == start
+        assert listed.call_args.kwargs["end_time"] == end
+    fetched = getattr(api, route)
+    fetched.assert_called_once()
+    assert fetched.call_args.args == ("ns/cluster-a", "42")
+    assert fetched.call_args.kwargs["start_time"] == start
+    assert fetched.call_args.kwargs["end_time"] == end
+
+
+@pytest.mark.parametrize("command", ["get", "attempts"])
+@pytest.mark.parametrize(
+    "args, message",
+    [
+        (["--start", "yesterday"], "add --include-archived"),
+        (
+            ["-ia", "--start", "2026-11-08 00:00:00", "--end", "2026-11-01 00:00:00"],
+            "--start must be earlier than --end",
+        ),
+        (
+            ["-ia", "--start", "2026-09-01 00:00:00", "--end", "2026-11-01 00:00:00"],
+            "exceeds 30 days",
+        ),
+    ],
+    ids=["window-without-archive", "start-after-end", "window-over-30-days"],
+)
+def test_job_get_and_attempts_reject_unusable_archive_windows(command, args, message):
+    client, api = _fake_client()
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        result = CliRunner().invoke(lep, ["slurm", "job", command, "-i", "42", *args])
+
+    assert result.exit_code == 2, result.output
+    assert message in result.output
+    assert not api.mock_calls
+
+
+def test_job_lookup_miss_points_at_the_window_only_where_it_applies():
+    client, api = _fake_client()
+    api.list_jobs.return_value = EMPTY_JOBS
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        get = CliRunner().invoke(lep, ["slurm", "job", "get", "-i", "99", "-ia"])
+        attempts = CliRunner().invoke(
+            lep, ["slurm", "job", "attempts", "-i", "99", "-ia"]
+        )
+        windowed = CliRunner().invoke(
+            lep, ["slurm", "job", "get", "-i", "99", "-ia", "--start", "yesterday"]
+        )
+        log = CliRunner().invoke(
+            lep, ["slurm", "job", "log", "-i", "99", "-ia", "--start", "yesterday"]
+        )
+
+    for result in (get, attempts):
+        assert result.exit_code == 1, result.output
+        stderr = " ".join(result.stderr.split())
+        assert "ended in the last 7 days were searched" in stderr
+        assert "--start" in stderr
+    # An explicit window was searched as given, and job log's --start bounds
+    # log lines rather than the job lookup.
+    for result in (windowed, log):
+        assert result.exit_code == 1, result.output
+        stderr = " ".join(result.stderr.split())
+        assert "No alive or archived Slurm job found for ID: 99." in stderr
+        assert "last 7 days" not in stderr
+    assert api.list_jobs.call_args.kwargs["start_time"] is None
 
 
 def test_devpod_create_remove_and_safe_ssh_print():
@@ -1586,7 +1706,7 @@ class _ErrorResponse:
     "error, expected",
     [
         (
-            ClientError(_ErrorResponse(404, '{"message":"job 99999999 not found"}')),
+            ClientError(_ErrorResponse(404, '{"message":"job 42 not found"}')),
             "404 Not Found",
         ),
         (ClientError(_ErrorResponse(401, "OAuth flow failed.")), "401 Unauthorized"),
@@ -1601,14 +1721,39 @@ def test_api_and_runtime_errors_go_to_stderr(error, expected):
     client, api = _fake_client()
     api.get_job.side_effect = error
     with patch("leptonai.cli.slurm.APIClient", return_value=client):
-        result = CliRunner().invoke(
-            lep,
-            ["slurm", "job", "get", "-i", "99999999", "-c", "cluster-a", "-ia"],
-        )
+        # Through the lookup: the -c/-ia direct route reports a 404 as a
+        # missing job instead.
+        result = CliRunner().invoke(lep, ["slurm", "job", "get", "-i", "42"])
 
     assert result.exit_code == 1, result.output
     assert result.stdout == ""
     assert expected in result.stderr
+
+
+@pytest.mark.parametrize(
+    "command, route", [("get", "get_job"), ("attempts", "get_job_events")]
+)
+def test_direct_job_route_miss_reads_like_a_lookup_miss(command, route):
+    client, api = _fake_client()
+    getattr(api, route).side_effect = ClientError(
+        _ErrorResponse(404, '{"message":"job 99 not found"}')
+    )
+    args = ["slurm", "job", command, "-i", "99", "-c", "cluster-a", "-ia"]
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        default = CliRunner().invoke(lep, args)
+        windowed = CliRunner().invoke(lep, [*args, "--start", "yesterday"])
+
+    # The same message, and the same --start/--end hint, as a miss without -c.
+    for result in (default, windowed):
+        assert result.exit_code == 1, result.output
+        assert result.stdout == ""
+        stderr = " ".join(result.stderr.split())
+        assert "No alive or archived Slurm job found for ID: 99." in stderr
+        assert "404" not in stderr
+    assert "ended in the last 7 days were searched" in " ".join(default.stderr.split())
+    assert "last 7 days" not in " ".join(windowed.stderr.split())
+    api.list_jobs.assert_not_called()
+    api.list_cluster_jobs.assert_not_called()
 
 
 @pytest.mark.parametrize(
