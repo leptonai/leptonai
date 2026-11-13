@@ -6,8 +6,19 @@ import shlex
 import subprocess
 import sys
 import time
+from contextlib import contextmanager
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    NoReturn,
+    Optional,
+    Tuple,
+)
 
 import click
 from requests import RequestException
@@ -15,6 +26,7 @@ from rich.table import Table
 from rich.text import Text
 
 from .client import APIClient
+from ..api.v2.api_resource import ClientError
 from ..api.v2.node_ssh import NodeSSHTarget
 from ..api.v2.slurm import SlurmClusterLookupError
 from ..api.v2.types.slurm import (
@@ -336,15 +348,19 @@ def _single_value(ctx, param, value: Tuple[str, ...]) -> Optional[str]:
 
 
 def _archive_window(
-    start: Optional[str], end: Optional[str]
+    start: Optional[str], end: Optional[str], include_archived: bool
 ) -> Tuple[Optional[int], Optional[int]]:
-    """Convert job list --start/--end into the server's start_time/end_time.
+    """Convert job --start/--end into the server's start_time/end_time.
 
     Both are Unix seconds bounding when archived jobs ended. The server
     defaults end_time to now and start_time to 7 days before end_time, and
     rejects a window longer than 30 days; check that here so a bad window
     fails as a usage error.
     """
+    if (start or end) and not include_archived:
+        raise click.UsageError(
+            "--start and --end bound archived jobs; add --include-archived."
+        )
     start_s = _preprocess_time(start, epoch=True) // 1_000_000_000 if start else None
     end_s = _preprocess_time(end, epoch=True) // 1_000_000_000 if end else None
     if start_s is not None:
@@ -910,23 +926,37 @@ def _resolve_jobs(
     cluster_id: Optional[str],
     include_archived: bool,
     archived_hint: bool = True,
+    start_time: Optional[int] = None,
+    end_time: Optional[int] = None,
+    window_hint: bool = False,
 ) -> List[Tuple[str, Any]]:
     """Resolve --name/--id to (cluster ID, job) pairs.
 
     With a resolved cluster ID the cluster-scoped jobs route is queried
     directly; otherwise the workspace-wide route fans out across clusters.
     The server-side ``q`` filter narrows candidates by job ID or name
-    substring; exact matching happens client-side.
+    substring; exact matching happens client-side. ``start_time`` and
+    ``end_time`` bound archived candidates as in `job list`. Set
+    ``window_hint`` only for commands whose --start/--end set them: a miss in
+    the default window then points the user there.
     """
     query = name or id or ""
     mode = "alive_and_archive" if include_archived else "alive_only"
     candidates: List[Tuple[Optional[str], Any]] = []
     failed_clusters: Dict[str, str] = {}
     if cluster_id:
-        jobs = api.list_cluster_jobs(cluster_id, job_query_mode=mode, q=query)
+        jobs = api.list_cluster_jobs(
+            cluster_id,
+            job_query_mode=mode,
+            q=query,
+            start_time=start_time,
+            end_time=end_time,
+        )
         candidates.extend((cluster_id, item) for item in jobs)
     else:
-        result = api.list_jobs(job_query_mode=mode, q=query)
+        result = api.list_jobs(
+            job_query_mode=mode, q=query, start_time=start_time, end_time=end_time
+        )
         candidates.extend(
             (item.slurm_cluster.id_ if item.slurm_cluster else None, item)
             for item in result.jobs
@@ -939,17 +969,63 @@ def _resolve_jobs(
         matches = [pair for pair in candidates if pair[1].metadata.name == name]
     if matches:
         return [(owner or _job_cluster_id(item), item) for owner, item in matches]
+    _exit_job_not_found(
+        query,
+        search_type="name" if name else "ID",
+        include_archived=include_archived,
+        archived_hint=archived_hint,
+        default_window=window_hint and start_time is None and end_time is None,
+        failed_clusters=failed_clusters,
+    )
 
+
+def _exit_job_not_found(
+    query: str,
+    *,
+    search_type: str,
+    include_archived: bool,
+    archived_hint: bool = True,
+    default_window: bool = False,
+    failed_clusters: Optional[Dict[str, str]] = None,
+) -> NoReturn:
+    """Report that no Slurm job matched, with what to retry, and exit 1.
+
+    ``default_window`` means the search used the default archive window of a
+    command whose --start/--end can move it.
+    """
     scope = "alive or archived" if include_archived else "alive"
-    search_type = "name" if name else "ID"
     err_console.print(f"No {scope} Slurm job found for [red]{search_type}: {query}[/].")
     if not include_archived and archived_hint:
         err_console.print(
             "Archived jobs are skipped by default; retry with"
             " [green]--include-archived[/]."
         )
-    _print_failed_clusters(failed_clusters)
+    elif include_archived and default_window:
+        err_console.print(
+            "Only archived jobs that ended in the last 7 days were searched; pass"
+            " [green]--start[/] (and [green]--end[/]) to search an earlier window"
+            " of up to 30 days."
+        )
+    _print_failed_clusters(failed_clusters or {})
     sys.exit(1)
+
+
+@contextmanager
+def _report_not_found(
+    job_id: str, start_time: Optional[int], end_time: Optional[int]
+) -> Iterator[None]:
+    """Report a 404 from a single-job route the way a failed lookup is reported."""
+    try:
+        yield
+    except ClientError as error:
+        if error.response.status_code != 404:
+            raise
+        _exit_job_not_found(
+            job_id,
+            search_type="ID",
+            include_archived=True,
+            default_window=start_time is None and end_time is None,
+        )
 
 
 def _resolve_single_job(
@@ -960,6 +1036,9 @@ def _resolve_single_job(
     cluster_id: Optional[str],
     include_archived: bool,
     archived_hint: bool = True,
+    start_time: Optional[int] = None,
+    end_time: Optional[int] = None,
+    window_hint: bool = False,
 ) -> Tuple[str, Any]:
     matches = _resolve_jobs(
         api,
@@ -968,6 +1047,9 @@ def _resolve_single_job(
         cluster_id=cluster_id,
         include_archived=include_archived,
         archived_hint=archived_hint,
+        start_time=start_time,
+        end_time=end_time,
+        window_hint=window_hint,
     )
     if len(matches) == 1:
         return matches[0]
@@ -1011,6 +1093,26 @@ def _job_resolution_options(command):
     )(command)
     command = click.option("--id", "-i", help="Slurm job id", type=str)(command)
     command = click.option("--name", "-n", help="Job name", type=str)(command)
+    return command
+
+
+def _job_window_options(command):
+    """Attach --start/--end, the archive window of `job list`, to a job lookup."""
+    command = click.option(
+        "--end",
+        help=(
+            "With --include-archived: search archived jobs that ended at or"
+            " before this UTC time or epoch (seconds/ms/us/ns). Defaults to now."
+        ),
+    )(command)
+    command = click.option(
+        "--start",
+        help=(
+            "With --include-archived: search archived jobs that ended at or"
+            " after this UTC time or epoch (seconds/ms/us/ns). Defaults to 7 days"
+            " before --end; the window spans at most 30 days."
+        ),
+    )(command)
     return command
 
 
@@ -1361,11 +1463,7 @@ def list_jobs(
     Archived jobs come from Slurm accounting by the time they ended, so
     --include-archived lists those that ended in the archive window.
     """
-    if (start or end) and not include_archived:
-        raise click.UsageError(
-            "--start and --end bound archived jobs; add --include-archived."
-        )
-    start_time, end_time = _archive_window(start, end)
+    start_time, end_time = _archive_window(start, end, include_archived)
     mode = "alive_and_archive" if include_archived else "alive_only"
     api = APIClient().slurm
     resolved_clusters: Optional[List[str]] = None
@@ -1400,6 +1498,7 @@ def list_jobs(
 
 @job.command(name="get")
 @_job_resolution_options
+@_job_window_options
 @click.option(
     "--raw-slurm",
     is_flag=True,
@@ -1410,26 +1509,52 @@ def get_job(
     id: Optional[str],
     cluster: Optional[str],
     include_archived: bool,
+    start: Optional[str],
+    end: Optional[str],
     raw_slurm: bool,
 ) -> None:
     """Get a Slurm job by --id or --name.
 
     The owning cluster is resolved automatically; prints a JSON array when
-    several jobs share the name.
+    several jobs share the name. With --include-archived, an archived job is
+    found only if it ended in the --start/--end window, the last 7 days by
+    default.
     """
     _validate_name_id_selector(name, id)
+    start_time, end_time = _archive_window(start, end, include_archived)
     api = APIClient().slurm
     cluster_id = _resolve_cluster_id(api, cluster) if cluster else None
     # The single-job route reads slurmdbd and returns archived jobs too, so
     # it can stand in for resolution only when those are allowed.
     if id and cluster_id and include_archived:
-        _print_json(api.get_job(cluster_id, id, slurm_api=raw_slurm))
+        with _report_not_found(id, start_time, end_time):
+            job = api.get_job(
+                cluster_id,
+                id,
+                slurm_api=raw_slurm,
+                start_time=start_time,
+                end_time=end_time,
+            )
+        _print_json(job)
         return
     matches = _resolve_jobs(
-        api, name=name, id=id, cluster_id=cluster_id, include_archived=include_archived
+        api,
+        name=name,
+        id=id,
+        cluster_id=cluster_id,
+        include_archived=include_archived,
+        start_time=start_time,
+        end_time=end_time,
+        window_hint=True,
     )
     results = [
-        api.get_job(owner, _job_identifier(item), slurm_api=raw_slurm)
+        api.get_job(
+            owner,
+            _job_identifier(item),
+            slurm_api=raw_slurm,
+            start_time=start_time,
+            end_time=end_time,
+        )
         for owner, item in matches
     ]
     _print_json(results[0] if len(results) == 1 else results)
@@ -1437,6 +1562,7 @@ def get_job(
 
 @job.command(name="attempts")
 @_job_resolution_options
+@_job_window_options
 @click.option("--steps", is_flag=True, help="Include individual Slurm step rows.")
 @click.option("--output", "output_format", "-o", type=OUTPUT_FORMAT, default="table")
 def job_attempts(
@@ -1444,19 +1570,26 @@ def job_attempts(
     id: Optional[str],
     cluster: Optional[str],
     include_archived: bool,
+    start: Optional[str],
+    end: Optional[str],
     steps: bool,
     output_format: str,
 ) -> None:
     """Show requeue attempts and steps for a Slurm job.
 
     Select the job by --id or --name; the owning cluster is resolved
-    automatically.
+    automatically. With --include-archived, an archived job is found only if
+    it ended in the --start/--end window, the last 7 days by default.
     """
     _validate_name_id_selector(name, id)
+    start_time, end_time = _archive_window(start, end, include_archived)
     api = APIClient().slurm
     cluster_id = _resolve_cluster_id(api, cluster) if cluster else None
     if id and cluster_id and include_archived:
-        events = api.get_job_events(cluster_id, id)
+        with _report_not_found(id, start_time, end_time):
+            events = api.get_job_events(
+                cluster_id, id, start_time=start_time, end_time=end_time
+            )
     else:
         owner, item = _resolve_single_job(
             api,
@@ -1464,8 +1597,13 @@ def job_attempts(
             id=id,
             cluster_id=cluster_id,
             include_archived=include_archived,
+            start_time=start_time,
+            end_time=end_time,
+            window_hint=True,
         )
-        events = api.get_job_events(owner, _job_identifier(item))
+        events = api.get_job_events(
+            owner, _job_identifier(item), start_time=start_time, end_time=end_time
+        )
     if output_format == "json":
         _print_json(events)
     else:
@@ -1540,6 +1678,10 @@ def job_log(
     automatically. By default the window covers the job's whole run, from
     its submit time to its end (or now while it runs); --start and --end
     narrow it. A single query covers at most 31 days.
+
+    With --include-archived, an archived job is found only if it ended in the
+    last 7 days; for an older one, add --id, --cluster and --start to read
+    its logs without looking the job up.
     """
     _validate_name_id_selector(name, id)
     start_ns = _preprocess_time(start, epoch=True) if start else None

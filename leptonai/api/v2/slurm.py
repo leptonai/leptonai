@@ -273,24 +273,56 @@ class SlurmAPI(APIResourse):
         )
         return self.ensure_list(response, SlurmJob)
 
+    @staticmethod
+    def _job_window_params(
+        start_time: Optional[int], end_time: Optional[int]
+    ) -> Dict[str, Any]:
+        return {
+            key: value
+            for key, value in (("start_time", start_time), ("end_time", end_time))
+            if value is not None
+        }
+
     def get_job(
-        self, cluster_id: str, job_id: Union[str, int], *, slurm_api: bool = False
+        self,
+        cluster_id: str,
+        job_id: Union[str, int],
+        *,
+        slurm_api: bool = False,
+        start_time: Optional[int] = None,
+        end_time: Optional[int] = None,
     ) -> Union[SlurmJob, Any]:
+        """Get one job of a cluster.
+
+        ``start_time`` and ``end_time`` (Unix seconds) bound when a finished
+        job ended, as the archive window of :meth:`list_jobs` does: the server
+        defaults to the last 7 days and rejects a window longer than 30 days.
+        """
+        params = self._job_window_params(start_time, end_time)
+        if slurm_api:
+            params["slurm_api"] = "true"
         response = self._get(
             f"/slurmclusters/{self._cluster_path(cluster_id)}/jobs/"
             f"{quote(str(job_id), safe='')}",
-            params={"slurm_api": "true"} if slurm_api else None,
+            params=params or None,
         )
         if slurm_api:
             return self.ensure_json(response)
         return self.ensure_type(response, SlurmJob)
 
     def get_job_events(
-        self, cluster_id: str, job_id: Union[str, int]
+        self,
+        cluster_id: str,
+        job_id: Union[str, int],
+        *,
+        start_time: Optional[int] = None,
+        end_time: Optional[int] = None,
     ) -> SlurmJobEventList:
+        """Get a job's attempts and steps; the window works as in :meth:`get_job`."""
         response = self._get(
             f"/slurmclusters/{self._cluster_path(cluster_id)}/jobs/"
-            f"{quote(str(job_id), safe='')}/events"
+            f"{quote(str(job_id), safe='')}/events",
+            params=self._job_window_params(start_time, end_time) or None,
         )
         return self.ensure_type(response, SlurmJobEventList)
 
