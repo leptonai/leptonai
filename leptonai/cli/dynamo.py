@@ -663,6 +663,42 @@ def get(name, path):
         console.print(f"Dynamo deployment spec saved to [green]{save_path}[/].")
 
 
+def _service_replica_ready_desired(service, info, status):
+    """Return ready/desired replica counts in one unit (pods).
+
+    Deployment status stores both as pod counts: for multi-node workers the
+    operator multiplies spec.replicas by node_count. The services list API
+    reports ready as ready pods but desired as spec.replicas, which made the
+    table show ``2/1`` for one replica on two nodes (LEP-7781). Prefer the
+    status pair; otherwise scale a logical desired count by node_count.
+    """
+    ready = None
+    if info is not None and info.ready_replicas is not None:
+        ready = info.ready_replicas
+    elif status is not None:
+        ready = status.ready_replicas
+
+    if status is not None and status.desired_replicas is not None:
+        return ready, status.desired_replicas
+
+    logical = None
+    if info is not None and info.desired_replicas is not None:
+        logical = info.desired_replicas
+    elif info is not None and info.min_replicas is not None:
+        logical = info.min_replicas
+    else:
+        logical = service.min_replicas
+
+    node_count = 1
+    if info is not None and info.is_multinode:
+        node_count = info.node_count or 1
+    elif service.multinode and service.multinode.node_count:
+        node_count = service.multinode.node_count
+    if logical is not None and node_count > 1:
+        return ready, logical * node_count
+    return ready, logical
+
+
 def _services_table(
     dep: LeptonDynamoGraphDeployment,
     infos: Optional[Dict[str, Any]],
@@ -683,16 +719,7 @@ def _services_table(
         service = spec_services[svc_name]
         info = (infos or {}).get(svc_name)
         status = status_services.get(svc_name)
-        ready = (
-            info.ready_replicas
-            if info is not None and info.ready_replicas is not None
-            else (status.ready_replicas if status else None)
-        )
-        desired = (
-            info.desired_replicas
-            if info is not None and info.desired_replicas is not None
-            else (status.desired_replicas if status else service.min_replicas)
-        )
+        ready, desired = _service_replica_ready_desired(service, info, status)
         if info is not None and info.is_multinode:
             multinode = f"{info.node_count or '?'} nodes"
         elif service.multinode and service.multinode.node_count:
