@@ -12,7 +12,6 @@
 The LeptonAI Python library lets you operate the [NVIDIA DGX Cloud Lepton](https://docs.nvidia.com/dgx-cloud/lepton) platform from Python and the command line. Key features include:
 
 - A `lep` command-line tool to create and manage endpoints, Dynamo graph deployments, batch jobs, dev pods, Ray clusters, fine-tuning jobs, storage, secrets, and more, plus inspect managed Slurm clusters and jobs.
-- A `Client` to call your deployed endpoints like native Python functions.
 - Pythonic configuration specs that are readily shipped to the cloud.
 - Skills that let agents operate the Lepton platform for you.
 
@@ -251,26 +250,6 @@ from the selected shape; unknown or fractional GPU counts require an explicit
 parallelism and protect custom commands.
 
 Run `lep --help`, or `lep <command> --help` for any subcommand, to explore everything. See the [CLI references](https://docs.nvidia.com/dgx-cloud/lepton/reference/cli/get-started/) for the full guide.
-
-## Calling an endpoint from Python
-
-Once an endpoint is running, call it from Python with the `Client`. It reads the endpoint's OpenAPI schema and exposes each path as a method:
-
-```python
-from leptonai.client import Client, local
-
-# Connect to a workspace endpoint...
-c = Client("my-workspace", "my-endpoint", token="MY_TOKEN")
-# ...or to something running locally:
-c = Client(local(port=8080))
-
-# Discover the available paths and their docs
-print(c.paths())
-print(c.run.__doc__)
-
-# Call the endpoint as if it were a local function
-print(c.run(inputs="hello world"))
-```
 
 ## Checking out more examples
 
