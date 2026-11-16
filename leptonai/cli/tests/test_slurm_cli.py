@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 from functools import partial
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -11,11 +12,13 @@ from leptonai.api.v2.types.slurm import (
     LeptonSlurmDevPod,
     SlurmDevPodStatus,
     SlurmJob,
+    SlurmClusterEvent,
     SlurmJobEventList,
     SlurmJobStatus,
     SlurmLogs,
     WorkspaceSlurmJobList,
 )
+from leptonai.api.v2.api_resource import ClientError, ServerError
 from leptonai.api.v2.slurm import SlurmAPI
 from leptonai.cli import lep
 
@@ -169,7 +172,9 @@ def test_cluster_list_and_job_attempts_tables():
     assert "login.example.com" in clusters.output
     assert attempts.exit_code == 0, attempts.output
     # The bare job ID resolves to its cluster through the jobs list.
-    api.get_job_events.assert_called_once_with("ns/cluster-a", "42")
+    api.get_job_events.assert_called_once_with(
+        "ns/cluster-a", "42", start_time=None, end_time=None
+    )
     assert "42.batch" in attempts.output
     # Raw Slurm states (COMPLETED) are normalized to CLI casing (Completed).
     assert "Completed" in attempts.output
@@ -205,12 +210,24 @@ def test_cluster_list_filters_by_name_substring_and_exact_status():
                 "slurm",
                 "cluster",
                 "list",
-                "-n",
+                "-q",
                 "cluster",
-                "-n",
-                "prod",
                 "-s",
-                "NotReady",
+                "Not Ready",
+                "-s",
+                "error",
+                "-o",
+                "json",
+            ],
+        )
+        by_statuses = CliRunner().invoke(
+            lep,
+            [
+                "slurm",
+                "cluster",
+                "list",
+                "-s",
+                "not-ready",
                 "-s",
                 "Error",
                 "-o",
@@ -229,41 +246,45 @@ def test_cluster_list_filters_by_name_substring_and_exact_status():
     assert '"name": "cluster-beta"' not in by_status.output
     assert '"name": "prod-gpu"' not in by_status.output
 
+    # Name and status combine with AND; the dashboard label "Not Ready"
+    # selects NotReady.
     assert combined.exit_code == 0, combined.output
     assert '"name": "cluster-beta"' in combined.output
     assert '"name": "cluster-a"' not in combined.output
-    assert '"name": "prod-gpu"' in combined.output
-    assert api.list_clusters.call_count == 3
+    assert '"name": "prod-gpu"' not in combined.output
+
+    # Repeated statuses are ORed.
+    assert by_statuses.exit_code == 0, by_statuses.output
+    assert '"name": "cluster-beta"' in by_statuses.output
+    assert '"name": "prod-gpu"' in by_statuses.output
+    assert '"name": "cluster-a"' not in by_statuses.output
+    assert api.list_clusters.call_count == 4
 
 
-def test_cluster_list_repeated_name_filters_are_or_conditions():
+def test_cluster_list_takes_one_search_term_and_the_dashboard_statuses():
     client, api = _fake_client()
-    prod = LeptonSlurmCluster(
-        metadata={"id": "ns/prod-gpu", "name": "prod-gpu"},
-        spec={},
-        status={"state": "Error"},
-    )
-    api.list_clusters.return_value = [CLUSTER, prod]
 
     with patch("leptonai.cli.slurm.APIClient", return_value=client):
-        result = CliRunner().invoke(
-            lep,
-            [
-                "slurm",
-                "cluster",
-                "list",
-                "-n",
-                "cluster-a",
-                "-n",
-                "PROD",
-                "-o",
-                "json",
-            ],
+        repeated = CliRunner().invoke(
+            lep, ["slurm", "cluster", "list", "-n", "cluster-a", "-n", "PROD"]
         )
+        unknown = CliRunner().invoke(lep, ["slurm", "cluster", "list", "-s", "Busy"])
+        help_result = CliRunner().invoke(lep, ["slurm", "cluster", "list", "--help"])
 
-    assert result.exit_code == 0, result.output
-    assert '"name": "cluster-a"' in result.output
-    assert '"name": "prod-gpu"' in result.output
+    # The dashboard search takes one keyword; a repeat is a usage error
+    # rather than an OR.
+    assert repeated.exit_code == 2, repeated.output
+    assert "can be given only once" in repeated.output
+    # Status values are the dashboard's eight, listed in the error and help.
+    assert unknown.exit_code == 2, unknown.output
+    assert "'NotReady'" in unknown.output
+    assert "'Unrecoverable'" in unknown.output
+    api.list_clusters.assert_not_called()
+    assert help_result.exit_code == 0, help_result.output
+    assert (
+        "Ready|NotReady|Creating|Starting|Updating|Deleting|Error|Unrecoverable"
+        in help_result.output
+    )
 
 
 def test_state_cells_are_normalized_and_colorized():
@@ -322,15 +343,14 @@ def test_job_list_exposes_only_supported_filter_options():
     result = CliRunner().invoke(lep, ["slurm", "job", "list", "--help"])
 
     assert result.exit_code == 0, result.output
-    assert "--status" in result.output
-    for unsupported in (
-        "--page",
-        "--page-size",
-        "--partition",
-        "--qos",
-        "--sort-by",
-        "--order",
-    ):
+    # The dashboard's filters, including its Archived jobs window.
+    for supported in ("--status", "--partition", "--qos", "--start", "--end"):
+        assert supported in result.output
+    # The server's archive window: the last 7 days by default, 30 at most.
+    assert "7 days" in result.output
+    assert "30 days" in result.output
+    # No paging or sorting flags.
+    for unsupported in ("--page", "--page-size", "--sort-by", "--order"):
         assert unsupported not in result.output
 
 
@@ -357,14 +377,145 @@ def test_job_list_passes_workspace_filters_and_archive_mode():
 
     assert result.exit_code == 0, result.output
     assert '"job_id": 42' in result.output
-    # Loose spellings reach the API as the canonical Lepton state names.
+    # Loose spellings reach the API as the canonical Lepton state names; with
+    # no --start/--end the server's default archive window applies.
     api.list_jobs.assert_called_once_with(
         cluster_names=["ns/cluster-a"],
         job_query_mode="alive_and_archive",
         q=None,
         status=["Running", "PendingRetry"],
         created_by=None,
+        partition=None,
+        qos=None,
+        start_time=None,
+        end_time=None,
     )
+
+
+def test_job_list_passes_partition_qos_and_archive_window():
+    client, api = _fake_client()
+    start = datetime(2026, 11, 1, tzinfo=timezone.utc)
+    end = datetime(2026, 11, 8, 12, 30, tzinfo=timezone.utc)
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        result = CliRunner().invoke(
+            lep,
+            [
+                "slurm",
+                "job",
+                "list",
+                "--partition",
+                "batch,batch_long",
+                "--qos",
+                "normal",
+                "-ia",
+                "--start",
+                "2026-11-01 00:00:00",
+                # Epoch milliseconds are accepted, as in `job log`.
+                "--end",
+                str(int(end.timestamp()) * 1000),
+                "-o",
+                "json",
+            ],
+        )
+
+    assert result.exit_code == 0, result.output
+    # One literal partition/QoS value each, as the dashboard sends them, and
+    # the window as the server's Unix-second start_time/end_time.
+    api.list_jobs.assert_called_once_with(
+        cluster_names=None,
+        job_query_mode="alive_and_archive",
+        q=None,
+        status=None,
+        created_by=None,
+        partition=["batch,batch_long"],
+        qos=["normal"],
+        start_time=int(start.timestamp()),
+        end_time=int(end.timestamp()),
+    )
+
+
+@pytest.mark.parametrize("option", ["--partition", "--qos"])
+def test_job_list_partition_and_qos_take_one_value(option):
+    client, api = _fake_client()
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        result = CliRunner().invoke(
+            lep, ["slurm", "job", "list", option, "batch", option, "debug"]
+        )
+
+    # The dashboard takes one typed value; a repeat must not silently keep
+    # only the last one.
+    assert result.exit_code == 2, result.output
+    assert "can be given only once" in result.output
+    api.list_jobs.assert_not_called()
+
+
+def test_job_list_end_alone_leaves_the_start_to_the_server():
+    client, api = _fake_client()
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        result = CliRunner().invoke(
+            lep, ["slurm", "job", "list", "-ia", "--end", "1790000000"]
+        )
+
+    assert result.exit_code == 0, result.output
+    assert api.list_jobs.call_args.kwargs["start_time"] is None
+    assert api.list_jobs.call_args.kwargs["end_time"] == 1790000000
+
+
+@pytest.mark.parametrize(
+    "args, message",
+    [
+        (["--start", "yesterday"], "add --include-archived"),
+        (["--end", "now"], "add --include-archived"),
+        (
+            ["-ia", "--start", "2026-11-08 00:00:00", "--end", "2026-11-01 00:00:00"],
+            "--start must be earlier than --end",
+        ),
+        (
+            ["-ia", "--start", "2026-09-01 00:00:00", "--end", "2026-11-01 00:00:00"],
+            "exceeds 30 days",
+        ),
+        (["-ia", "--start", "1000000000"], "exceeds 30 days"),
+        (["-ia", "--start", "4102444800"], "--start must be earlier than now"),
+    ],
+    ids=[
+        "start-without-archive",
+        "end-without-archive",
+        "start-after-end",
+        "window-over-30-days",
+        "window-to-now-over-30-days",
+        "start-in-the-future",
+    ],
+)
+def test_job_list_rejects_unusable_archive_windows(args, message):
+    client, api = _fake_client()
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        result = CliRunner().invoke(lep, ["slurm", "job", "list", *args])
+
+    assert result.exit_code == 2, result.output
+    assert message in result.output
+    api.list_jobs.assert_not_called()
+
+
+def test_job_list_accepts_the_widest_archive_window():
+    client, api = _fake_client()
+    end = 1_790_000_000
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        result = CliRunner().invoke(
+            lep,
+            [
+                "slurm",
+                "job",
+                "list",
+                "-ia",
+                "--start",
+                str(end - 30 * 24 * 3600),
+                "--end",
+                str(end),
+            ],
+        )
+
+    assert result.exit_code == 0, result.output
+    assert api.list_jobs.call_args.kwargs["start_time"] == end - 30 * 24 * 3600
 
 
 def test_job_list_rejects_native_slurm_state_names():
@@ -409,6 +560,17 @@ def test_job_list_table_shows_slurm_state_and_reason():
 
 def test_job_log_maps_scope_and_prints_in_timestamp_order():
     client, api = _fake_client()
+    api.list_jobs.return_value = _job_list(
+        _job_entry(
+            42,
+            "train",
+            "ns/cluster-a",
+            state="Completed",
+            creation_time=SUBMITTED_S,
+            start_time=SUBMITTED_S + 5,
+            completion_time=FINISHED_S,
+        )
+    )
     with patch("leptonai.cli.slurm.APIClient", return_value=client):
         result = CliRunner().invoke(
             lep,
@@ -431,8 +593,8 @@ def test_job_log_maps_scope_and_prints_in_timestamp_order():
     assert result.output.index("first") < result.output.index("second")
     api.get_logs.assert_called_once_with(
         "ns/cluster-a",
-        start=None,
-        end=None,
+        start=SUBMITTED_NS - PAD_NS,
+        end=FINISHED_NS + PAD_NS,
         direction="backward",
         job_id="42",
         attempt=0,
@@ -444,7 +606,7 @@ def test_job_log_maps_scope_and_prints_in_timestamp_order():
     )
 
 
-def _job_entry(job_id, name, cluster_id, state="Running"):
+def _job_entry(job_id, name, cluster_id, state="Running", **times):
     return {
         "kind": "slurm",
         "slurm_cluster": {"id": cluster_id, "name": cluster_id.split("/")[1]},
@@ -454,8 +616,22 @@ def _job_entry(job_id, name, cluster_id, state="Running"):
             "created_at": 1_700_000_000_000,
         },
         "spec": {"job_id": job_id, "cpus": 1, "gpus": 0, "memory_mb": 1024},
-        "status": {"state": state, "job_state": state.upper()},
+        "status": {"state": state, "job_state": state.upper(), **times},
     }
+
+
+def _job_list(*entries):
+    return WorkspaceSlurmJobList(
+        page=1, page_size=len(entries), total=len(entries), jobs=list(entries)
+    )
+
+
+# Job times arrive in seconds; log windows are sent in nanoseconds.
+SUBMITTED_S = 1_793_691_300
+FINISHED_S = 1_793_691_445
+SUBMITTED_NS = SUBMITTED_S * 1_000_000_000
+FINISHED_NS = FINISHED_S * 1_000_000_000
+PAD_NS = 60 * 1_000_000_000
 
 
 AMBIGUOUS_JOBS = WorkspaceSlurmJobList(
@@ -471,53 +647,59 @@ AMBIGUOUS_JOBS = WorkspaceSlurmJobList(
 EMPTY_JOBS = WorkspaceSlurmJobList(page=1, page_size=0, total=0, jobs=[])
 
 
-def test_job_attempts_with_cluster_and_id_resolves_inside_cluster():
+def test_job_attempts_with_cluster_id_and_archived_skips_job_listing():
     client, api = _fake_client()
-    api.list_cluster_jobs.return_value = [JOBS.jobs[0]]
     with patch("leptonai.cli.slurm.APIClient", return_value=client):
         # The cluster is accepted as NAMESPACE/NAME or bare NAME; both are
         # validated against list_clusters before any job lookup.
         full = CliRunner().invoke(
             lep,
-            ["slurm", "job", "attempts", "-i", "42", "--cluster", "ns/cluster-a"],
+            [
+                "slurm",
+                "job",
+                "attempts",
+                "-i",
+                "42",
+                "--cluster",
+                "ns/cluster-a",
+                "-ia",
+            ],
         )
         bare = CliRunner().invoke(
             lep,
-            ["slurm", "job", "attempts", "-i", "42", "--cluster", "cluster-a"],
+            ["slurm", "job", "attempts", "-i", "42", "--cluster", "cluster-a", "-ia"],
         )
 
     assert full.exit_code == 0, full.output
     assert bare.exit_code == 0, bare.output
     api.list_jobs.assert_not_called()
-    assert api.list_cluster_jobs.call_args.args == ("ns/cluster-a",)
-    assert api.list_cluster_jobs.call_args.kwargs["q"] == "42"
+    api.list_cluster_jobs.assert_not_called()
     assert api.get_job_events.call_count == 2
-    api.get_job_events.assert_called_with("ns/cluster-a", "42")
-
-
-@pytest.mark.parametrize(
-    "command",
-    [
-        ["get"],
-        ["attempts"],
-        ["log"],
-    ],
-)
-def test_job_with_cluster_and_id_honors_include_archived(command):
-    client, api = _fake_client()
-    # The alive-only query does not return the archived job.
-    api.list_cluster_jobs.side_effect = lambda cluster_id, job_query_mode, q: (
-        [JOBS.jobs[0]] if job_query_mode == "alive_and_archive" else []
+    api.get_job_events.assert_called_with(
+        "ns/cluster-a", "42", start_time=None, end_time=None
     )
-    args = ["slurm", "job", *command, "-i", "42", "-c", "ns/cluster-a"]
-    with patch("leptonai.cli.slurm.APIClient", return_value=client):
-        default = CliRunner().invoke(lep, args)
-        archived = CliRunner().invoke(lep, [*args, "--include-archived"])
 
-    assert default.exit_code == 1, default.output
-    assert "No alive Slurm job found" in default.output
-    assert "--include-archived" in default.output
-    assert archived.exit_code == 0, archived.output
+
+@pytest.mark.parametrize("command", ["get", "attempts", "log"])
+def test_job_id_with_cluster_skips_archived_jobs_by_default(command):
+    # LEP-7309: --cluster must not bypass the alive-only default; the job is
+    # looked up in the cluster's alive list, and an archived one is refused
+    # with the same --include-archived hint as the workspace-wide lookup.
+    client, api = _fake_client()
+    api.list_cluster_jobs.return_value = []
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        result = CliRunner().invoke(
+            lep, ["slurm", "job", command, "-i", "1304", "-c", "cluster-a"]
+        )
+
+    assert result.exit_code == 1, result.output
+    assert "--include-archived" in result.stderr
+    assert result.stdout == ""
+    assert api.list_cluster_jobs.call_args.args == ("ns/cluster-a",)
+    assert api.list_cluster_jobs.call_args.kwargs["job_query_mode"] == "alive_only"
+    api.get_job.assert_not_called()
+    api.get_job_events.assert_not_called()
+    api.get_logs.assert_not_called()
 
 
 def test_job_commands_error_on_unknown_cluster():
@@ -591,7 +773,9 @@ def test_job_attempts_name_resolved_inside_selected_cluster():
     api.list_jobs.assert_not_called()
     assert api.list_cluster_jobs.call_args.args == ("ns-b/cluster-b",)
     assert api.list_cluster_jobs.call_args.kwargs["q"] == "train"
-    api.get_job_events.assert_called_once_with("ns-b/cluster-b", "7")
+    api.get_job_events.assert_called_once_with(
+        "ns-b/cluster-b", "7", start_time=None, end_time=None
+    )
 
 
 def test_job_get_prints_all_jobs_sharing_a_name():
@@ -650,12 +834,129 @@ def test_job_resolution_zero_match_points_at_unreachable_clusters():
         result = CliRunner().invoke(lep, ["slurm", "job", "get", "-i", "99"])
 
     assert result.exit_code == 1, result.output
-    assert "cluster-b: cache sync: Gateway Timeout" in result.output
-    assert "retry with --cluster NAMESPACE/NAME" in result.output
+    stderr = " ".join(result.stderr.split())
+    assert "cluster-b: cache sync: Gateway Timeout" in stderr
+    assert "retry with --cluster NAMESPACE/NAME" in stderr
+    assert result.stdout == ""
+
+
+@pytest.mark.parametrize(
+    "command, route", [("get", "get_job"), ("attempts", "get_job_events")]
+)
+@pytest.mark.parametrize(
+    "selector, lookup",
+    [
+        (["-i", "42"], "list_jobs"),
+        (["-n", "train", "-c", "cluster-a"], "list_cluster_jobs"),
+        (["-i", "42", "-c", "cluster-a"], None),
+    ],
+    ids=["workspace-lookup", "cluster-lookup", "single-job-route"],
+)
+def test_job_get_and_attempts_send_the_archive_window(command, route, selector, lookup):
+    client, api = _fake_client()
+    api.list_cluster_jobs.return_value = [
+        SlurmJob(
+            metadata={"id": "42", "name": "train"},
+            spec={"job_id": 42},
+            status={"state": "Completed", "job_state": "COMPLETED"},
+        )
+    ]
+    start = int(datetime(2026, 10, 20, tzinfo=timezone.utc).timestamp())
+    end = int(datetime(2026, 11, 10, tzinfo=timezone.utc).timestamp())
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        result = CliRunner().invoke(
+            lep,
+            [
+                "slurm",
+                "job",
+                command,
+                *selector,
+                "-ia",
+                "--start",
+                "2026-10-20 00:00:00",
+                "--end",
+                str(end),
+            ],
+        )
+
+    assert result.exit_code == 0, result.output
+    # The lookup and the single-job route search the same window, so a job
+    # one of them finds is not missed by the other.
+    for method in ("list_jobs", "list_cluster_jobs"):
+        listed = getattr(api, method)
+        if method != lookup:
+            listed.assert_not_called()
+            continue
+        listed.assert_called_once()
+        assert listed.call_args.kwargs["job_query_mode"] == "alive_and_archive"
+        assert listed.call_args.kwargs["start_time"] == start
+        assert listed.call_args.kwargs["end_time"] == end
+    fetched = getattr(api, route)
+    fetched.assert_called_once()
+    assert fetched.call_args.args == ("ns/cluster-a", "42")
+    assert fetched.call_args.kwargs["start_time"] == start
+    assert fetched.call_args.kwargs["end_time"] == end
+
+
+@pytest.mark.parametrize("command", ["get", "attempts"])
+@pytest.mark.parametrize(
+    "args, message",
+    [
+        (["--start", "yesterday"], "add --include-archived"),
+        (
+            ["-ia", "--start", "2026-11-08 00:00:00", "--end", "2026-11-01 00:00:00"],
+            "--start must be earlier than --end",
+        ),
+        (
+            ["-ia", "--start", "2026-09-01 00:00:00", "--end", "2026-11-01 00:00:00"],
+            "exceeds 30 days",
+        ),
+    ],
+    ids=["window-without-archive", "start-after-end", "window-over-30-days"],
+)
+def test_job_get_and_attempts_reject_unusable_archive_windows(command, args, message):
+    client, api = _fake_client()
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        result = CliRunner().invoke(lep, ["slurm", "job", command, "-i", "42", *args])
+
+    assert result.exit_code == 2, result.output
+    assert message in result.output
+    assert not api.mock_calls
+
+
+def test_job_lookup_miss_points_at_the_window_only_where_it_applies():
+    client, api = _fake_client()
+    api.list_jobs.return_value = EMPTY_JOBS
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        get = CliRunner().invoke(lep, ["slurm", "job", "get", "-i", "99", "-ia"])
+        attempts = CliRunner().invoke(
+            lep, ["slurm", "job", "attempts", "-i", "99", "-ia"]
+        )
+        windowed = CliRunner().invoke(
+            lep, ["slurm", "job", "get", "-i", "99", "-ia", "--start", "yesterday"]
+        )
+        log = CliRunner().invoke(
+            lep, ["slurm", "job", "log", "-i", "99", "-ia", "--start", "yesterday"]
+        )
+
+    for result in (get, attempts):
+        assert result.exit_code == 1, result.output
+        stderr = " ".join(result.stderr.split())
+        assert "ended in the last 7 days were searched" in stderr
+        assert "--start" in stderr
+    # An explicit window was searched as given, and job log's --start bounds
+    # log lines rather than the job lookup.
+    for result in (windowed, log):
+        assert result.exit_code == 1, result.output
+        stderr = " ".join(result.stderr.split())
+        assert "No alive or archived Slurm job found for ID: 99." in stderr
+        assert "last 7 days" not in stderr
+    assert api.list_jobs.call_args.kwargs["start_time"] is None
 
 
 def test_devpod_create_remove_and_safe_ssh_print():
     client, api = _fake_client()
+    api.list_devpods.return_value = []
     with patch("leptonai.cli.slurm.APIClient", return_value=client):
         created = CliRunner().invoke(
             lep,
@@ -863,6 +1164,34 @@ def test_devpod_ssh_runs_bastion_command_with_extra_options_before_destination()
     )
 
 
+def test_devpod_ssh_without_local_ssh_fails_with_an_actionable_message():
+    # LEP-7428: a missing OpenSSH client is a usage problem, not a crash.
+    client, _ = _fake_client()
+    with (
+        patch("leptonai.cli.slurm.APIClient", return_value=client),
+        patch(
+            "leptonai.cli.slurm.subprocess.run",
+            side_effect=FileNotFoundError(2, "No such file or directory", "ssh"),
+        ),
+    ):
+        result = CliRunner().invoke(
+            lep, ["slurm", "devpod", "ssh", "--id", "ns/cluster-a-alice"]
+        )
+
+    assert result.exit_code == 1, result.output
+    assert "OpenSSH client" in result.stderr
+    assert "lep slurm devpod shell" in result.stderr
+    assert "Traceback" not in result.output
+    assert "Unexpected error" not in result.output
+
+
+def test_devpod_ssh_help_states_the_openssh_requirement():
+    result = CliRunner().invoke(lep, ["slurm", "devpod", "ssh", "--help"])
+
+    assert result.exit_code == 0, result.output
+    assert "OpenSSH" in " ".join(result.output.split())
+
+
 def test_devpod_ssh_fails_closed_when_bastion_is_disabled():
     disabled_cluster = LeptonSlurmCluster(
         metadata={"id": "ns/cluster-a", "name": "cluster-a"},
@@ -893,6 +1222,7 @@ def test_devpod_ssh_fails_closed_when_bastion_is_disabled():
 
 def test_devpod_create_resolves_bare_cluster_name():
     client, api = _fake_client()
+    api.list_devpods.return_value = []
     with patch("leptonai.cli.slurm.APIClient", return_value=client):
         created = CliRunner().invoke(
             lep, ["slurm", "devpod", "create", "-c", "cluster-a"]
@@ -1130,6 +1460,130 @@ def test_devpod_shell_needs_a_ready_dev_pod(metadata, status, message):
     bridge.assert_not_called()
 
 
+def test_job_log_window_stays_open_while_the_job_runs():
+    client, api = _fake_client()
+    api.list_jobs.return_value = _job_list(
+        _job_entry(
+            42,
+            "train",
+            "ns/cluster-a",
+            # A requeued job keeps its last attempt's completion time.
+            creation_time=SUBMITTED_S,
+            completion_time=FINISHED_S,
+        )
+    )
+    with (
+        patch("leptonai.cli.slurm.APIClient", return_value=client),
+        patch("leptonai.cli.slurm.time.time_ns", return_value=FINISHED_NS),
+    ):
+        result = CliRunner().invoke(lep, ["slurm", "job", "log", "-i", "42"])
+
+    assert result.exit_code == 0, result.output
+    assert api.get_logs.call_args.kwargs["start"] == SUBMITTED_NS - PAD_NS
+    assert api.get_logs.call_args.kwargs["end"] is None
+
+
+def test_job_log_reads_job_times_when_resolution_is_skipped():
+    client, api = _fake_client()
+    api.get_job.return_value = SlurmJob(
+        metadata={"id": "997"},
+        spec={"job_id": 997},
+        status={
+            "state": "Completed",
+            # Millisecond precision is normalized too.
+            "creation_time": SUBMITTED_S * 1000,
+            "completion_time": FINISHED_S * 1000,
+        },
+    )
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        result = CliRunner().invoke(
+            lep, ["slurm", "job", "log", "-i", "997", "-c", "cluster-a", "-ia"]
+        )
+
+    assert result.exit_code == 0, result.output
+    api.get_job.assert_called_once_with("ns/cluster-a", "997")
+    assert api.get_logs.call_args.kwargs["start"] == SUBMITTED_NS - PAD_NS
+    assert api.get_logs.call_args.kwargs["end"] == FINISHED_NS + PAD_NS
+
+
+def test_job_log_explicit_start_skips_the_job_window():
+    client, api = _fake_client()
+    with (
+        patch("leptonai.cli.slurm.APIClient", return_value=client),
+        patch("leptonai.cli.slurm.time.time_ns", return_value=FINISHED_NS),
+    ):
+        result = CliRunner().invoke(
+            lep,
+            [
+                "slurm",
+                "job",
+                "log",
+                "-i",
+                "997",
+                "-c",
+                "cluster-a",
+                "-ia",
+                "--start",
+                str(SUBMITTED_S),
+            ],
+        )
+
+    assert result.exit_code == 0, result.output
+    api.get_job.assert_not_called()
+    assert api.get_logs.call_args.kwargs["start"] == SUBMITTED_NS
+    assert api.get_logs.call_args.kwargs["end"] is None
+
+
+def test_job_log_end_before_submission_is_a_usage_error():
+    client, api = _fake_client()
+    api.list_jobs.return_value = _job_list(
+        _job_entry(42, "train", "ns/cluster-a", creation_time=SUBMITTED_S)
+    )
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        result = CliRunner().invoke(
+            lep,
+            ["slurm", "job", "log", "-i", "42", "--end", str(SUBMITTED_S - 3600)],
+        )
+
+    assert result.exit_code == 2, result.output
+    assert "before Slurm job 42 was submitted" in result.output
+    api.get_logs.assert_not_called()
+
+
+def test_job_log_without_job_times_warns_about_the_short_window():
+    client, api = _fake_client()  # JOBS carries no status times
+    with (
+        patch("leptonai.cli.slurm.APIClient", return_value=client),
+        patch("leptonai.cli.slurm.time.time_ns", return_value=FINISHED_NS),
+    ):
+        result = CliRunner().invoke(lep, ["slurm", "job", "log", "-i", "42"])
+
+    assert result.exit_code == 0, result.output
+    assert api.get_logs.call_args.kwargs["start"] == FINISHED_NS - 5 * 60 * 10**9
+    assert "Pass --start" in result.stderr
+    # Only the log lines reach stdout.
+    assert result.stdout.split() == ["first", "second"]
+
+
+def test_job_log_follow_seeds_from_the_job_submit_time():
+    client, api = _fake_client()
+    api.list_jobs.return_value = _job_list(
+        _job_entry(42, "train", "ns/cluster-a", creation_time=SUBMITTED_S)
+    )
+    api.get_logs.side_effect = [SlurmLogs(), KeyboardInterrupt()]
+    with (
+        patch("leptonai.cli.slurm.APIClient", return_value=client),
+        patch("leptonai.cli.slurm.time.sleep"),
+        patch("leptonai.cli.slurm.time.time_ns", return_value=FINISHED_NS),
+    ):
+        result = CliRunner().invoke(lep, ["slurm", "job", "log", "-i", "42", "-f"])
+
+    assert result.exit_code == 0, result.output
+    seed = api.get_logs.call_args_list[0].kwargs
+    assert seed["direction"] == "backward"
+    assert seed["start"] == SUBMITTED_NS - PAD_NS
+
+
 def test_job_log_follow_seeds_newest_page_then_drains_full_pages():
     client, api = _fake_client()
 
@@ -1251,3 +1705,323 @@ def test_devpod_list_search_filters_by_name_and_id():
     assert "cluster-a-alice" in hit.output
     assert miss.exit_code == 0, miss.output
     assert json.loads(miss.output) == []
+
+
+def test_devpod_list_search_is_labelled_cli_only():
+    # The dashboard's Dev Pods tab has no search.
+    result = CliRunner().invoke(lep, ["slurm", "devpod", "list", "--help"])
+
+    assert result.exit_code == 0, result.output
+    assert "CLI-only" in result.output
+
+
+class _ErrorResponse:
+    def __init__(self, status_code, text):
+        self.status_code = status_code
+        self.text = text
+
+
+@pytest.mark.parametrize(
+    "error, expected",
+    [
+        (
+            ClientError(_ErrorResponse(404, '{"message":"job 42 not found"}')),
+            "404 Not Found",
+        ),
+        (ClientError(_ErrorResponse(401, "OAuth flow failed.")), "401 Unauthorized"),
+        (ClientError(_ErrorResponse(403, "permission denied")), "403 Forbidden"),
+        (ServerError(_ErrorResponse(502, "bad gateway")), "502 Error"),
+        (RuntimeError("boom"), "Unexpected error"),
+    ],
+)
+def test_api_and_runtime_errors_go_to_stderr(error, expected):
+    # LEP-7427: stdout carries only results, so scripts piping JSON never
+    # parse an error message as output.
+    client, api = _fake_client()
+    api.get_job.side_effect = error
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        # Through the lookup: the -c/-ia direct route reports a 404 as a
+        # missing job instead.
+        result = CliRunner().invoke(lep, ["slurm", "job", "get", "-i", "42"])
+
+    assert result.exit_code == 1, result.output
+    assert result.stdout == ""
+    assert expected in result.stderr
+
+
+@pytest.mark.parametrize(
+    "command, route", [("get", "get_job"), ("attempts", "get_job_events")]
+)
+def test_direct_job_route_miss_reads_like_a_lookup_miss(command, route):
+    client, api = _fake_client()
+    getattr(api, route).side_effect = ClientError(
+        _ErrorResponse(404, '{"message":"job 99 not found"}')
+    )
+    args = ["slurm", "job", command, "-i", "99", "-c", "cluster-a", "-ia"]
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        default = CliRunner().invoke(lep, args)
+        windowed = CliRunner().invoke(lep, [*args, "--start", "yesterday"])
+
+    # The same message, and the same --start/--end hint, as a miss without -c.
+    for result in (default, windowed):
+        assert result.exit_code == 1, result.output
+        assert result.stdout == ""
+        stderr = " ".join(result.stderr.split())
+        assert "No alive or archived Slurm job found for ID: 99." in stderr
+        assert "404" not in stderr
+    assert "ended in the last 7 days were searched" in " ".join(default.stderr.split())
+    assert "last 7 days" not in " ".join(windowed.stderr.split())
+    api.list_jobs.assert_not_called()
+    api.list_cluster_jobs.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "error, message",
+    [
+        (
+            ClientError(
+                _ErrorResponse(
+                    400,
+                    "invalid event type: x; valid event types:"
+                    " [create_cluster delete_cluster]",
+                )
+            ),
+            "valid event types: [create_cluster delete_cluster]",
+        ),
+        (
+            ServerError(_ErrorResponse(500, r"pattern '^\[HC\]' [bold]x")),
+            r"pattern '^\[HC\]' [bold]x",
+        ),
+        (ValueError("ambiguous: [red]a[/] or b"), "ambiguous: [red]a[/] or b"),
+    ],
+)
+def test_error_text_is_printed_verbatim_not_as_markup(error, message):
+    # LEP-7508: rich parsed "[create_cluster ...]" as a style tag and dropped
+    # the list of valid values from the server's error.
+    client, api = _fake_client()
+    api.get_job.side_effect = error
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        result = CliRunner().invoke(
+            lep,
+            ["slurm", "job", "get", "-i", "99999999", "-c", "cluster-a", "-ia"],
+        )
+
+    assert result.exit_code == 1, result.output
+    assert message in " ".join(result.stderr.split())
+
+
+def test_cluster_events_validates_limit_and_type_locally():
+    client, api = _fake_client()
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        help_text = (
+            CliRunner().invoke(lep, ["slurm", "cluster", "events", "--help"]).output
+        )
+        too_many = CliRunner().invoke(
+            lep, ["slurm", "cluster", "events", "-n", "cluster-a", "--limit", "1001"]
+        )
+        bad_type = CliRunner().invoke(
+            lep, ["slurm", "cluster", "events", "-n", "cluster-a", "--type", "x"]
+        )
+        loose_type = CliRunner().invoke(
+            lep,
+            ["slurm", "cluster", "events", "-n", "cluster-a", "--type", "Add-User"],
+        )
+
+    assert "1<=x<=1000" in help_text
+    assert too_many.exit_code == 2, too_many.output
+    assert "1001 is not in the range 1<=x<=1000" in too_many.output
+    assert bad_type.exit_code == 2, bad_type.output
+    assert "'reset_usage'" in bad_type.output
+    assert loose_type.exit_code == 0, loose_type.output
+    api.list_cluster_events.assert_called_once_with(
+        "ns/cluster-a", limit=100, event_type="add_user"
+    )
+
+
+def test_cluster_events_table_keeps_brackets_and_backslashes():
+    client, api = _fake_client()
+    messages = [
+        "object.LDAPConfig.DomainSuffix[nvidia.com]:",
+        'b: "^\\\\[HC\\\\] GPU_FAIL$"',
+    ]
+    api.list_cluster_events.return_value = [
+        SlurmClusterEvent(timestamp="t", type="patch_cluster", message=m)
+        for m in messages
+    ]
+    with (
+        patch("leptonai.cli.slurm.APIClient", return_value=client),
+        _wide_console(),
+    ):
+        result = CliRunner().invoke(
+            lep, ["slurm", "cluster", "events", "-n", "cluster-a"]
+        )
+
+    assert result.exit_code == 0, result.output
+    for message in messages:
+        assert message in result.output
+
+
+def test_job_list_table_keeps_bracketed_text_in_reasons():
+    client, api = _fake_client()
+    api.list_jobs.return_value = _job_list(
+        _job_entry(42, "train", "ns/cluster-a", state="Awaiting")
+    )
+    api.list_jobs.return_value.jobs[0].status.state_reason = (
+        "Dependency [afterok:41] not yet satisfied"
+    )
+    with (
+        patch("leptonai.cli.slurm.APIClient", return_value=client),
+        _wide_console(),
+    ):
+        result = CliRunner().invoke(lep, ["slurm", "job", "list"])
+
+    assert result.exit_code == 0, result.output
+    assert "Dependency [afterok:41]" in result.output
+
+
+def test_job_list_dedupes_a_cluster_given_twice():
+    client, api = _fake_client()
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        result = CliRunner().invoke(
+            lep,
+            ["slurm", "job", "list", "-c", "cluster-a", "-c", "ns/cluster-a"],
+        )
+
+    assert result.exit_code == 0, result.output
+    assert api.list_jobs.call_args.kwargs["cluster_names"] == ["ns/cluster-a"]
+
+
+def test_job_log_limit_and_window_respect_backend_maximums():
+    client, api = _fake_client()
+    with (
+        patch("leptonai.cli.slurm.APIClient", return_value=client),
+        patch("leptonai.cli.slurm.time.time_ns", return_value=FINISHED_NS),
+    ):
+        help_text = CliRunner().invoke(lep, ["slurm", "job", "log", "--help"]).output
+        too_many = CliRunner().invoke(
+            lep, ["slurm", "job", "log", "-i", "42", "--limit", "20001"]
+        )
+        negative_start = CliRunner().invoke(
+            lep, ["slurm", "job", "log", "-i", "42", "--start", "-5"]
+        )
+        long_range = CliRunner().invoke(
+            lep,
+            [
+                "slurm",
+                "job",
+                "log",
+                "-i",
+                "42",
+                "--start",
+                str(SUBMITTED_S - 40 * 86400),
+                "--end",
+                str(SUBMITTED_S),
+            ],
+        )
+
+    assert "1<=x<=20000" in help_text
+    assert too_many.exit_code == 2, too_many.output
+    assert "20001 is not in the range 1<=x<=20000" in too_many.output
+    for result in (negative_start, long_range):
+        assert result.exit_code == 2, result.output
+        assert "exceeds 31 days" in result.output
+    api.get_logs.assert_not_called()
+
+
+def test_job_log_clamps_a_job_window_longer_than_31_days():
+    client, api = _fake_client()
+    submitted = SUBMITTED_S - 40 * 86400
+    api.list_jobs.return_value = _job_list(
+        _job_entry(42, "train", "ns/cluster-a", creation_time=submitted)
+    )
+    with (
+        patch("leptonai.cli.slurm.APIClient", return_value=client),
+        patch("leptonai.cli.slurm.time.time_ns", return_value=FINISHED_NS),
+    ):
+        result = CliRunner().invoke(lep, ["slurm", "job", "log", "-i", "42"])
+
+    assert result.exit_code == 0, result.output
+    assert api.get_logs.call_args.kwargs["start"] == FINISHED_NS - 31 * 86400 * 10**9
+    assert "spans more than 31 days" in result.stderr
+    assert result.stdout.split() == ["first", "second"]
+
+
+def test_job_ssh_does_not_offer_include_archived():
+    client, api = _fake_client()
+    api.list_jobs.return_value = EMPTY_JOBS
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        missing = CliRunner().invoke(lep, ["slurm", "job", "ssh", "-i", "999999"])
+        archived = CliRunner().invoke(
+            lep, ["slurm", "job", "ssh", "-i", "999999", "-ia"]
+        )
+
+    assert missing.exit_code == 1, missing.output
+    assert "999999" in missing.output
+    assert "--include-archived" not in missing.output
+    assert archived.exit_code == 2, archived.output
+    assert "does not apply to job ssh" in archived.output
+    assert api.list_jobs.call_count == 1
+
+
+@pytest.mark.parametrize(
+    "option, value",
+    [
+        ("--memory", "1.5Gi"),
+        ("--memory", "-1Gi"),
+        ("--memory", "16GB"),
+        ("--cpu", "-1"),
+        ("--cpu", "+1"),
+        ("--cpu", "1.5m"),
+    ],
+)
+def test_devpod_create_rejects_malformed_requests_locally(option, value):
+    client, api = _fake_client()
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        result = CliRunner().invoke(
+            lep, ["slurm", "devpod", "create", "-c", "cluster-a", option, value]
+        )
+
+    assert result.exit_code == 2, result.output
+    assert f"Invalid value for '{option}'" in result.output
+    api.create_devpod.assert_not_called()
+
+
+def test_devpod_create_accepts_documented_request_formats():
+    client, api = _fake_client()
+    api.list_devpods.return_value = []
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        result = CliRunner().invoke(
+            lep,
+            [
+                "slurm",
+                "devpod",
+                "create",
+                "-c",
+                "cluster-a",
+                "--cpu",
+                "0.5",
+                "--memory",
+                "512Mi",
+            ],
+        )
+
+    assert result.exit_code == 0, result.output
+    api.create_devpod.assert_called_once_with(
+        "ns/cluster-a", set_name=None, cpu="0.5", memory="512Mi"
+    )
+
+
+def test_devpod_create_reports_an_existing_devpod():
+    client, api = _fake_client()  # DEVPOD already lives on cluster-a
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        result = CliRunner().invoke(
+            lep, ["slurm", "devpod", "create", "-c", "cluster-a"]
+        )
+
+    assert result.exit_code == 1, result.output
+    assert "already have a Dev Pod on ns/cluster-a (ns/cluster-a-alice)" in (
+        result.stderr
+    )
+    assert "lep slurm devpod remove -c ns/cluster-a" in result.stderr
+    api.list_devpods.assert_called_once_with(cluster_names=["ns/cluster-a"])
+    api.create_devpod.assert_not_called()

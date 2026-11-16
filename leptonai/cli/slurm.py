@@ -1,18 +1,32 @@
 """CLI commands for workspace Slurm resources."""
 
 import json
+import re
 import shlex
 import subprocess
 import sys
 import time
+from contextlib import contextmanager
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    NoReturn,
+    Optional,
+    Tuple,
+)
 
 import click
 from requests import RequestException
 from rich.table import Table
+from rich.text import Text
 
 from .client import APIClient
+from ..api.v2.api_resource import ClientError
 from ..api.v2.node_ssh import NodeSSHTarget
 from ..api.v2.slurm import SlurmClusterLookupError
 from ..api.v2.types.slurm import (
@@ -29,11 +43,14 @@ from ..api.v2.types.slurm import (
 from .log import _preprocess_time
 from .teleport import connect_node_teleport
 from .util import (
+    single_keyword,
     LooseChoice,
     click_group,
     colorize_state,
     console,
+    epoch_scale,
     epoch_to_seconds,
+    err_console,
     format_epoch_cell,
     keyword_matches,
     make_name_id_cell,
@@ -42,6 +59,19 @@ from .util import (
 
 
 OUTPUT_FORMAT = click.Choice(("table", "json"), case_sensitive=False)
+
+# The dashboard's Slurm cluster status filter values, in its order. It labels
+# NotReady "Not Ready" and compares the raw cluster state exactly.
+_SLURM_CLUSTER_STATES = (
+    "Ready",
+    "NotReady",
+    "Creating",
+    "Starting",
+    "Updating",
+    "Deleting",
+    "Error",
+    "Unrecoverable",
+)
 
 # The Lepton states the server maps Slurm job states onto, in dashboard order.
 # The job list's status filter matches these rather than the native Slurm
@@ -60,6 +90,32 @@ _SLURM_JOB_STATES = (
     "PendingRetry",
     "Terminating",
 )
+
+# Server-side limits, checked here so a bad value fails as a usage error
+# instead of a raw API (or logging backend) error.
+# Cluster event types the history route accepts (slurm-cluster-operator
+# eventstore), and its maximum page.
+_SLURM_CLUSTER_EVENT_TYPES = (
+    "create_cluster",
+    "delete_cluster",
+    "update_cluster",
+    "patch_cluster",
+    "add_user",
+    "remove_user",
+    "restart_pods",
+    "reset_usage",
+)
+_MAX_CLUSTER_EVENTS = 1000
+# The logging backend's max entries per query and max query length.
+_MAX_LOG_LINES = 20000
+_MAX_LOG_WINDOW_NS = 31 * 24 * 60 * 60 * 1_000_000_000
+# The job list's longest archive window, plus the minute of clock skew the
+# server allows a client asking for it.
+_MAX_ARCHIVE_WINDOW_S = 30 * 24 * 60 * 60
+_ARCHIVE_WINDOW_GRACE_S = 60
+# Dev Pod resource request formats (LeptonSlurmCluster ResourceList CRD).
+_DEVPOD_CPU_PATTERN = re.compile(r"[0-9]+m?|[0-9]+\.[0-9]+")
+_DEVPOD_MEMORY_PATTERN = re.compile(r"[0-9]+([EPTGMK]i?)?")
 
 
 def _model_dump(value: Any) -> Any:
@@ -259,26 +315,66 @@ def _diagnosis(reason: Optional[str], error: Optional[str]) -> str:
 def _filter_clusters(
     clusters: Iterable[LeptonSlurmCluster],
     *,
-    names: Iterable[str] = (),
+    keyword: Optional[str] = None,
     statuses: Iterable[str] = (),
 ) -> List[LeptonSlurmCluster]:
-    """Apply the dashboard's client-side cluster name and status filters.
+    """Apply the dashboard's client-side cluster filters exactly as it does.
 
-    Status values compare against the normalized state the table shows.
+    The keyword is a case-insensitive substring of the cluster name; the
+    statuses (canonical values of _SLURM_CLUSTER_STATES) match the raw
+    cluster state exactly. The two are combined with AND.
     """
-    name_filters = tuple(value.strip().casefold() for value in names if value.strip())
-    status_filters = {value.strip().casefold() for value in statuses if value.strip()}
-    filtered = []
-    for item in clusters:
-        name = (item.metadata.name or "").casefold()
-        state = _normalize_state(item.status.state if item.status else None)
-        state = "" if state == "-" else state.casefold()
-        if name_filters and not any(value in name for value in name_filters):
-            continue
-        if status_filters and state not in status_filters:
-            continue
-        filtered.append(item)
-    return filtered
+    normalized_keyword = normalize_keyword(keyword)
+    wanted = set(statuses)
+    return [
+        item
+        for item in clusters
+        if keyword_matches(normalized_keyword, item.metadata.name or "")
+        and (not wanted or ((item.status.state if item.status else None) in wanted))
+    ]
+
+
+def _single_value(ctx, param, value: Tuple[str, ...]) -> Optional[str]:
+    """Click callback: accept a ``multiple=True`` option at most once.
+
+    For filters the dashboard takes as one typed value; ``multiple=True`` only
+    lets a repeat fail instead of click silently keeping the last one.
+    """
+    if not value:
+        return None
+    if len(value) > 1:
+        raise click.BadParameter("can be given only once.", ctx=ctx, param=param)
+    return value[0]
+
+
+def _archive_window(
+    start: Optional[str], end: Optional[str], include_archived: bool
+) -> Tuple[Optional[int], Optional[int]]:
+    """Convert job --start/--end into the server's start_time/end_time.
+
+    Both are Unix seconds bounding when archived jobs ended. The server
+    defaults end_time to now and start_time to 7 days before end_time, and
+    rejects a window longer than 30 days; check that here so a bad window
+    fails as a usage error.
+    """
+    if (start or end) and not include_archived:
+        raise click.UsageError(
+            "--start and --end bound archived jobs; add --include-archived."
+        )
+    start_s = _preprocess_time(start, epoch=True) // 1_000_000_000 if start else None
+    end_s = _preprocess_time(end, epoch=True) // 1_000_000_000 if end else None
+    if start_s is not None:
+        window_end = end_s if end_s is not None else int(time.time())
+        until = "--end" if end_s is not None else "now"
+        if window_end <= start_s:
+            raise click.UsageError(f"--start must be earlier than {until}.")
+        if window_end - start_s > _MAX_ARCHIVE_WINDOW_S + _ARCHIVE_WINDOW_GRACE_S:
+            raise click.UsageError(
+                f"The archive window from --start to {until} exceeds 30 days;"
+                " pick a later --start"
+                + (" or an earlier --end." if end_s is not None else ".")
+            )
+    return start_s, end_s
 
 
 def _print_clusters_table(
@@ -315,9 +411,9 @@ def _print_clusters_table(
 def _print_failed_clusters(failed_clusters: Dict[str, str]) -> None:
     if not failed_clusters:
         return
-    console.print("[yellow]Some clusters could not be queried:[/yellow]")
+    err_console.print("[yellow]Some clusters could not be queried:[/yellow]")
     for cluster_name, error in sorted(failed_clusters.items()):
-        console.print(f"  {cluster_name}: {error}")
+        err_console.print(f"  {cluster_name}: {error}")
 
 
 def _job_cluster_cell(job: WorkspaceSlurmJob, api: Any = None) -> str:
@@ -366,7 +462,8 @@ def _print_jobs_table(result: WorkspaceSlurmJobList, *, api: Any = None) -> None
             f"{item.status.partition or '-'} / {item.status.qos or '-'}",
             _format_resources(item.spec.cpus, item.spec.gpus, item.spec.memory_mb),
             format_epoch_cell(item.metadata.created_at),
-            _job_reason(item.status),
+            # Plain Text: a reason such as "Dependency [afterok:41]" is not markup.
+            Text(_job_reason(item.status)),
         )
     console.print(table)
     _print_failed_clusters(result.failed_clusters)
@@ -387,7 +484,7 @@ def _print_attempts_table(
         table.add_row(
             f"Attempt {attempt.attempt}",
             _state_cell(attempt.state),
-            ", ".join(attempt.nodes) or "-",
+            Text(", ".join(attempt.nodes) or "-"),
             _format_resources(attempt.cpus, attempt.gpus, attempt.memory_mb),
             format_epoch_cell(attempt.start_at or attempt.submit_at),
             _format_duration(attempt.start_at, attempt.end_at),
@@ -398,7 +495,7 @@ def _print_attempts_table(
                 table.add_row(
                     f"{attempt.attempt}/{step.id_ or step.name or '-'}",
                     _state_cell(step.state),
-                    ", ".join(step.nodes) or "-",
+                    Text(", ".join(step.nodes) or "-"),
                     _format_resources(step.cpus, step.gpus, step.memory_mb),
                     format_epoch_cell(step.start_at or step.submit_at),
                     _format_duration(step.start_at, step.end_at),
@@ -442,7 +539,7 @@ def _print_devpods_table(
             f"{(limits.memory if limits else None) or '-'}",
             (status.image_version if status else None) or "-",
             "[green]Ready[/]" if _reported_devpod_ssh_command(item) else "-",
-            _devpod_diagnosis(status),
+            Text(_devpod_diagnosis(status)),
         )
     console.print(table)
 
@@ -648,6 +745,59 @@ def _print_log_entries(entries: Iterable[SlurmLogEntry], *, timestamps: bool) ->
 
 
 _FOLLOW_LOOKBACK_NS = 5 * 60 * 1_000_000_000
+# The server's own window when no start is sent; used only when the job record
+# carries no usable times.
+_DEFAULT_LOG_WINDOW_NS = 5 * 60 * 1_000_000_000
+# Slack around the job's recorded lifetime: lines are timestamped by the
+# collector, which can trail or lead the scheduler's clock slightly.
+_JOB_LOG_PAD_NS = 60 * 1_000_000_000
+# Lepton states after which a job writes no more logs (see _SLURM_JOB_STATES).
+_FINISHED_JOB_STATES = frozenset({"Completed", "Failed", "Stopped", "Deleted"})
+
+
+def _epoch_to_ns(value: Any) -> Optional[int]:
+    """Normalize an epoch of any precision to integer nanoseconds."""
+    try:
+        numeric = int(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+    if numeric <= 0:
+        return None
+    return numeric * (1_000_000_000 // epoch_scale(numeric))
+
+
+def _job_log_window(
+    status: Optional[SlurmJobStatus],
+) -> Tuple[Optional[int], Optional[int]]:
+    """Return the (start, end) nanosecond window that covers a job's logs.
+
+    Starts at the job's submit (or start) time; ends at its completion for a
+    finished job and is open (now) otherwise. Either bound is None when the
+    record does not carry it.
+    """
+    if status is None:
+        return None, None
+    began = [
+        t
+        for t in (_epoch_to_ns(status.creation_time), _epoch_to_ns(status.start_time))
+        if t is not None
+    ]
+    start = min(began) - _JOB_LOG_PAD_NS if began else None
+    end = None
+    if _normalize_state(status.state) in _FINISHED_JOB_STATES:
+        ended = [
+            t
+            for t in (
+                _epoch_to_ns(status.completion_time),
+                _epoch_to_ns(status.stopped_time),
+            )
+            if t is not None
+        ]
+        if ended:
+            end = min(max(ended) + _JOB_LOG_PAD_NS, time.time_ns())
+    if start is not None and end is not None and end <= start:
+        end = None
+    return start, end
 
 
 def _follow_logs(
@@ -658,11 +808,13 @@ def _follow_logs(
     start_ns: Optional[int],
     timestamps: bool,
     poll_interval: float,
+    seed_start_ns: Optional[int] = None,
 ) -> None:
     """Tail Slurm logs until interrupted.
 
     Without ``--start`` the first request fetches the newest page (like
-    ``tail -f``) instead of replaying the look-back window oldest-first.
+    ``tail -f``) instead of replaying the look-back window oldest-first; that
+    window opens at ``seed_start_ns`` (the job's submit time) when known.
     Afterwards the loop polls forward from the last timestamp seen; a full
     page means more lines are waiting, so it re-requests immediately and only
     sleeps once a poll comes back short.
@@ -678,7 +830,11 @@ def _follow_logs(
     cursor = start_ns
     try:
         if cursor is None:
-            cursor = time.time_ns() - _FOLLOW_LOOKBACK_NS
+            cursor = (
+                seed_start_ns
+                if seed_start_ns is not None
+                else time.time_ns() - _FOLLOW_LOOKBACK_NS
+            )
             _, newest = emit(
                 api.get_logs(
                     cluster_id,
@@ -744,15 +900,15 @@ def _resolve_cluster(
         return api.resolve_cluster(cluster, clusters=clusters)
     except SlurmClusterLookupError as error:
         if error.ambiguous:
-            console.print(
+            err_console.print(
                 f"[red]{cluster}[/] matches several clusters; use NAMESPACE/NAME:"
             )
         else:
-            console.print(f"Slurm cluster [red]{cluster}[/] was not found.")
+            err_console.print(f"Slurm cluster [red]{cluster}[/] was not found.")
             if error.candidates:
-                console.print("Available clusters:")
+                err_console.print("Available clusters:")
         for item in error.candidates:
-            console.print(f"  {item.metadata.id_}")
+            err_console.print(f"  {item.metadata.id_}")
         sys.exit(1)
 
 
@@ -769,23 +925,38 @@ def _resolve_jobs(
     id: Optional[str],
     cluster_id: Optional[str],
     include_archived: bool,
+    archived_hint: bool = True,
+    start_time: Optional[int] = None,
+    end_time: Optional[int] = None,
+    window_hint: bool = False,
 ) -> List[Tuple[str, Any]]:
     """Resolve --name/--id to (cluster ID, job) pairs.
 
     With a resolved cluster ID the cluster-scoped jobs route is queried
     directly; otherwise the workspace-wide route fans out across clusters.
     The server-side ``q`` filter narrows candidates by job ID or name
-    substring; exact matching happens client-side.
+    substring; exact matching happens client-side. ``start_time`` and
+    ``end_time`` bound archived candidates as in `job list`. Set
+    ``window_hint`` only for commands whose --start/--end set them: a miss in
+    the default window then points the user there.
     """
     query = name or id or ""
     mode = "alive_and_archive" if include_archived else "alive_only"
     candidates: List[Tuple[Optional[str], Any]] = []
     failed_clusters: Dict[str, str] = {}
     if cluster_id:
-        jobs = api.list_cluster_jobs(cluster_id, job_query_mode=mode, q=query)
+        jobs = api.list_cluster_jobs(
+            cluster_id,
+            job_query_mode=mode,
+            q=query,
+            start_time=start_time,
+            end_time=end_time,
+        )
         candidates.extend((cluster_id, item) for item in jobs)
     else:
-        result = api.list_jobs(job_query_mode=mode, q=query)
+        result = api.list_jobs(
+            job_query_mode=mode, q=query, start_time=start_time, end_time=end_time
+        )
         candidates.extend(
             (item.slurm_cluster.id_ if item.slurm_cluster else None, item)
             for item in result.jobs
@@ -798,22 +969,68 @@ def _resolve_jobs(
         matches = [pair for pair in candidates if pair[1].metadata.name == name]
     if matches:
         return [(owner or _job_cluster_id(item), item) for owner, item in matches]
+    _exit_job_not_found(
+        query,
+        search_type="name" if name else "ID",
+        include_archived=include_archived,
+        archived_hint=archived_hint,
+        default_window=window_hint and start_time is None and end_time is None,
+        failed_clusters=failed_clusters,
+    )
 
+
+def _exit_job_not_found(
+    query: str,
+    *,
+    search_type: str,
+    include_archived: bool,
+    archived_hint: bool = True,
+    default_window: bool = False,
+    failed_clusters: Optional[Dict[str, str]] = None,
+) -> NoReturn:
+    """Report that no Slurm job matched, with what to retry, and exit 1.
+
+    ``default_window`` means the search used the default archive window of a
+    command whose --start/--end can move it.
+    """
     scope = "alive or archived" if include_archived else "alive"
-    search_type = "name" if name else "ID"
-    console.print(f"No {scope} Slurm job found for [red]{search_type}: {query}[/].")
-    if not include_archived:
-        console.print(
+    err_console.print(f"No {scope} Slurm job found for [red]{search_type}: {query}[/].")
+    if not include_archived and archived_hint:
+        err_console.print(
             "Archived jobs are skipped by default; retry with"
             " [green]--include-archived[/]."
         )
+    elif include_archived and default_window:
+        err_console.print(
+            "Only archived jobs that ended in the last 7 days were searched; pass"
+            " [green]--start[/] (and [green]--end[/]) to search an earlier window"
+            " of up to 30 days."
+        )
     if failed_clusters:
         _print_failed_clusters(failed_clusters)
-        console.print(
+        err_console.print(
             "If the job is on one of these clusters, retry with"
             " [green]--cluster NAMESPACE/NAME[/]."
         )
     sys.exit(1)
+
+
+@contextmanager
+def _report_not_found(
+    job_id: str, start_time: Optional[int], end_time: Optional[int]
+) -> Iterator[None]:
+    """Report a 404 from a single-job route the way a failed lookup is reported."""
+    try:
+        yield
+    except ClientError as error:
+        if error.response.status_code != 404:
+            raise
+        _exit_job_not_found(
+            job_id,
+            search_type="ID",
+            include_archived=True,
+            default_window=start_time is None and end_time is None,
+        )
 
 
 def _resolve_single_job(
@@ -823,13 +1040,25 @@ def _resolve_single_job(
     id: Optional[str],
     cluster_id: Optional[str],
     include_archived: bool,
+    archived_hint: bool = True,
+    start_time: Optional[int] = None,
+    end_time: Optional[int] = None,
+    window_hint: bool = False,
 ) -> Tuple[str, Any]:
     matches = _resolve_jobs(
-        api, name=name, id=id, cluster_id=cluster_id, include_archived=include_archived
+        api,
+        name=name,
+        id=id,
+        cluster_id=cluster_id,
+        include_archived=include_archived,
+        archived_hint=archived_hint,
+        start_time=start_time,
+        end_time=end_time,
+        window_hint=window_hint,
     )
     if len(matches) == 1:
         return matches[0]
-    console.print(
+    err_console.print(
         f"[red]{name or id}[/] matches {len(matches)} Slurm jobs; disambiguate"
         " with [green]--cluster NAMESPACE/NAME[/] or [green]--id[/]:"
     )
@@ -845,7 +1074,7 @@ def _resolve_single_job(
             item.metadata.name or "-",
             _job_state_cell(item.status),
         )
-    console.print(table)
+    err_console.print(table)
     sys.exit(1)
 
 
@@ -869,6 +1098,26 @@ def _job_resolution_options(command):
     )(command)
     command = click.option("--id", "-i", help="Slurm job id", type=str)(command)
     command = click.option("--name", "-n", help="Job name", type=str)(command)
+    return command
+
+
+def _job_window_options(command):
+    """Attach --start/--end, the archive window of `job list`, to a job lookup."""
+    command = click.option(
+        "--end",
+        help=(
+            "With --include-archived: search archived jobs that ended at or"
+            " before this UTC time or epoch (seconds/ms/us/ns). Defaults to now."
+        ),
+    )(command)
+    command = click.option(
+        "--start",
+        help=(
+            "With --include-archived: search archived jobs that ended at or"
+            " after this UTC time or epoch (seconds/ms/us/ns). Defaults to 7 days"
+            " before --end; the window spans at most 30 days."
+        ),
+    )(command)
     return command
 
 
@@ -956,26 +1205,31 @@ def cluster():
     "--name",
     "--search",
     "--keyword",
-    "names",
+    "keyword",
     "-n",
     "-q",
     multiple=True,
-    help="Filter by cluster name substring (case-insensitive; repeatable).",
+    callback=single_keyword,
+    help="Filter by cluster name (case-insensitive substring).",
 )
 @click.option(
     "--status",
     "statuses",
     "-s",
+    type=LooseChoice(_SLURM_CLUSTER_STATES),
     multiple=True,
-    help="Filter by exact cluster status (case-insensitive; repeatable).",
+    help=(
+        "Filter by cluster status (exact; 'Not Ready' and 'not-ready' are"
+        " accepted for NotReady). Repeat for OR."
+    ),
 )
 @click.option("--output", "output_format", "-o", type=OUTPUT_FORMAT, default="table")
 def list_clusters(
-    names: Tuple[str, ...], statuses: Tuple[str, ...], output_format: str
+    keyword: Optional[str], statuses: Tuple[str, ...], output_format: str
 ) -> None:
     """List Slurm clusters, optionally filtering by name and status."""
     api = APIClient().slurm
-    clusters = _filter_clusters(api.list_clusters(), names=names, statuses=statuses)
+    clusters = _filter_clusters(api.list_clusters(), keyword=keyword, statuses=statuses)
     if output_format == "json":
         _print_json(clusters)
     else:
@@ -995,8 +1249,19 @@ def get_cluster(name: Optional[str], id: Optional[str]) -> None:
 @cluster.command(name="events")
 @click.option("--name", "-n", help="Cluster name", type=str)
 @click.option("--id", "-i", help="Canonical NAMESPACE/NAME cluster ID", type=str)
-@click.option("--limit", type=click.IntRange(min=1), default=100, show_default=True)
-@click.option("--type", "event_type", help="Filter by cluster event type.")
+@click.option(
+    "--limit",
+    type=click.IntRange(min=1, max=_MAX_CLUSTER_EVENTS),
+    default=100,
+    show_default=True,
+    help="Maximum events to return.",
+)
+@click.option(
+    "--type",
+    "event_type",
+    type=LooseChoice(_SLURM_CLUSTER_EVENT_TYPES),
+    help="Filter by cluster event type.",
+)
 @click.option("--output", "output_format", "-o", type=OUTPUT_FORMAT, default="table")
 def cluster_events(
     name: Optional[str],
@@ -1022,11 +1287,13 @@ def cluster_events(
     table.add_column("User")
     table.add_column("Message")
     for event in events:
+        # Plain Text cells: messages carry config dumps and regexes whose
+        # "[...]" and backslashes rich would otherwise parse as markup.
         table.add_row(
-            event.timestamp or "-",
-            event.type_ or "-",
-            event.user or "-",
-            event.message or "-",
+            Text(event.timestamp or "-"),
+            Text(event.type_ or "-"),
+            Text(event.user or "-"),
+            Text(event.message or "-"),
         )
     console.print(table)
 
@@ -1128,7 +1395,25 @@ def job():
     "-ia",
     is_flag=True,
     default=False,
-    help="Include archived jobs in the list.",
+    help=(
+        "Also list archived jobs: those that ended inside the archive window"
+        " (--start/--end; the last 7 days by default, at most 30 days)."
+    ),
+)
+@click.option(
+    "--start",
+    help=(
+        "With --include-archived: list archived jobs that ended at or after"
+        " this UTC time or epoch (seconds/ms/us/ns). Defaults to 7 days before"
+        " --end; the window spans at most 30 days."
+    ),
+)
+@click.option(
+    "--end",
+    help=(
+        "With --include-archived: list archived jobs that ended at or before"
+        " this UTC time or epoch (seconds/ms/us/ns). Defaults to now."
+    ),
 )
 @click.option(
     "--search",
@@ -1136,7 +1421,9 @@ def job():
     "--query",
     "q",
     "-q",
-    help="Filter by job name substring or job ID.",
+    help="Filter by job name substring (case-insensitive) or exact job ID.",
+    multiple=True,
+    callback=single_keyword,
 )
 @click.option(
     "--created-by",
@@ -1144,33 +1431,69 @@ def job():
     "-u",
     "created_by",
     multiple=True,
-    help="Creator email; repeatable.",
+    help="Filter by creator email (exact, case-insensitive); repeatable.",
+)
+@click.option(
+    "--partition",
+    multiple=True,
+    callback=_single_value,
+    help=(
+        "Filter by partition (exact, case-sensitive). A job submitted to several"
+        " partitions matches only their whole comma-joined value, e.g."
+        " 'batch,batch_long'."
+    ),
+)
+@click.option(
+    "--qos",
+    multiple=True,
+    callback=_single_value,
+    help="Filter by QoS (exact, case-sensitive).",
 )
 @click.option("--output", "output_format", "-o", type=OUTPUT_FORMAT, default="table")
 def list_jobs(
     cluster_names: Tuple[str, ...],
     statuses: Tuple[str, ...],
     include_archived: bool,
+    start: Optional[str],
+    end: Optional[str],
     q: Optional[str],
     created_by: Tuple[str, ...],
+    partition: Optional[str],
+    qos: Optional[str],
     output_format: str,
 ) -> None:
-    """List Slurm jobs across one or more clusters."""
+    """List Slurm jobs across one or more clusters.
+
+    The filters are the dashboard's Slurm job filters, applied by the server.
+    Archived jobs come from Slurm accounting by the time they ended, so
+    --include-archived lists those that ended in the archive window.
+    """
+    start_time, end_time = _archive_window(start, end, include_archived)
     mode = "alive_and_archive" if include_archived else "alive_only"
     api = APIClient().slurm
     resolved_clusters: Optional[List[str]] = None
     if cluster_names:
         clusters = api.list_clusters()
-        resolved_clusters = [
-            _resolve_cluster_id(api, value, clusters=clusters)
-            for value in cluster_names
-        ]
+        # A cluster given twice (by NAME and NAMESPACE/NAME, say) would be
+        # listed twice by the server, so every job would show up twice.
+        resolved_clusters = list(
+            dict.fromkeys(
+                _resolve_cluster_id(api, value, clusters=clusters)
+                for value in cluster_names
+            )
+        )
+    # Partition and QoS travel as one literal value, as the dashboard sends
+    # them: a comma can be part of the scheduler's value.
     result = api.list_jobs(
         cluster_names=resolved_clusters,
         job_query_mode=mode,
         q=q,
         status=list(statuses) or None,
         created_by=list(created_by) or None,
+        partition=[partition] if partition else None,
+        qos=[qos] if qos else None,
+        start_time=start_time,
+        end_time=end_time,
     )
     if output_format == "json":
         _print_json(result)
@@ -1180,6 +1503,7 @@ def list_jobs(
 
 @job.command(name="get")
 @_job_resolution_options
+@_job_window_options
 @click.option(
     "--raw-slurm",
     is_flag=True,
@@ -1190,21 +1514,52 @@ def get_job(
     id: Optional[str],
     cluster: Optional[str],
     include_archived: bool,
+    start: Optional[str],
+    end: Optional[str],
     raw_slurm: bool,
 ) -> None:
     """Get a Slurm job by --id or --name.
 
     The owning cluster is resolved automatically; prints a JSON array when
-    several jobs share the name.
+    several jobs share the name. With --include-archived, an archived job is
+    found only if it ended in the --start/--end window, the last 7 days by
+    default.
     """
     _validate_name_id_selector(name, id)
+    start_time, end_time = _archive_window(start, end, include_archived)
     api = APIClient().slurm
     cluster_id = _resolve_cluster_id(api, cluster) if cluster else None
+    # The single-job route reads slurmdbd and returns archived jobs too, so
+    # it can stand in for resolution only when those are allowed.
+    if id and cluster_id and include_archived:
+        with _report_not_found(id, start_time, end_time):
+            job = api.get_job(
+                cluster_id,
+                id,
+                slurm_api=raw_slurm,
+                start_time=start_time,
+                end_time=end_time,
+            )
+        _print_json(job)
+        return
     matches = _resolve_jobs(
-        api, name=name, id=id, cluster_id=cluster_id, include_archived=include_archived
+        api,
+        name=name,
+        id=id,
+        cluster_id=cluster_id,
+        include_archived=include_archived,
+        start_time=start_time,
+        end_time=end_time,
+        window_hint=True,
     )
     results = [
-        api.get_job(owner, _job_identifier(item), slurm_api=raw_slurm)
+        api.get_job(
+            owner,
+            _job_identifier(item),
+            slurm_api=raw_slurm,
+            start_time=start_time,
+            end_time=end_time,
+        )
         for owner, item in matches
     ]
     _print_json(results[0] if len(results) == 1 else results)
@@ -1212,6 +1567,7 @@ def get_job(
 
 @job.command(name="attempts")
 @_job_resolution_options
+@_job_window_options
 @click.option("--steps", is_flag=True, help="Include individual Slurm step rows.")
 @click.option("--output", "output_format", "-o", type=OUTPUT_FORMAT, default="table")
 def job_attempts(
@@ -1219,25 +1575,40 @@ def job_attempts(
     id: Optional[str],
     cluster: Optional[str],
     include_archived: bool,
+    start: Optional[str],
+    end: Optional[str],
     steps: bool,
     output_format: str,
 ) -> None:
     """Show requeue attempts and steps for a Slurm job.
 
     Select the job by --id or --name; the owning cluster is resolved
-    automatically.
+    automatically. With --include-archived, an archived job is found only if
+    it ended in the --start/--end window, the last 7 days by default.
     """
     _validate_name_id_selector(name, id)
+    start_time, end_time = _archive_window(start, end, include_archived)
     api = APIClient().slurm
     cluster_id = _resolve_cluster_id(api, cluster) if cluster else None
-    owner, item = _resolve_single_job(
-        api,
-        name=name,
-        id=id,
-        cluster_id=cluster_id,
-        include_archived=include_archived,
-    )
-    events = api.get_job_events(owner, _job_identifier(item))
+    if id and cluster_id and include_archived:
+        with _report_not_found(id, start_time, end_time):
+            events = api.get_job_events(
+                cluster_id, id, start_time=start_time, end_time=end_time
+            )
+    else:
+        owner, item = _resolve_single_job(
+            api,
+            name=name,
+            id=id,
+            cluster_id=cluster_id,
+            include_archived=include_archived,
+            start_time=start_time,
+            end_time=end_time,
+            window_hint=True,
+        )
+        events = api.get_job_events(
+            owner, _job_identifier(item), start_time=start_time, end_time=end_time
+        )
     if output_format == "json":
         _print_json(events)
     else:
@@ -1256,9 +1627,24 @@ def job_attempts(
     show_default=True,
 )
 @click.option("--query", "query", "-q", help="Filter log lines.")
-@click.option("--start", help="UTC time or epoch (seconds/ms/us/ns).")
-@click.option("--end", help="UTC time or epoch (seconds/ms/us/ns).")
-@click.option("--limit", type=click.IntRange(min=1), default=100, show_default=True)
+@click.option(
+    "--start",
+    help="UTC time or epoch (seconds/ms/us/ns). Defaults to the job's submit time.",
+)
+@click.option(
+    "--end",
+    help=(
+        "UTC time or epoch (seconds/ms/us/ns). Defaults to the job's end time,"
+        " or now while it runs."
+    ),
+)
+@click.option(
+    "--limit",
+    type=click.IntRange(min=1, max=_MAX_LOG_LINES),
+    default=100,
+    show_default=True,
+    help="Maximum lines to print; the newest lines win.",
+)
 @click.option(
     "--follow",
     "follow",
@@ -1294,17 +1680,30 @@ def job_log(
     """Print or follow stdout/stderr logs for a Slurm job.
 
     Select the job by --id or --name; the owning cluster is resolved
-    automatically.
+    automatically. By default the window covers the job's whole run, from
+    its submit time to its end (or now while it runs); --start and --end
+    narrow it. A single query covers at most 31 days.
+
+    With --include-archived, an archived job is found only if it ended in the
+    last 7 days; for an older one, add --id, --cluster and --start to read
+    its logs without looking the job up.
     """
     _validate_name_id_selector(name, id)
     start_ns = _preprocess_time(start, epoch=True) if start else None
     end_ns = _preprocess_time(end, epoch=True) if end else None
-    if start_ns is None and end_ns is not None:
-        start_ns = end_ns - 5 * 60 * 1_000_000_000
     if start_ns is not None and end_ns is not None and end_ns <= start_ns:
         raise click.UsageError("--end must be later than --start.")
     if follow and end_ns is not None:
         raise click.UsageError("--end cannot be used together with --follow.")
+    if start_ns is not None:
+        window_end = end_ns if end_ns is not None else time.time_ns()
+        if window_end - start_ns > _MAX_LOG_WINDOW_NS:
+            raise click.UsageError(
+                "The log window from --start to "
+                + ("--end" if end_ns is not None else "now")
+                + " exceeds 31 days; pick a later --start"
+                + (" or an earlier --end." if end_ns is not None else ".")
+            )
     resolved_log_type = {
         "all": None,
         "stdout": "stdout.log",
@@ -1312,14 +1711,59 @@ def job_log(
     }[log_type]
     api = APIClient().slurm
     resolved_cluster = _resolve_cluster_id(api, cluster) if cluster else None
-    cluster_id, item = _resolve_single_job(
-        api,
-        name=name,
-        id=id,
-        cluster_id=resolved_cluster,
-        include_archived=include_archived,
-    )
-    job_id = _job_identifier(item)
+    job_status: Optional[SlurmJobStatus] = None
+    if id and resolved_cluster and include_archived:
+        cluster_id, job_id = resolved_cluster, id
+    else:
+        owner, item = _resolve_single_job(
+            api,
+            name=name,
+            id=id,
+            cluster_id=resolved_cluster,
+            include_archived=include_archived,
+        )
+        cluster_id, job_id = owner, _job_identifier(item)
+        job_status = item.status
+
+    # Without --start the server would only search its last five minutes,
+    # silently missing any job that ended earlier; default to the job's run.
+    seed_start_ns: Optional[int] = None
+    if start_ns is None:
+        if job_status is None:
+            job_status = api.get_job(cluster_id, job_id).status
+        job_start_ns, job_end_ns = _job_log_window(job_status)
+        if job_start_ns is not None:
+            if end_ns is not None and end_ns <= job_start_ns:
+                raise click.UsageError(
+                    f"--end is before Slurm job {job_id} was submitted"
+                    f" ({_format_time(job_start_ns + _JOB_LOG_PAD_NS)})."
+                )
+            # The backend rejects longer queries; keep the newest 31 days.
+            window_end = end_ns if end_ns is not None else job_end_ns
+            if window_end is None or follow:
+                window_end = time.time_ns()
+            if window_end - job_start_ns > _MAX_LOG_WINDOW_NS:
+                job_start_ns = window_end - _MAX_LOG_WINDOW_NS
+                err_console.print(
+                    f"[yellow]Slurm job {job_id} spans more than 31 days; showing"
+                    f" logs since {_format_time(job_start_ns)} only. Pass --start"
+                    " and --end to pick an earlier window.[/yellow]"
+                )
+            if follow:
+                seed_start_ns = job_start_ns
+            else:
+                start_ns = job_start_ns
+                if end_ns is None:
+                    end_ns = job_end_ns
+        else:
+            fallback_end = end_ns if end_ns is not None else time.time_ns()
+            if not follow:
+                start_ns = fallback_end - _DEFAULT_LOG_WINDOW_NS
+            err_console.print(
+                f"[yellow]Slurm job {job_id} reports no submit time; showing"
+                f" logs since {_format_time(fallback_end - _DEFAULT_LOG_WINDOW_NS)}"
+                " only. Pass --start to search further back.[/yellow]"
+            )
 
     common = dict(
         job_id=job_id,
@@ -1347,6 +1791,7 @@ def job_log(
         start_ns=start_ns,
         timestamps=timestamps,
         poll_interval=poll_interval,
+        seed_start_ns=seed_start_ns,
     )
 
 
@@ -1367,12 +1812,16 @@ def job_log(
     default=None,
     help="Teleport SSO connector for login; selected automatically when omitted.",
 )
+# Accepted only to reject it clearly: the other job commands take -ia, and
+# without this click would read "-ia" as "-i a".
+@click.option("--include-archived", "-ia", is_flag=True, hidden=True)
 def ssh_job(
     name: Optional[str],
     id: Optional[str],
     cluster: Optional[str],
     node: Optional[str],
     teleport_auth: Optional[str],
+    include_archived: bool,
 ) -> None:
     """SSH into a node allocated to your running Slurm job through Teleport.
 
@@ -1385,6 +1834,11 @@ def ssh_job(
     sign-in must use the same user as your Lepton login, so Service Account
     Tokens are not supported; that user needs workspace user or admin access.
     """
+    if include_archived:
+        raise click.UsageError(
+            "--include-archived does not apply to job ssh: only a running job's"
+            " nodes can be reached."
+        )
     _validate_name_id_selector(name, id)
     client = APIClient()
     api = client.slurm
@@ -1393,7 +1847,12 @@ def ssh_job(
         job_id = id
     else:
         cluster_id, item = _resolve_single_job(
-            api, name=name, id=id, cluster_id=cluster_id, include_archived=False
+            api,
+            name=name,
+            id=id,
+            cluster_id=cluster_id,
+            include_archived=False,
+            archived_hint=False,
         )
         job_id = _job_identifier(item)
     _ssh_via_teleport(
@@ -1401,6 +1860,17 @@ def ssh_job(
         teleport_auth,
         lambda target: f"node {target.hostname} of Slurm job {job_id}",
     )
+
+
+def _resource_request_validator(pattern: "re.Pattern[str]", hint: str):
+    """Build a click callback that checks a Dev Pod resource request format."""
+
+    def validate(ctx, param, value: Optional[str]) -> Optional[str]:
+        if value is not None and not pattern.fullmatch(value):
+            raise click.BadParameter(f"{value!r} is not a valid request; {hint}.")
+        return value
+
+    return validate
 
 
 @slurm.group()
@@ -1421,7 +1891,9 @@ def devpod():
     "--keyword",
     "-q",
     "keyword",
-    help="Case-insensitive substring search across Dev Pod name and ID.",
+    help="CLI-only: case-insensitive substring search across Dev Pod name and ID.",
+    multiple=True,
+    callback=single_keyword,
 )
 @click.option("--output", "output_format", "-o", type=OUTPUT_FORMAT, default="table")
 def list_devpods(
@@ -1436,9 +1908,12 @@ def list_devpods(
         clusters = api.list_clusters()
     # Validate --cluster like `job list` does: the API silently drops unknown
     # names from the filter instead of failing.
-    selected = [
-        _resolve_cluster_id(api, value, clusters=clusters) for value in cluster_names
-    ]
+    selected = list(
+        dict.fromkeys(
+            _resolve_cluster_id(api, value, clusters=clusters)
+            for value in cluster_names
+        )
+    )
     devpods = api.list_devpods(cluster_names=selected or None)
     normalized_keyword = normalize_keyword(keyword)
     devpods = [
@@ -1486,17 +1961,43 @@ def get_devpod(
     help="Cluster NAME or NAMESPACE/NAME to create the Dev Pod on.",
 )
 @click.option("--set", "set_name", help="Dev Pod set configured on the cluster.")
-@click.option("--cpu", help="CPU request, for example 4 or 500m.")
-@click.option("--memory", help="Memory request, for example 16Gi.")
+@click.option(
+    "--cpu",
+    callback=_resource_request_validator(
+        _DEVPOD_CPU_PATTERN, "use whole or decimal cores, or millicores (500m)"
+    ),
+    help="CPU request, for example 4, 0.5 or 500m.",
+)
+@click.option(
+    "--memory",
+    callback=_resource_request_validator(
+        _DEVPOD_MEMORY_PATTERN,
+        "use a whole number with an optional unit (K, M, G, ... or Ki, Mi, Gi, ...)",
+    ),
+    help="Memory request, for example 16Gi or 512Mi.",
+)
 def create_devpod(
     cluster: str,
     set_name: Optional[str],
     cpu: Optional[str],
     memory: Optional[str],
 ) -> None:
-    """Create your Dev Pod on a Slurm cluster."""
+    """Create your Dev Pod on a Slurm cluster; you can have one per cluster."""
     api = APIClient().slurm
     cluster_id = _resolve_cluster_id(api, cluster)
+    # The server reports an existing Dev Pod as a raw 500; say it plainly.
+    _, cluster_name = api.split_cluster_id(cluster_id)
+    existing = [
+        pod
+        for pod in api.list_devpods(cluster_names=[cluster_id])
+        if pod.spec.slurm_cluster_name == cluster_name
+    ]
+    if existing:
+        pod_id = existing[0].metadata.id_ or existing[0].metadata.name
+        raise click.ClickException(
+            f"You already have a Dev Pod on {cluster_id} ({pod_id}); remove it"
+            f" first with: lep slurm devpod remove -c {cluster_id}"
+        )
     created = api.create_devpod(cluster_id, set_name=set_name, cpu=cpu, memory=memory)
     _print_json(created)
 
@@ -1535,7 +2036,10 @@ def remove_devpod(
     type=click.Choice(["bastion", "teleport"]),
     default="bastion",
     show_default=True,
-    help="Connect through the cluster bastion or Teleport (requires local tsh v18+).",
+    help=(
+        "Connect through the cluster bastion (requires a local OpenSSH client)"
+        " or Teleport (requires local tsh v18+)."
+    ),
 )
 @click.option(
     "--teleport-auth",
@@ -1558,7 +2062,8 @@ def ssh_devpod(
 
     Select the pod by --name or --id, optionally scoped by --cluster; the
     owning --cluster may also be used alone. By default, runs the bastion SSH
-    command reported by the platform; pass extra SSH options after `--`.
+    command reported by the platform with the local OpenSSH client (`ssh`
+    must be on PATH); pass extra SSH options after `--`.
 
     With --transport teleport, requires local tsh v18+ and a Ready Dev Pod.
     The CLI finds the Teleport proxy and connects as the Dev Pod's Linux
@@ -1618,7 +2123,13 @@ def ssh_devpod(
     click.echo(shlex.join(argv))
     if print_only:
         return
-    completed = subprocess.run(argv, check=False)
+    try:
+        completed = subprocess.run(argv, check=False)
+    except FileNotFoundError:
+        raise click.ClickException(
+            "The OpenSSH client (`ssh`) was not found on PATH. Install OpenSSH,"
+            " or use `lep slurm devpod shell` or `--transport teleport` instead."
+        ) from None
     if completed.returncode:
         raise click.exceptions.Exit(completed.returncode)
 

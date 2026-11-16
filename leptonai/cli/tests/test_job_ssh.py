@@ -407,9 +407,8 @@ def test_replica_disappearing_during_login_cannot_connect(session):
 )
 def test_name_must_resolve_to_one_exact_job(session, names, message):
     http, run = session
+    # One short page ends the listing; no trailing empty-page request.
     http.get(f"{BASE}/jobs", json={"jobs": [job_body(name=n) for n in names]})
-    if names:
-        http.get(f"{BASE}/jobs", json={"jobs": []})
     output = CliRunner().invoke(job, ["ssh", "--name", "train"])
     assert output.exit_code == 1
     assert message in output.output
@@ -422,7 +421,6 @@ def test_exact_name_resolves_to_job_id(session):
         f"{BASE}/jobs",
         json={"jobs": [job_body(), job_body(name="train-other", id="other")]},
     )
-    http.get(f"{BASE}/jobs", json={"jobs": []})
     register(http)
     run.side_effect = [
         profile(),

@@ -28,20 +28,24 @@ from leptonai.config import (
 )
 from leptonai.api.v2 import types
 from .util import (
+    plural,
+    single_keyword,
     click_group,
     _get_only_replica_public_ip,
     _validate_queue_priority,
     apply_nodegroup_and_queue_config,
+    require_node_group,
     make_name_id_cell,
     colorize_state,
     format_timestamp_ms,
     resolve_save_path,
     PathResolutionError,
     LooseChoice,
-    creator_matches,
+    created_by_equals,
     keyword_matches,
     node_group_matches,
     normalize_keyword,
+    deployment_display_state,
     state_matches,
 )
 from .util import make_container_ports_from_str_list
@@ -177,8 +181,9 @@ def pod():
     "-ng",
     "node_groups",
     help=(
-        "Node group for the pod. If not set, use on-demand resources. You can repeat"
-        " this flag multiple times to choose multiple node groups. Multiple node group"
+        "Node group for the pod. Required unless the spec from --file or --template"
+        " already sets allowed_dedicated_node_groups. You can repeat this flag"
+        " multiple times to choose multiple node groups. Multiple node group"
         " option is currently not supported but coming soon for enterprise users. Only"
         " the first node group will be set if you input multiple node groups at this"
         " time."
@@ -337,6 +342,9 @@ def create(
             sys.exit(1)
 
     deployment_user_spec = spec_from_file or types.deployment.LeptonDeploymentUserSpec()
+
+    rr = deployment_user_spec.resource_requirement
+    require_node_group(node_groups, rr.affinity if rr else None, "Pods")
 
     if container_image or container_command:
         if container_image is None and not file:
@@ -565,23 +573,17 @@ def _filter_pods(
         if compiled is not None and not compiled.search(name or ""):
             return False
 
-        if not keyword_matches(
-            normalized_keyword,
-            name,
-            getattr(metadata, "id_", None) if metadata else None,
-        ):
+        if not keyword_matches(normalized_keyword, name):
             return False
 
-        # Like endpoints, the legacy API folds Stopping/Stopped into
-        # state="Not Ready" and keeps the real state in `phase`; match either.
-        if not state_matches(
-            states,
-            getattr(status, "state", None) if status else None,
-            getattr(status, "phase", None) if status else None,
-        ):
+        # Filter on the state the table shows: the real lifecycle state, as the
+        # dashboard and the server-side status filter do.
+        if not state_matches(states, deployment_display_state(status)):
             return False
 
-        if not creator_matches(metadata, creators):
+        # The dashboard sends created_by to the server, which matches it
+        # exactly (case-insensitive) against metadata.created_by.
+        if not created_by_equals(metadata, creators):
             return False
 
         rr = getattr(spec, "resource_requirement", None) if spec else None
@@ -598,7 +600,7 @@ def _filter_pods(
 @click.option(
     "--pattern",
     "-p",
-    help="Regular expression pattern to filter pod names.",
+    help="CLI-only: regular expression pattern to filter pod names.",
     default=None,
     callback=_compile_pattern,
 )
@@ -608,7 +610,12 @@ def _filter_pods(
     "-q",
     "keyword",
     type=str,
-    help="Case-insensitive substring search across pod name and ID.",
+    help=(
+        "Search pods by name (case-insensitive substring), as the dashboard's"
+        " search box does. Takes one term."
+    ),
+    multiple=True,
+    callback=single_keyword,
 )
 @click.option(
     "--state",
@@ -619,8 +626,8 @@ def _filter_pods(
     multiple=True,
     help=(
         "Filter by pod state (case-insensitive; 'not-ready' and 'NotReady' are"
-        " accepted for 'Not Ready'). Matches the displayed state or the underlying"
-        " lifecycle phase. Repeat for OR."
+        " accepted for 'Not Ready'). Matches the State column exactly, as the"
+        " dashboard's status filter does. Repeat for OR."
     ),
 )
 @click.option(
@@ -631,8 +638,8 @@ def _filter_pods(
     type=str,
     multiple=True,
     help=(
-        "Filter by creator (case-insensitive prefix of the user ID or email)."
-        " Repeat for OR."
+        "Filter by creator, as the dashboard's creator filter does: an exact,"
+        " case-insensitive match on the Creator column. Repeat for OR."
     ),
 )
 @click.option(
@@ -642,8 +649,8 @@ def _filter_pods(
     type=str,
     multiple=True,
     help=(
-        "Filter by node group (case-insensitive substring of the node group"
-        " name/ID). Repeat for OR."
+        "CLI-only (the dashboard has no node group filter): case-insensitive"
+        " substring of the node group IDs. Repeat for OR."
     ),
 )
 @click.option(
@@ -657,11 +664,11 @@ def list_command(pattern, detail, keyword=None, states=(), creators=(), node_gro
     """
     Lists all pods in the current workspace.
 
-    Filters mirror the dashboard's pod list: --search matches the name or ID,
-    --state filters by lifecycle state and --created-by by creator. Repeated
-    values within one option are ORed together; different options (and
-    --pattern) are combined with AND. Example:
-    lep pod list -s ready -u alice -ng h100
+    --search, --state and --created-by work like the dashboard's pod list
+    filters; --pattern and --node-group are CLI-only. Repeated values within
+    one option (except --search, which takes one term) are ORed together;
+    different options are combined with AND. Example:
+    lep pod list -s ready -u alice@example.com
     """
     client = APIClient()
 
@@ -722,7 +729,7 @@ def list_command(pattern, detail, keyword=None, states=(), creators=(), node_gro
             "Name / ID",
             "Node Group ID",
             "State",
-            "User ID",
+            "Creator",
             "Created At",
             "Shape",
         ]
@@ -731,7 +738,7 @@ def list_command(pattern, detail, keyword=None, states=(), creators=(), node_gro
             "Name / ID",
             "Node Group ID",
             "State",
-            "User ID",
+            "Creator",
             "SSH Command",
             "TCP Port Mapping",
             "TCP Port Mapping (JupyterLab)",
@@ -758,7 +765,7 @@ def list_command(pattern, detail, keyword=None, states=(), creators=(), node_gro
             link_target="name",
         )
 
-        state_raw = getattr(pod.status, "state", None)
+        state_raw = deployment_display_state(pod.status)
         state_cell = colorize_state(state_raw)
 
         if detail:
@@ -796,7 +803,7 @@ def list_command(pattern, detail, keyword=None, states=(), creators=(), node_gro
         shape = rr.resource_shape if rr and rr.resource_shape else "-"
 
         # Owner
-        owner = getattr(pod.metadata, "owner", "") or ""
+        owner = getattr(pod.metadata, "created_by", "") or ""
 
         if not detail:
             row = [
@@ -843,8 +850,9 @@ def list_command(pattern, detail, keyword=None, states=(), creators=(), node_gro
             shape_totals[shape] = shape_totals.get(shape, 0) + 1
 
     console.print(
-        f"[bold]Resource Utilization Summary for above [cyan]{len(pods)}[/] pods (Ready"
-        " / Running / Starting / Updating / Scaling / Deleting only):[/]"
+        f"[bold]Resource Utilization Summary for above [cyan]{len(pods)}[/]"
+        f" {plural(len(pods), 'pod')} (Ready / Running / Starting / Updating / Scaling"
+        " / Deleting only):[/]"
     )
     for shape, total in sorted(
         shape_totals.items(), key=lambda kv: kv[1], reverse=True

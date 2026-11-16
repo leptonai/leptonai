@@ -410,6 +410,49 @@ def test_list_accepts_shared_filter_names(fake):
     assert "solo" in result.output and "my-dynamo" not in result.output
 
 
+def test_list_filters_like_the_dashboard(fake):
+    payload = _deployment("alpha", state="Not Ready", created_by="Carol")
+    payload["metadata"]["id"] = "dgd-xyz"
+    fake.add_deployment(payload)
+
+    # The search matches the deployment name only, case-insensitively.
+    result = run("list", "-q", "ALP")
+    assert result.exit_code == 0, result.output
+    assert "alpha" in result.output and "my-dynamo" not in result.output
+    result = run("list", "-q", "xyz")
+    assert result.exit_code == 0, result.output
+    assert "No Dynamo deployments found" in result.output
+    # It takes one keyword, as the dashboard search box does.
+    result = run("list", "-q", "alpha", "-q", "solo")
+    assert result.exit_code == 2, result.output
+    assert "can be given only once" in result.output
+
+    # States are the dashboard's eight, matched exactly; repeats are ORed.
+    for spelling in ("not-ready", "NotReady", "Not Ready"):
+        result = run("list", "-s", spelling)
+        assert result.exit_code == 0, result.output
+        assert "alpha" in result.output
+        assert "my-dynamo" not in result.output and "solo" not in result.output
+    result = run("list", "-s", "Not Ready", "-s", "starting")
+    assert "alpha" in result.output and "solo" in result.output
+    assert "my-dynamo" not in result.output
+    result = run("list", "-s", "bogus")
+    assert result.exit_code == 2, result.output
+    assert "'Not Ready'" in result.output and "'Scaling'" in result.output
+
+    # The creator match is exact and case-sensitive.
+    result = run("list", "-u", "carol")
+    assert "No Dynamo deployments found" in result.output
+    result = run("list", "-u", "Carol")
+    assert "alpha" in result.output and "solo" not in result.output
+
+    result = run("list", "--help")
+    assert (
+        "Not Ready|Ready|Starting|Updating|Stopping|Stopped|Scaling|Deleting"
+        in result.output
+    )
+
+
 def test_get_prints_json_and_saves_spec(fake, tmp_path):
     result = run("get", "-n", "my-dynamo", "-p", str(tmp_path))
     assert result.exit_code == 0, result.output
@@ -444,6 +487,71 @@ def test_status_shows_summary_services_health_and_replicas(fake):
     assert "1 out of 2 replicas ready" in result.output
 
 
+def _multinode_one_replica_payload(name, include_status=True):
+    """One decode replica across two nodes: mixed service-list vs CR status units."""
+    services = {
+        "frontend": _service_spec(
+            "frontend", "cpu.small", 1, "python3 -m dynamo.frontend", "/workspace"
+        ),
+        "decode-worker": _service_spec(
+            "worker",
+            "gpu.a100-1",
+            1,
+            "python3 -m dynamo.sglang",
+            "/workspace/examples/backends/sglang",
+        ),
+    }
+    services["decode-worker"]["multinode"] = {"node_count": 2}
+    payload = _deployment(name, services=services)
+    decode_status = {
+        "state": "Ready",
+        "ready_replicas": 2,
+        "desired_replicas": 2,
+    }
+    if include_status:
+        payload["status"]["services"]["decode-worker"] = decode_status
+    else:
+        payload["status"]["services"].pop("decode-worker")
+    infos = {
+        "frontend": {
+            "component_type": "frontend",
+            "min_replicas": 1,
+            "desired_replicas": 1,
+            "ready_replicas": 1,
+            "total_pods": 1,
+            "is_multinode": False,
+        },
+        "decode-worker": {
+            "component_type": "worker",
+            "min_replicas": 1,
+            "desired_replicas": 1,
+            "ready_replicas": 2,
+            "total_pods": 2,
+            "is_multinode": True,
+            "node_count": 2,
+        },
+    }
+    return payload, infos
+
+
+@pytest.mark.parametrize("include_status", [True, False])
+def test_status_multinode_replica_counts_use_one_unit(fake, include_status):
+    # LEP-7781: services-list ready is pod count (2) while desired is
+    # spec.replicas (1). Deployment status stores both as pod counts (2/2).
+    name = "l6381-sddec2-100021"
+    payload, infos = _multinode_one_replica_payload(name, include_status=include_status)
+    fake.add_deployment(payload)
+    fake.service_infos[name] = infos
+
+    for args in (["status", "-n", name], ["service", "list", "-n", name]):
+        result = run(*args)
+        assert result.exit_code == 0, result.output
+        assert "decode-worker" in result.output
+        assert "2/1" not in result.output
+        assert "2/2" in result.output
+        assert "2 nodes" in result.output
+
+
 def test_service_list_and_get(fake):
     result = run("service", "list", "-n", "my-dynamo")
     assert result.exit_code == 0, result.output
@@ -470,6 +578,69 @@ def test_service_list_and_get(fake):
     result = run("service", "get", "-n", "my-dynamo", "-s", "nope")
     assert result.exit_code == 1
     assert "404" in result.output
+
+
+def test_service_list_search_is_labelled_cli_only():
+    # The dashboard has no service search.
+    result = run("service", "list", "--help")
+    assert result.exit_code == 0, result.output
+    assert "CLI-only" in result.output
+
+
+def test_replica_list_filters_by_dashboard_status_group_and_id(fake):
+    no_reason = _replica("worker-none")
+    del no_reason["status"]["readiness_issue"]
+    fake.replicas[("my-dynamo", "worker")] = [
+        _replica("worker-xyz", "InProgress"),
+        _replica("worker-appr", "RequireReadinessApproval"),
+        _replica("worker-nnr", "NodeNotReady"),
+        no_reason,
+    ]
+
+    def listed(*args):
+        result = run("replica", "list", "-n", "my-dynamo", *args)
+        assert result.exit_code == 0, result.output
+        return {
+            rid
+            for rid in (
+                "frontend-abc",
+                "worker-xyz",
+                "worker-appr",
+                "worker-nnr",
+                "worker-none",
+            )
+            if rid in result.output
+        }
+
+    # The Status column shows the raw readiness reason, as the dashboard's
+    # badge does; a replica without one is Unknown, not Terminated.
+    result = run("replica", "list", "-n", "my-dynamo", "-s", "worker")
+    assert result.exit_code == 0, result.output
+    assert "RequireReadinessApproval" in result.output
+    assert "NodeNotReady" in result.output
+    assert "Unknown" in result.output
+    assert "Terminated" not in result.output
+
+    # --state takes the dashboard's group labels, loosely spelled.
+    assert listed("--state", "Require Approval") == {"worker-appr"}
+    assert listed("--state", "require-approval") == {"worker-appr"}
+    assert listed("--state", "in-progress") == {"worker-xyz"}
+    # A missing or unlisted reason falls into the Unknown group.
+    assert listed("--state", "unknown") == {"worker-nnr", "worker-none"}
+    assert listed("--state", "ready", "--state", "In Progress") == {
+        "frontend-abc",
+        "worker-xyz",
+    }
+    result = run("replica", "list", "-n", "my-dynamo", "--state", "Terminated")
+    assert "No replicas match the specified filters." in result.output
+    result = run("replica", "list", "-n", "my-dynamo", "--state", "bogus")
+    assert result.exit_code == 2, result.output
+    assert "'Require Approval'" in result.output
+
+    # The search matches the replica ID only, not the service or node.
+    assert listed("-q", "APPR") == {"worker-appr"}
+    result = run("replica", "list", "-n", "my-dynamo", "-q", "node-1")
+    assert "No replicas match the specified filters." in result.output
 
 
 def test_replicas_filters(fake):

@@ -4,6 +4,8 @@ import io
 import os
 import tempfile
 import unittest
+
+import pytest
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
@@ -30,6 +32,15 @@ from leptonai.cli.deployment import (
     deployment,
 )
 from leptonai.cli.pod import pod
+
+
+@pytest.fixture(autouse=True)
+def _skip_node_group_requirement(monkeypatch):
+    """These tests exercise other create options; the --node-group requirement
+    (LEP-7553) is covered in test_node_group_required.py."""
+    monkeypatch.setattr(
+        "leptonai.cli.deployment.require_node_group", lambda *a, **k: None
+    )
 
 
 def _pod(name="pod"):

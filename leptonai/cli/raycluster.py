@@ -12,18 +12,19 @@ import click
 from ray.job_submission import JobSubmissionClient, JobStatus
 from rich.table import Table
 from rich.pretty import Pretty
+from rich.text import Text
 
 from .util import (
+    single_keyword,
     console,
     click_group,
+    colorize_state,
     apply_nodegroup_and_queue_config,
     resolve_save_path,
     PathResolutionError,
     LooseChoice,
-    creator_matches,
     keyword_matches,
     normalize_keyword,
-    state_matches,
 )
 from .client import APIClient
 from ..api.v2.shell import ShellUnavailable
@@ -1093,65 +1094,77 @@ def _print_rayclusters_table(rayclusters) -> None:
     console.print(table)
 
 
-# States offered by the dashboard's Ray cluster status filter.
+# The dashboard's Ray cluster status filter values, in its order. The server
+# matches them exactly (case-insensitively) against the cluster state.
 RAYCLUSTER_STATE_FILTER_VALUES = tuple(
     state.value
-    for state in LeptonRayClusterState
-    if state is not LeptonRayClusterState.Unknown
+    for state in (
+        LeptonRayClusterState.Ready,
+        LeptonRayClusterState.NotReady,
+        LeptonRayClusterState.Starting,
+        LeptonRayClusterState.Scaling,
+        LeptonRayClusterState.Stopping,
+        LeptonRayClusterState.Stopped,
+        LeptonRayClusterState.Deleting,
+    )
 )
 
-# Ray job submission states as reported by the Ray dashboard.
-RAY_JOB_STATUS_FILTER_VALUES = tuple(status.value for status in JobStatus)
+# The dashboard's Ray job status filter values (the Lepton job states), in its
+# order. The server maps Ray statuses onto only four of them: PENDING is
+# Awaiting, RUNNING Running, SUCCEEDED Completed, FAILED and STOPPED Failed.
+RAY_JOB_STATE_FILTER_VALUES = (
+    "Starting",
+    "Running",
+    "Stopped",
+    "Stopping",
+    "Failed",
+    "Completed",
+    "Deleting",
+    "Restarting",
+    "Queueing",
+    "Awaiting",
+    "Terminating",
+)
 
 
-def _filter_rayclusters(rayclusters, *, names=(), keyword=None, states=(), creators=()):
-    """Apply the Ray cluster list filters; different filters are combined with AND."""
+def _filter_rayclusters(rayclusters, *, names=()):
+    """Apply the CLI-only --name filter: case-insensitive name substrings, ORed.
+
+    The dashboard's search, state and creator filters run on the server.
+    """
     lowered_names = [str(n).lower() for n in names or ()]
-    normalized_keyword = normalize_keyword(keyword)
+    if not lowered_names:
+        return list(rayclusters)
 
     def matches(rc):
         metadata = getattr(rc, "metadata", None)
-        status = getattr(rc, "status", None)
         name = getattr(metadata, "name", None) if metadata else None
-
-        if lowered_names and not (
-            name and any(n in name.lower() for n in lowered_names)
-        ):
-            return False
-
-        if not keyword_matches(
-            normalized_keyword,
-            name,
-            getattr(metadata, "id_", None) if metadata else None,
-        ):
-            return False
-
-        if not state_matches(
-            states, getattr(status, "state", None) if status else None
-        ):
-            return False
-
-        if not creator_matches(metadata, creators):
-            return False
-
-        return True
+        return bool(name) and any(n in name.lower() for n in lowered_names)
 
     return [rc for rc in rayclusters if matches(rc)]
 
 
 def _filter_ray_jobs(jobs, *, keyword=None, statuses=()):
-    """Apply the Ray job list filters; different filters are combined with AND."""
+    """Apply the Ray job filters exactly as the dashboard's Jobs tab does.
+
+    The search is a case-insensitive substring of the job ID or name. The
+    state filter is exact; a job reporting no state always passes it. The two
+    are combined with AND.
+    """
     normalized_keyword = normalize_keyword(keyword)
+    wanted = set(statuses or ())
 
     def matches(job):
+        metadata = getattr(job, "metadata", None)
         if not keyword_matches(
             normalized_keyword,
-            getattr(job, "submission_id", None),
-            getattr(job, "job_id", None),
-            getattr(job, "entrypoint", None),
+            getattr(metadata, "id_", None) if metadata else None,
+            getattr(metadata, "name", None) if metadata else None,
         ):
             return False
-        return state_matches(statuses, getattr(job, "status", None))
+        status = getattr(job, "status", None)
+        state = getattr(status, "state", None) if status else None
+        return not wanted or state is None or state in wanted
 
     return [job for job in jobs if matches(job)]
 
@@ -1161,8 +1174,8 @@ def _filter_ray_jobs(jobs, *, keyword=None, statuses=()):
     "--name",
     "-n",
     help=(
-        "Filter rayclusters by name (case-insensitive substring). Can be specified"
-        " multiple times."
+        "CLI-only: filter by cluster name (case-insensitive substring, matched"
+        " locally). Repeat for OR."
     ),
     type=str,
     required=False,
@@ -1174,7 +1187,9 @@ def _filter_ray_jobs(jobs, *, keyword=None, statuses=()):
     "-q",
     "keyword",
     type=str,
-    help="Case-insensitive substring search across Ray cluster name and ID.",
+    help="Filter by cluster name (case-insensitive substring).",
+    multiple=True,
+    callback=single_keyword,
 )
 @click.option(
     "--state",
@@ -1184,8 +1199,8 @@ def _filter_ray_jobs(jobs, *, keyword=None, statuses=()):
     type=LooseChoice(RAYCLUSTER_STATE_FILTER_VALUES),
     multiple=True,
     help=(
-        "Filter by cluster state (case-insensitive; 'not-ready' and 'NotReady' are"
-        " accepted for 'Not Ready'). Repeat for OR."
+        "Filter by cluster state (exact; 'not-ready' and 'NotReady' are accepted"
+        " for 'Not Ready'). Repeat for OR."
     ),
 )
 @click.option(
@@ -1196,25 +1211,28 @@ def _filter_ray_jobs(jobs, *, keyword=None, statuses=()):
     type=str,
     multiple=True,
     help=(
-        "Filter by creator (case-insensitive prefix of the user ID or email)."
-        " Repeat for OR."
+        "Filter by creator: the exact user ID or email the cluster was created"
+        " by (case-insensitive). Repeat for OR."
     ),
 )
 def list_command(name, keyword=None, states=(), creators=()):
     """
     Lists all Ray clusters in the current workspace.
 
-    Filters mirror the dashboard's Ray cluster list: --search matches the name
-    or ID, --state filters by cluster state and --created-by by creator.
-    Repeated values within one option are ORed together; different options
-    are combined with AND. Example: lep raycluster list -s ready -u alice
+    --search, --state and --created-by are the dashboard's Ray cluster
+    filters, applied by the server. Repeated values within one option
+    (except --search, which takes one term) are ORed together; different
+    options are combined with AND. Example: lep raycluster list -s ready -u
+    alice@example.com
     """
     client = APIClient()
-    rayclusters = client.raycluster.list_all()
-    has_filters = any([name, keyword, states, creators])
-    rayclusters = _filter_rayclusters(
-        rayclusters, names=name, keyword=keyword, states=states, creators=creators
+    rayclusters = client.raycluster.list_all(
+        q=keyword,
+        status=list(states) or None,
+        created_by=list(creators) or None,
     )
+    has_filters = any([name, keyword, states, creators])
+    rayclusters = _filter_rayclusters(rayclusters, names=name)
     if has_filters and not rayclusters:
         console.print("[yellow]No Ray clusters match the specified filters.[/yellow]")
         return
@@ -2215,50 +2233,36 @@ def stop_job_command(name, job_id):
     "-q",
     "keyword",
     type=str,
-    help="Case-insensitive substring search across Ray job ID and entrypoint.",
+    help=(
+        "Filter by job ID or name (case-insensitive substring); both are the"
+        " submission ID, or the Ray job ID when the job has none."
+    ),
+    multiple=True,
+    callback=single_keyword,
 )
 @click.option(
     "--status",
     "--state",
     "-s",
     "statuses",
-    type=LooseChoice(RAY_JOB_STATUS_FILTER_VALUES),
+    type=LooseChoice(RAY_JOB_STATE_FILTER_VALUES),
     multiple=True,
-    help="Filter by Ray job status (case-insensitive). Repeat for OR.",
+    help=(
+        "Filter by job state (exact); repeat for OR. Ray statuses map onto"
+        " these: PENDING is Awaiting, RUNNING is Running, SUCCEEDED is"
+        " Completed, FAILED and STOPPED are Failed."
+    ),
 )
 def list_jobs_command(name, keyword=None, statuses=()):
     """
     Lists Ray jobs on a given Ray cluster.
 
-    --search matches the job ID or entrypoint and --status filters by Ray job
-    status (repeat for OR); the two are combined with AND.
+    Shows the jobs and filters of the dashboard's Jobs tab: --search matches
+    the job ID or name and --status the job state (repeat for OR); the two
+    are combined with AND.
     """
-    base_client = APIClient()
-
-    try:
-        _ = base_client.raycluster.get(name)
-    except Exception as e:
-        console.print(f"[red]Failed to fetch raycluster {name}: {e}[/]")
-        sys.exit(1)
-
-    ray_head_dashboard_url = f"{base_client.url}/rayclusters/{name}/dashboard"
-
-    warnings.filterwarnings(
-        "ignore",
-        category=urllib3.exceptions.InsecureRequestWarning,
-    )
-
-    submission_client = JobSubmissionClient(
-        address=ray_head_dashboard_url,
-        headers=_ray_job_headers(base_client),
-        verify=False,
-    )
-
-    try:
-        jobs = submission_client.list_jobs() or []
-    except Exception as e:
-        console.print(f"[red]Failed to list jobs on {name}: {e}[/]")
-        sys.exit(1)
+    client = APIClient()
+    jobs = client.raycluster.list_jobs(name)
 
     if not jobs:
         console.print("No Ray jobs found on this cluster.")
@@ -2271,6 +2275,12 @@ def list_jobs_command(name, keyword=None, statuses=()):
             "[yellow]No Ray jobs match the specified filters on this cluster.[/yellow]"
         )
         return
+    # Newest first, as the dashboard sorts; a stable sort keeps the server's
+    # order for jobs without a creation time.
+    jobs.sort(
+        key=lambda job: (job.metadata.created_at or 0) if job.metadata else 0,
+        reverse=True,
+    )
 
     def _fmt_ts_ms(ts_ms):
         if ts_ms is None:
@@ -2282,27 +2292,25 @@ def list_jobs_command(name, keyword=None, statuses=()):
 
     table = Table(title=f"Jobs on {name}", show_lines=True, show_header=True)
     table.add_column("Job ID")
-    table.add_column("Status")
+    table.add_column("State")
     table.add_column("Entrypoint")
     table.add_column("Start")
     table.add_column("End")
     table.add_column("Message")
 
     for j in jobs:
-        job_id_disp = (
-            getattr(j, "submission_id", None) or getattr(j, "job_id", "-") or "-"
+        metadata, spec, status = j.metadata, j.spec, j.status
+        job_id = (metadata.id_ or metadata.name) if metadata else None
+        # Plain Text cells: an entrypoint or message such as "--ids [1,2]"
+        # is not rich markup.
+        table.add_row(
+            Text(job_id or "-"),
+            colorize_state(status.state if status else None),
+            Text((spec.entrypoint if spec else None) or "-"),
+            _fmt_ts_ms(status.start_time if status else None),
+            _fmt_ts_ms(status.end_time if status else None),
+            Text((status.message if status else None) or "-"),
         )
-        status_disp = getattr(j, "status", None)
-        status_str = (
-            status_disp.value
-            if hasattr(status_disp, "value")
-            else str(status_disp or "-")
-        )
-        entrypoint = getattr(j, "entrypoint", None) or "-"
-        start_str = _fmt_ts_ms(getattr(j, "start_time", None))
-        end_str = _fmt_ts_ms(getattr(j, "end_time", None))
-        message = getattr(j, "message", None) or "-"
-        table.add_row(job_id_disp, status_str, entrypoint, start_str, end_str, message)
 
     console.print(table)
 

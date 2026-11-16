@@ -1,6 +1,6 @@
 from enum import Enum
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import List, Optional, Union
 
 from .common import Metadata
 from loguru import logger
@@ -87,6 +87,8 @@ class DedicatedNodeGroupSpec(BaseModel):
     scheduling_policy: Optional[SchedulingPolicy] = None
     owner: Optional[str] = None
     node_mode: Optional[str] = None
+    # Decides the node group's Type in the dashboard (manual/byok/api).
+    node_management_types: Optional[Union[List[str], str]] = None
     networking: Optional[NetworkConfigurations] = None
     alert_notification_config: Optional[AlertNotificationConfig] = None
 
@@ -168,6 +170,8 @@ class MachineStatus(BaseModel):
     public_ip: Optional[str] = None
     private_ip: Optional[str] = None
     hostname: Optional[str] = None
+    # The assigned hostname the dashboard shows in place of the reported one.
+    hostname_override: Optional[str] = None
 
 
 class Machine(BaseModel):
@@ -180,6 +184,7 @@ class NodeSpec(BaseModel):
     machine_id: Optional[str] = None
     capacity_type: Optional[str] = None
     hostname: Optional[str] = None
+    hostname_override: Optional[str] = None
     public_ip: Optional[str] = None
     local_ip: Optional[str] = None
     # Kept for compatibility with callers that used the old misspelled field.

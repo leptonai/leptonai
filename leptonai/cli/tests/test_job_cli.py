@@ -39,7 +39,8 @@ class _FakeAPIClient:
         _FakeAPIClient.last_instance = self
 
 
-def _create_args(*extra):
+def _create_args(*extra, node_group="ng-1"):
+    node_group_args = ["--node-group", node_group] if node_group else []
     return [
         "job",
         "create",
@@ -51,11 +52,24 @@ def _create_args(*extra):
         "echo done",
         "--resource-shape",
         config.DEFAULT_RESOURCE_SHAPE,
+        *node_group_args,
         *extra,
     ]
 
 
-class TestJobCliStorageAttachment(unittest.TestCase):
+class _NodeGroupLookupMixin:
+    """Skip the node group lookup API; every name is treated as a valid id."""
+
+    def setUp(self):
+        patcher = patch(
+            "leptonai.cli.util._get_valid_nodegroup_ids",
+            side_effect=lambda names, **_: list(names),
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+
+class TestJobCliStorageAttachment(_NodeGroupLookupMixin, unittest.TestCase):
     def test_job_create_builds_storage_attachments(self):
         runner = CliRunner()
         _FakeAPIClient.last_instance = None
@@ -114,8 +128,11 @@ class TestJobCliStorageAttachment(unittest.TestCase):
         self.assertIsNone(_FakeAPIClient.last_instance.job.created_job)
 
 
-if __name__ == "__main__":
-    unittest.main()
+def _job(name, *, state="Running", created_by="alice@example.com"):
+    return LeptonJob(
+        metadata=Metadata(id=name, name=name, created_by=created_by),
+        status={"state": state},
+    )
 
 
 class TestJobListFilters(unittest.TestCase):
@@ -150,7 +167,25 @@ class TestJobListFilters(unittest.TestCase):
         kwargs = list_all.call_args.kwargs
         self.assertEqual(kwargs["job_query_mode"], "alive_and_archive")
         self.assertEqual(kwargs["created_by"], ["alice"])
-        self.assertIn("No jobs matched your filters.", result.output)
+        # LEP-7612: archived listing fetches one capped page, not every page.
+        self.assertEqual(kwargs["page"], 1)
+        self.assertEqual(kwargs["page_size"], 500)
+        self.assertIn("No jobs match the specified filters.", result.output)
+        self.assertNotIn("full user id", result.output)
+
+    def test_job_list_include_archived_warns_when_capped(self):
+        jobs = [_job(f"j{i}") for i in range(500)]
+        result, _, shown = self._invoke_with_table(["-ia"], jobs)
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertEqual(len(shown), 500)
+        self.assertIn("Showing the newest 500 matching jobs only.", result.output)
+
+    def test_job_list_rejects_repeated_search(self):
+        # LEP-7560: a repeated --search used to keep only the last value.
+        result, list_all = self._invoke(["-q", "a", "-q", "b"])
+        self.assertEqual(result.exit_code, 2)
+        self.assertIn("can be given only once", result.output)
+        list_all.assert_not_called()
 
     def test_job_list_accepts_shared_filter_names(self):
         result, list_all = self._invoke(
@@ -174,6 +209,40 @@ class TestJobListFilters(unittest.TestCase):
         result, list_all = self._invoke(["-q", "train"])
         self.assertEqual(list_all.call_args.kwargs["q"], "train")
 
+    def _invoke_with_table(self, args, jobs):
+        with patch("leptonai.cli.job._display_jobs_table") as table:
+            result, list_all = self._invoke(args, jobs)
+        shown = table.call_args.args[0] if table.call_args else []
+        return result, list_all, [j.metadata.name for j in shown]
+
+    def test_job_list_passes_state_and_user_through_unchanged(self):
+        # The dashboard sends status/created_by to the server and shows what it
+        # returns; the CLI must not re-filter (LEP-7575/7566).
+        jobs = [
+            _job("a", state="Starting"),
+            _job("b", state="Restarting", created_by="malice@example.com"),
+        ]
+        result, list_all, shown = self._invoke_with_table(
+            ["-s", "starting", "-u", "alice"], jobs
+        )
+        self.assertEqual(result.exit_code, 0, result.output)
+        kwargs = list_all.call_args.kwargs
+        self.assertEqual(kwargs["status"], ["Starting"])
+        self.assertEqual(kwargs["created_by"], ["alice"])
+        self.assertEqual(shown, ["a", "b"])
+
+    def test_job_list_state_rejects_values_the_dashboard_does_not_offer(self):
+        result, list_all = self._invoke(["-s", "run"])
+        self.assertEqual(result.exit_code, 2)
+        list_all.assert_not_called()
+        result, list_all = self._invoke(["-s", "PendingRetry"])
+        self.assertEqual(result.exit_code, 2)
+
+    def test_job_list_allows_state_with_include_archived(self):
+        result, list_all = self._invoke(["-ia", "-s", "deleted"])
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertEqual(list_all.call_args.kwargs["status"], ["Deleted"])
+
     def test_job_list_state_help_is_derived_from_the_enum(self):
         result = CliRunner().invoke(cli, ["job", "list", "--help"])
         self.assertEqual(result.exit_code, 0)
@@ -181,10 +250,11 @@ class TestJobListFilters(unittest.TestCase):
         self.assertIn("-l, --label", result.output)
 
 
-class TestJobCreateNodeLabelSelector(unittest.TestCase):
+class TestJobCreateNodeLabelSelector(_NodeGroupLookupMixin, unittest.TestCase):
     def _invoke(self, extra, spec_file=None):
         _FakeAPIClient.last_instance = None
-        args = _create_args(*extra)
+        # A spec file carries its own node group, so no --node-group flag.
+        args = _create_args(*extra, node_group=None if spec_file else "ng-1")
         if spec_file is not None:
             args.extend(["--file", spec_file])
         with patch("leptonai.cli.job.APIClient", _FakeAPIClient):
@@ -192,6 +262,7 @@ class TestJobCreateNodeLabelSelector(unittest.TestCase):
         return result
 
     def _write_spec(self, affinity):
+        affinity = {"allowed_dedicated_node_groups": ["ng-file"], **affinity}
         handle = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False)
         json.dump(
             {
@@ -220,12 +291,14 @@ class TestJobCreateNodeLabelSelector(unittest.TestCase):
             "vmss=1,fabric,!maintenance",
         )
 
-    def test_job_create_without_selector_omits_affinity(self):
+    def test_job_create_without_selector_only_sends_node_group(self):
         result = self._invoke([])
         self.assertEqual(result.exit_code, 0, result.output)
         created = _FakeAPIClient.last_instance.job.created_job
-        self.assertIsNone(created.spec.affinity)
-        self.assertNotIn("affinity", created.model_dump(exclude_none=True)["spec"])
+        self.assertEqual(
+            created.model_dump(exclude_none=True)["spec"]["affinity"],
+            {"allowed_dedicated_node_groups": ["ng-1"]},
+        )
 
     def test_job_create_rejects_selector_with_node_id(self):
         result = self._invoke(
@@ -280,22 +353,18 @@ class TestJobCreateNodeLabelSelector(unittest.TestCase):
         created = _FakeAPIClient.last_instance.job.created_job
         self.assertEqual(
             created.model_dump(exclude_none=True)["spec"]["affinity"],
-            {"allowed_nodes_in_node_group": ["node-1"]},
+            {
+                "allowed_dedicated_node_groups": ["ng-file"],
+                "allowed_nodes_in_node_group": ["node-1"],
+            },
         )
 
     def test_node_group_keeps_file_selector(self):
         path = self._write_spec({"node_label_selector": "vmss=1"})
-        _FakeAPIClient.last_instance = None
-        with (
-            patch("leptonai.cli.job.APIClient", _FakeAPIClient),
-            patch("leptonai.cli.util._get_valid_nodegroup_ids", return_value=["ng-1"]),
-        ):
-            result = CliRunner().invoke(
-                cli, _create_args("--file", path, "--node-group", "my-group")
-            )
+        result = self._invoke(["--node-group", "my-group"], spec_file=path)
         self.assertEqual(result.exit_code, 0, result.output)
         affinity = _FakeAPIClient.last_instance.job.created_job.spec.affinity
-        self.assertEqual(affinity.allowed_dedicated_node_groups, ["ng-1"])
+        self.assertEqual(affinity.allowed_dedicated_node_groups, ["my-group"])
         self.assertEqual(affinity.node_label_selector, "vmss=1")
         self.assertIsNone(affinity.allowed_nodes_in_node_group)
 
@@ -305,3 +374,57 @@ class TestJobCreateNodeLabelSelector(unittest.TestCase):
         help_text = " ".join(result.output.split())
         self.assertIn("--node-label-selector", help_text)
         self.assertIn("Cannot be combined with --node-id", help_text)
+
+
+class TestJobCreateRequiresNodeGroup(_NodeGroupLookupMixin, unittest.TestCase):
+    def _invoke(self, args):
+        _FakeAPIClient.last_instance = None
+        with patch("leptonai.cli.job.APIClient", _FakeAPIClient):
+            return CliRunner().invoke(cli, args)
+
+    def test_job_create_without_node_group_fails(self):
+        result = self._invoke(_create_args(node_group=None))
+        self.assertEqual(result.exit_code, 1, result.output)
+        self.assertIn("Missing option '--node-group'", result.output)
+        self.assertIsNone(_FakeAPIClient.last_instance.job.created_job)
+
+    def test_spec_file_without_node_group_fails(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            json.dump({"resource_shape": config.DEFAULT_RESOURCE_SHAPE}, f)
+        self.addCleanup(os.remove, f.name)
+        result = self._invoke(_create_args("--file", f.name, node_group=None))
+        self.assertEqual(result.exit_code, 1, result.output)
+        self.assertIn("Missing option '--node-group'", result.output)
+        self.assertIsNone(_FakeAPIClient.last_instance.job.created_job)
+
+    def test_spec_file_node_group_satisfies_requirement(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            json.dump(
+                {
+                    "resource_shape": config.DEFAULT_RESOURCE_SHAPE,
+                    "affinity": {"allowed_dedicated_node_groups": ["ng-file"]},
+                },
+                f,
+            )
+        self.addCleanup(os.remove, f.name)
+        result = self._invoke(_create_args("--file", f.name, node_group=None))
+        self.assertEqual(result.exit_code, 0, result.output)
+        created = _FakeAPIClient.last_instance.job.created_job
+        self.assertEqual(
+            created.spec.affinity.allowed_dedicated_node_groups, ["ng-file"]
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()
+
+
+def test_job_create_with_unparseable_file_exits_non_zero(tmp_path):
+    bad = tmp_path / "bad.json"
+    bad.write_text("{not json")
+    with patch("leptonai.cli.job.APIClient", _FakeAPIClient):
+        result = CliRunner().invoke(
+            cli, ["job", "create", "-n", "j", "--file", str(bad), "-ng", "ng-1"]
+        )
+    assert result.exit_code == 1, result.output
+    assert "Cannot load job spec from file" in result.output

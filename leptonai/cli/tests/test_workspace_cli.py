@@ -27,6 +27,14 @@ class TestWorkspaceCli(unittest.TestCase):
         self.assertNotIn("logged in", result.output.lower())
         self.assertEqual(result.exit_code, 1)
 
+    def test_workspace_remove_unknown_id_exits_non_zero(self):
+        with mock.patch.object(WorkspaceRecord, "has", return_value=False):
+            result = CliRunner().invoke(
+                cli, ["workspace", "remove", "-i", "no-such-workspace"]
+            )
+        self.assertEqual(result.exit_code, 1, result.output)
+        self.assertIn("Workspace not found: no-such-workspace", result.output)
+
     def test_workspace_list(self):
         runner = CliRunner()
         result = runner.invoke(cli, ["workspace", "list"])

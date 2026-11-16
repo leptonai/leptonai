@@ -7,6 +7,7 @@ from loguru import logger
 from rich.table import Table
 
 from .util import (
+    single_keyword,
     click_group,
     console,
     format_timestamp_ms,
@@ -14,9 +15,11 @@ from .util import (
     make_name_id_cell,
     _validate_queue_priority,
     apply_nodegroup_and_queue_config,
+    require_node_group,
     resolve_save_path,
     PathResolutionError,
     labels_to_selector,
+    LooseChoice,
     normalize_keyword,
     keyword_matches,
 )
@@ -220,7 +223,7 @@ def _print_finetune_jobs_table(jobs, dashboard_base_url: Optional[str] = None):
     table.add_column("Name / ID")
     table.add_column("Created At")
     table.add_column("State")
-    table.add_column("User ID")
+    table.add_column("Creator")
     table.add_column("Shape / Node Group")
     table.add_column("Workers")
     table.add_column("Base Model")
@@ -244,7 +247,7 @@ def _print_finetune_jobs_table(jobs, dashboard_base_url: Optional[str] = None):
         )
         created_ts = format_timestamp_ms(getattr(md, "created_at", None))
         state_cell = colorize_state(getattr(status, "state", None))
-        owner = getattr(md, "owner", "-")
+        owner = getattr(md, "created_by", None) or "-"
         # Node groups
         try:
             ngs = getattr(
@@ -316,6 +319,24 @@ def _print_finetune_jobs_table(jobs, dashboard_base_url: Optional[str] = None):
     console.print(table)
 
 
+# The dashboard's fine-tune job status filter values, plus "Deleted" from the
+# archived tab since --include-archived lists both.
+FINETUNE_STATE_FILTER_VALUES = (
+    "Starting",
+    "Running",
+    "Stopped",
+    "Stopping",
+    "Failed",
+    "Completed",
+    "Deleting",
+    "Restarting",
+    "Queueing",
+    "Awaiting",
+    "Terminating",
+    "Deleted",
+)
+
+
 @finetune.command(name="list")
 @click.option(
     "--search",
@@ -325,7 +346,13 @@ def _print_finetune_jobs_table(jobs, dashboard_base_url: Optional[str] = None):
     "q",
     type=str,
     required=False,
-    help="Case-insensitive substring match on the job name.",
+    help=(
+        "Search jobs, as the dashboard's search box does: the server matches a"
+        " case-insensitive substring of the job ID (derived from the name). Takes"
+        " one term."
+    ),
+    multiple=True,
+    callback=single_keyword,
 )
 @click.option("--query", type=str, required=False, help="Label selector query.")
 @click.option(
@@ -344,9 +371,12 @@ def _print_finetune_jobs_table(jobs, dashboard_base_url: Optional[str] = None):
     "--state",
     "-s",
     "status",
-    type=str,
+    type=LooseChoice(FINETUNE_STATE_FILTER_VALUES),
     multiple=True,
-    help="Filter by job state. Repeat for OR.",
+    help=(
+        "Filter by job state, as the dashboard's status filter does. Case and"
+        " spacing are ignored. Repeat for OR."
+    ),
 )
 @click.option(
     "--node-group",
@@ -354,7 +384,10 @@ def _print_finetune_jobs_table(jobs, dashboard_base_url: Optional[str] = None):
     "node_groups",
     type=str,
     multiple=True,
-    help="Filter by node group. Repeat for OR.",
+    help=(
+        "CLI-only (the dashboard has no node group filter). The server matches a"
+        " case-insensitive substring of the job's node group IDs. Repeat for OR."
+    ),
 )
 @click.option(
     "--created-by",
@@ -363,7 +396,10 @@ def _print_finetune_jobs_table(jobs, dashboard_base_url: Optional[str] = None):
     "created_by",
     type=str,
     multiple=True,
-    help="Filter by creator. Repeat for OR.",
+    help=(
+        "Filter by creator, as the dashboard's creator filter does: the server"
+        " matches a case-insensitive substring of the creator. Repeat for OR."
+    ),
 )
 @click.option(
     "--page",
@@ -397,10 +433,10 @@ def list_command(
 ):
     """List finetune jobs.
 
-    Filters mirror the dashboard: --search/-q matches the job name,
-    --status/-s, --node-group/-ng and --created-by/-u accept repeated values
-    (OR), and --label/--query filter by labels. Different filters are combined
-    with AND.
+    Filters are sent to the server unchanged, the same way the dashboard
+    sends them. --status/-s, --node-group/-ng and --created-by/-u accept
+    repeated values (OR), --label/--query filter by labels, and different
+    filters are combined with AND.
     """
     client = APIClient()
     job_query_mode = (
@@ -516,6 +552,8 @@ def delete_command(id: str, include_archived: bool):
     "keyword",
     type=str,
     help="Case-insensitive substring search on the trainer ID.",
+    multiple=True,
+    callback=single_keyword,
 )
 def list_trainers_command(keyword=None):
     """List available finetune trainers."""
@@ -611,7 +649,8 @@ def list_trainers_command(keyword=None):
     "-ng",
     "node_groups",
     help=(
-        "[job] Node group for the job. You can repeat"
+        "[job] Node group for the job. Required unless the spec from --file already"
+        " sets allowed_dedicated_node_groups. You can repeat"
         " this flag multiple times to choose multiple node groups. Multiple node group"
         " option is currently not supported but coming soon for enterprise users. Only"
         " the first node group will be set if you input multiple node groups at this"
@@ -775,6 +814,8 @@ def create_command(
             sys.exit(1)
     else:
         spec = LeptonFineTuneJobSpec()
+
+    require_node_group(node_groups, spec.affinity, "Fine-tune jobs")
 
     # Apply simple presence-based overrides (no defaults for job params)
     if resource_shape is not None:

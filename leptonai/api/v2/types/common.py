@@ -32,6 +32,7 @@ class Metadata(BaseModel):
 
     id_: Optional[str] = Field(default=None, alias="id")
     name: Optional[str] = None
+    description: Optional[str] = None
     created_at: Optional[int] = None
     version: Optional[int] = None
     created_by: Optional[str] = None
