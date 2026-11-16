@@ -487,6 +487,71 @@ def test_status_shows_summary_services_health_and_replicas(fake):
     assert "1 out of 2 replicas ready" in result.output
 
 
+def _multinode_one_replica_payload(name, include_status=True):
+    """One decode replica across two nodes: mixed service-list vs CR status units."""
+    services = {
+        "frontend": _service_spec(
+            "frontend", "cpu.small", 1, "python3 -m dynamo.frontend", "/workspace"
+        ),
+        "decode-worker": _service_spec(
+            "worker",
+            "gpu.a100-1",
+            1,
+            "python3 -m dynamo.sglang",
+            "/workspace/examples/backends/sglang",
+        ),
+    }
+    services["decode-worker"]["multinode"] = {"node_count": 2}
+    payload = _deployment(name, services=services)
+    decode_status = {
+        "state": "Ready",
+        "ready_replicas": 2,
+        "desired_replicas": 2,
+    }
+    if include_status:
+        payload["status"]["services"]["decode-worker"] = decode_status
+    else:
+        payload["status"]["services"].pop("decode-worker")
+    infos = {
+        "frontend": {
+            "component_type": "frontend",
+            "min_replicas": 1,
+            "desired_replicas": 1,
+            "ready_replicas": 1,
+            "total_pods": 1,
+            "is_multinode": False,
+        },
+        "decode-worker": {
+            "component_type": "worker",
+            "min_replicas": 1,
+            "desired_replicas": 1,
+            "ready_replicas": 2,
+            "total_pods": 2,
+            "is_multinode": True,
+            "node_count": 2,
+        },
+    }
+    return payload, infos
+
+
+@pytest.mark.parametrize("include_status", [True, False])
+def test_status_multinode_replica_counts_use_one_unit(fake, include_status):
+    # LEP-7781: services-list ready is pod count (2) while desired is
+    # spec.replicas (1). Deployment status stores both as pod counts (2/2).
+    name = "l6381-sddec2-100021"
+    payload, infos = _multinode_one_replica_payload(name, include_status=include_status)
+    fake.add_deployment(payload)
+    fake.service_infos[name] = infos
+
+    for args in (["status", "-n", name], ["service", "list", "-n", name]):
+        result = run(*args)
+        assert result.exit_code == 0, result.output
+        assert "decode-worker" in result.output
+        assert "2/1" not in result.output
+        assert "2/2" in result.output
+        assert "2 nodes" in result.output
+
+
 def test_service_list_and_get(fake):
     result = run("service", "list", "-n", "my-dynamo")
     assert result.exit_code == 0, result.output
