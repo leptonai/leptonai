@@ -668,9 +668,10 @@ def _service_replica_ready_desired(service, info, status):
 
     Deployment status stores both as pod counts: for multi-node workers the
     operator multiplies spec.replicas by node_count. The services list API
-    reports ready as ready pods but desired as spec.replicas, which made the
-    table show ``2/1`` for one replica on two nodes (LEP-7781). Prefer the
-    status pair; otherwise scale a logical desired count by node_count.
+    and service-get payload report ready as ready pods but desired as
+    spec.replicas, which made the table and ``lep dynamo service get`` show
+    ``2/1`` for one replica on two nodes (LEP-7781). Prefer the status pair;
+    otherwise scale a logical desired count by node_count.
     """
     ready = None
     if info is not None and info.ready_replicas is not None:
@@ -920,6 +921,7 @@ def get_service(name, service, detail):
     """
     client = APIClient()
     svc = client.dynamo.get_service(name, service)
+    dep = client.dynamo.get(name)
     spec = svc.spec or LeptonDynamoServiceSpec()
     st = svc.status
     container = _main_container(spec)
@@ -935,11 +937,16 @@ def get_service(name, service, detail):
     if extras:
         state_line += f" ({', '.join(extras)})"
     console.print(f"State:        {state_line}")
+    spec_service = ((dep.spec.services if dep.spec else None) or {}).get(
+        service
+    ) or spec
+    status = ((dep.status.services if dep.status else None) or {}).get(service)
+    ready, desired = _service_replica_ready_desired(spec_service, svc, status)
     replicas = st.replicas if st else None
     console.print(
         "Replicas:     ready"
-        f" {(replicas.ready if replicas else svc.ready_replicas) or 0} / desired"
-        f" {(replicas.desired if replicas else svc.desired_replicas) or spec.min_replicas or 0} (running"
+        f" {ready or 0} / desired"
+        f" {desired or 0} (running"
         f" {(replicas.running if replicas else svc.running_replicas) or 0}, pods"
         f" {(replicas.total_pods if replicas else svc.total_pods) or 0})"
     )
