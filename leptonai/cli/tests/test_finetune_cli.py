@@ -162,6 +162,7 @@ def test_finetune_list_trainers_reports_when_nothing_matches():
     assert "No trainers match the specified filters." in result.output
 
 
+@pytest.mark.usefixtures("finetune_enabled")
 def test_finetune_list_state_takes_the_dashboard_values():
     result, list_all = _invoke(["--status", "not-a-state"])
     assert result.exit_code == 2
@@ -171,6 +172,7 @@ def test_finetune_list_state_takes_the_dashboard_values():
     assert list_all.call_args.kwargs["status"] == ["Running"]
 
 
+@pytest.mark.usefixtures("finetune_enabled")
 def test_finetune_list_passes_creator_through_without_local_matching():
     # The dashboard sends created_by to the server and shows what it returns.
     from leptonai.api.v2.types.common import Metadata
