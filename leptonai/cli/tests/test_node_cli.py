@@ -27,6 +27,7 @@ from leptonai.api.v2.types.node_reservation import (
     NodeReservationSpec,
     NodeReservationStatus,
 )
+from leptonai.api.v2.types.shape import Shape, ShapeSpec
 from leptonai.api.v2.types.storage_data_source import StorageDataSource
 from leptonai.api.v2.types.storage_permission import StoragePermission
 from leptonai.cli import lep as cli
@@ -35,6 +36,7 @@ from leptonai.cli.node import (
     _filter_reservations,
     _format_network_cell,
     _format_reservation_row,
+    _format_shape_entry,
     _merge_nodes_with_machines,
     _node_group_types,
     console as node_console,
@@ -2105,3 +2107,53 @@ def test_node_group_list_help_marks_cli_only_and_dashboard_filters():
     assert "dashboard's Type filter" in helps["types"]
     type_option = next(p for p in node_list_command.params if p.name == "types")
     assert type_option.opts == ["--type", "-t"]
+
+
+def _shape(name, listable_in):
+    return Shape(
+        metadata=Metadata(id=name, name=name),
+        spec=ShapeSpec(name=name, listable_in=listable_in, cpu=1, memory_in_mb=1024),
+    )
+
+
+def _invoke_resource_shape(args, shapes, monkeypatch):
+    monkeypatch.setattr(node_console, "width", 240)
+    fake_client = Mock()
+    fake_client.nodegroup.list_all.return_value = [_make_node_group()]
+    fake_client.shapes.list_shapes.return_value = shapes
+    with patch("leptonai.cli.node.APIClient", return_value=fake_client):
+        result = CliRunner().invoke(cli, ["node", "resource-shape", *args])
+    return result, fake_client
+
+
+@pytest.mark.parametrize("listable_in", [[], None])
+def test_resource_shape_shows_custom_shapes_without_listable_in(
+    monkeypatch, listable_in
+):
+    # The API returns a node group's custom shapes for every non-machine purpose,
+    # and custom shapes carry an empty listable_in.
+    shapes = [
+        _shape("gpu.small", ["deployment", "pod", "job"]),
+        _shape("a10.gpu.small", listable_in),
+        _shape("machine.only", ["machine"]),
+    ]
+
+    result, fake_client = _invoke_resource_shape(
+        ["-ng", "h100-cluster", "--purpose", "deployment"], shapes, monkeypatch
+    )
+
+    assert result.exit_code == 0, result.output
+    fake_client.shapes.list_shapes.assert_called_once_with(
+        node_group="ng-123", purpose="deployment"
+    )
+    assert "gpu.small" in result.output
+    assert "a10.gpu.small" in result.output
+    assert "machine.only" not in result.output
+
+
+def test_resource_shape_marks_custom_shapes_available_for_all_workloads():
+    shape_text, _ = _format_shape_entry(_shape("a10.gpu.small", []))
+
+    assert "[green]pod[/green]" in shape_text
+    assert "[cyan]endpoint[/cyan]" in shape_text
+    assert "[magenta]job[/magenta]" in shape_text
