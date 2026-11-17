@@ -281,6 +281,22 @@ def _colorize_status(status):
         return f"[yellow]{status}[/yellow]"
 
 
+_WORKLOAD_SHAPE_PURPOSES = frozenset({"pod", "deployment", "job"})
+
+
+def _shape_purposes(shape):
+    """Return the lowercase purposes a shape is listable in.
+
+    Node group custom shapes have an empty listable_in, and the API returns
+    them for every workload purpose.
+    """
+    spec = getattr(shape, "spec", None)
+    listable = getattr(spec, "listable_in", None) if spec else None
+    if not listable:
+        return set(_WORKLOAD_SHAPE_PURPOSES)
+    return {str(x).lower() for x in listable}
+
+
 def _format_shape_entry(shape):
     """Format a single Shape into two parts: (shape cell text, detailed cell text).
 
@@ -298,8 +314,7 @@ def _format_shape_entry(shape):
         or "(unnamed)"
     )
 
-    listable = set((getattr(spec, "listable_in", None) or [])) if spec else set()
-    listable_lower = {str(x).lower() for x in listable}
+    listable_lower = _shape_purposes(shape)
 
     # Build availability tags
     pod_tag = "[green]pod[/green]" if "pod" in listable_lower else "[dim]pod[/dim]"
@@ -1407,7 +1422,7 @@ def resource_shape_command(node_group=None, purpose=None):
     table.add_column("Shapes")
     table.add_column("Detailed")
 
-    wanted = {str(purpose).lower()} if purpose else {"pod", "deployment", "job"}
+    wanted = {str(purpose).lower()} if purpose else _WORKLOAD_SHAPE_PURPOSES
 
     for ng in node_groups:
         ng_name = ng.metadata.name
@@ -1422,13 +1437,7 @@ def resource_shape_command(node_group=None, purpose=None):
                 shapes = []
 
         # NodeGroup column: name on first line, id on second line (only show on the first row per group)
-        filtered = []
-        for sh in shapes:
-            spec = getattr(sh, "spec", None)
-            listable = set((getattr(spec, "listable_in", None) or []))
-            listable_lower = {str(x).lower() for x in listable}
-            if listable_lower & wanted:
-                filtered.append(sh)
+        filtered = [sh for sh in shapes if _shape_purposes(sh) & wanted]
 
         if not filtered:
             nodegroup_text = f"{ng_name}\n[dim]{ng_id}[/dim]"
