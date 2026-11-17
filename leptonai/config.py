@@ -155,27 +155,6 @@ else:
 # If you are in need of accessing the cache directory, use the functions `create_cached_dir_if_needed()`
 # in `leptonai.utils`.
 CACHE_DIR = Path(os.environ.get("LEPTON_CACHE_DIR", Path.home() / ".cache" / "lepton"))
-LOGS_DIR = CACHE_DIR / "logs"
-
-
-def _to_bool(s: str) -> bool:
-    """
-    Convert a string to a boolean value.
-    """
-    if not isinstance(s, str):
-        raise TypeError(f"Expected a string, got {type(s)}")
-    true_values = ("yes", "true", "t", "1", "y", "on", "aye", "yea")
-    false_values = ("no", "false", "f", "0", "n", "off", "nay", "")
-    s = s.lower()
-    if s in true_values:
-        return True
-    elif s in false_values:
-        return False
-    else:
-        raise ValueError(
-            f"Invalid boolean value: {s}. Valid true values: {true_values}. Valid false"
-            f" values: {false_values}."
-        )
 
 
 # Default base image for batch jobs.
@@ -186,77 +165,6 @@ if os.environ.get("LEPTON_DEFAULT_RESOURCE_SHAPE"):
     DEFAULT_RESOURCE_SHAPE = os.environ["LEPTON_DEFAULT_RESOURCE_SHAPE"]
 else:
     DEFAULT_RESOURCE_SHAPE = "cpu.small"
-
-# Default port used by the Lepton deployments.
-DEFAULT_PORT = 8080
-
-try:
-    DEFAULT_TIMEOUT_KEEP_ALIVE = int(
-        os.environ.get("LEPTON_TIMEOUT_KEEP_ALIVE", "1800")
-    )
-except ValueError:
-    DEFAULT_TIMEOUT_KEEP_ALIVE = 1800  # 30 minutes
-    print(
-        "You have set an invalid value for LEPTON_TIMEOUT_KEEP_ALIVE."
-        f" Using default value of {DEFAULT_TIMEOUT_KEEP_ALIVE} seconds."
-    )
-
-# During some deployment environments, the server might run behind a load balancer, and during
-# the shutdown time, the load balancer will send a SIGTERM to uvicorn to shut down the server.
-# The default behavior of uvicorn is to immediately stop receiving new traffic, and it is problematic
-# when the load balancer need to wait for some time to propagate the TERMINATING status to
-# other components of the distributed system. This parameter controls the grace period before
-# uvicorn rejects incoming traffic on SIGTERM.
-if os.environ.get("LEPTON_INCOMING_TRAFFIC_GRACE_PERIOD"):
-    # If the user has explicitly set the grace period, we will use the user's setting.
-    DEFAULT_INCOMING_TRAFFIC_GRACE_PERIOD = int(
-        os.environ["LEPTON_INCOMING_TRAFFIC_GRACE_PERIOD"]
-    )
-elif "LEPTON_WORKSPACE_ID" in os.environ and "LEPTON_DEPLOYMENT_NAME" in os.environ:
-    # Else, if we are running on the Lepton platform, we will use the default grace period
-    # that we tested on the platform for maximum smoothness in alleviating the distributed
-    # envoy update.
-    DEFAULT_INCOMING_TRAFFIC_GRACE_PERIOD = 300
-else:
-    DEFAULT_INCOMING_TRAFFIC_GRACE_PERIOD = 5
-
-_LOCAL_DEPLOYMENT_TOKEN = None
-
-
-def set_local_deployment_token(token: str):
-    """
-    Sets the local token used by Lepton deployments. If the token is empty, we will not
-    set the token in the deployment. If the token is set, all local endpoints
-    are protected by the token.
-
-    Note that on the Lepton platform, the token is managed by the platform, so we
-    will ignore the local deployment token.
-    """
-    if token is None:
-        raise RuntimeError(
-            'Token cannot be None. To set an empty token, use empty string ("").'
-        )
-    if "LEPTON_WORKSPACE_ID" in os.environ and "LEPTON_DEPLOYMENT_NAME" in os.environ:
-        warnings.warn(
-            "We are running on the Lepton platform, so we will ignore the local"
-            " deployment token."
-        )
-    else:
-        global _LOCAL_DEPLOYMENT_TOKEN
-        _LOCAL_DEPLOYMENT_TOKEN = token
-
-
-def get_local_deployment_token() -> str:
-    """
-    Gets the local deployment token. If the token is explicitly set by set_local_deployment_token,
-    return the token. Otherwise, return the token from the environment variable LEPTON_LOCAL_DEPLOYMENT_TOKEN.
-    If the environment variable is not set, return an empty string.
-    """
-    if _LOCAL_DEPLOYMENT_TOKEN is None:
-        return os.environ.get("LEPTON_LOCAL_DEPLOYMENT_TOKEN", "")
-    else:
-        return _LOCAL_DEPLOYMENT_TOKEN
-
 
 # Valid resource shapes
 VALID_SHAPES = [
@@ -298,12 +206,6 @@ LEPTON_RESERVED_ENV_NAMES = {
     "LEPTON_WORKSPACE_ORIGIN_URL",
 }
 
-if "LEPTON_ALLOW_ORIGINS" in os.environ:
-    ALLOW_ORIGINS = os.environ["LEPTON_ALLOW_ORIGINS"].split(",")
-else:
-    ALLOW_ORIGINS = ["*"]
-
-
 # Note: LEPTON_DEPLOYMENT_URL is temporarily removed to reduce workspace URL dependency
 # This may be restored in the future if we implement a more flexible URL handling mechanism
 
@@ -312,17 +214,3 @@ else:
 SSH_PORT = 2222
 TCP_PORT = 18888
 TCP_JUPYTER_PORT = 18889
-
-ENDPOINT_BASE_DOMAIN = "xenon.lepton.run"
-
-
-def build_endpoint_url(workspace_id: str, deployment_name: str) -> str:
-    """
-    Build the endpoint URL for a deployment using the standard pattern:
-        https://<workspace_id>-<deployment_name>.<ENDPOINT_BASE_DOMAIN>
-    """
-    if not workspace_id or not deployment_name:
-        raise ValueError("workspace_id and deployment_name must be non-empty")
-    return f"https://{workspace_id}-{deployment_name}.{ENDPOINT_BASE_DOMAIN}".rstrip(
-        "/"
-    )
