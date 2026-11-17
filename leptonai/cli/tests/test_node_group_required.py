@@ -63,7 +63,10 @@ def test_endpoint_create_accepts_node_group_from_spec_file(tmp_path):
 
 
 def test_finetune_create_without_node_group_fails():
-    with patch("leptonai.cli.finetune._fetch_template_schema", return_value={}):
+    with (
+        patch("leptonai.cli.finetune.FINETUNE_ENABLED", True),
+        patch("leptonai.cli.finetune._fetch_template_schema", return_value={}),
+    ):
         result = CliRunner().invoke(
             lep, ["finetune", "create", "-n", "ft", "--resource-shape", "cpu.small"]
         )
