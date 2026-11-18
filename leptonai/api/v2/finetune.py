@@ -53,20 +53,23 @@ class FineTuneAPI(APIResourse):
                 response, LeptonFineTuneJob, list_key="finetune_jobs"
             )
 
-        # Otherwise auto-paginate until empty result set
+        # Otherwise auto-paginate until a short (or empty) page
         results: List[LeptonFineTuneJob] = []
         current_page = 1
+        page_size = 500
         while True:
             params = dict(params_base)
             params["page"] = current_page
-            params["page_size"] = 500
+            params["page_size"] = page_size
             response = self._get("/finetune/jobs", params=params)
             items = self.ensure_list(
                 response, LeptonFineTuneJob, list_key="finetune_jobs"
             )
-            if not items:
-                break
             results.extend(items)
+            # A short page is the last one; skip the extra empty-page request
+            # (in archive mode each page is a BigQuery query plus a count).
+            if len(items) < page_size:
+                break
             current_page += 1
         return results
 
@@ -106,8 +109,14 @@ class FineTuneAPI(APIResourse):
         )
         return self.ensure_ok(response)
 
-    def list_supported_models(self) -> List[FineTuneModelInfo]:
-        response = self._get("/finetune/supported-models")
+    def list_supported_models(
+        self, trainer: str = "automodel"
+    ) -> List[FineTuneModelInfo]:
+        """
+        ``trainer`` is a trainer name such as ``automodel``, not a ``trainer_id``
+        from ``list_trainers()``.
+        """
+        response = self._get("/finetune/supported-models", params={"trainer": trainer})
         return self.ensure_list(response, FineTuneModelInfo)
 
     def list_trainers(self, default_only: bool = True) -> List[TrainerInfo]:

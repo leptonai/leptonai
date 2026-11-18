@@ -164,6 +164,8 @@ class SlurmAPI(APIResourse):
         qos: Optional[List[str]] = None,
         sort_fields: Optional[str] = None,
         sort_orders: Optional[str] = None,
+        start_time: Optional[int] = None,
+        end_time: Optional[int] = None,
     ) -> Dict[str, Any]:
         """Build the query shared by the workspace and cluster job routes."""
         if job_query_mode not in SLURM_JOB_QUERY_MODES:
@@ -185,7 +187,12 @@ class SlurmAPI(APIResourse):
         ):
             if value:
                 params[key] = value
-        for key, value in (("page", page), ("page_size", page_size)):
+        for key, value in (
+            ("page", page),
+            ("page_size", page_size),
+            ("start_time", start_time),
+            ("end_time", end_time),
+        ):
             if value is not None:
                 params[key] = value
         return params
@@ -204,7 +211,16 @@ class SlurmAPI(APIResourse):
         qos: Optional[List[str]] = None,
         sort_fields: Optional[str] = None,
         sort_orders: Optional[str] = None,
+        start_time: Optional[int] = None,
+        end_time: Optional[int] = None,
     ) -> WorkspaceSlurmJobList:
+        """List Slurm jobs across the workspace's clusters.
+
+        ``partition`` and ``qos`` match a job's value exactly; several values
+        are ORed. In the archive modes, ``start_time`` and ``end_time`` (Unix
+        seconds) bound when archived jobs ended: the server defaults to the
+        last 7 days and rejects a window longer than 30 days.
+        """
         params = self._job_query_params(
             job_query_mode,
             cluster_names=cluster_names,
@@ -217,6 +233,8 @@ class SlurmAPI(APIResourse):
             qos=qos,
             sort_fields=sort_fields,
             sort_orders=sort_orders,
+            start_time=start_time,
+            end_time=end_time,
         )
         response = self._get("/slurm/jobs", params=params)
         return self.ensure_type(response, WorkspaceSlurmJobList)
@@ -231,11 +249,14 @@ class SlurmAPI(APIResourse):
         created_by: Optional[List[str]] = None,
         partition: Optional[List[str]] = None,
         qos: Optional[List[str]] = None,
+        start_time: Optional[int] = None,
+        end_time: Optional[int] = None,
     ) -> List[SlurmJob]:
         """List jobs of one cluster via the cluster-scoped route.
 
         No pagination parameters are sent, so the server responds with the
-        bare job array (capped at its default of 1000 entries).
+        bare job array (capped at its default of 1000 entries). The archive
+        window works as in :meth:`list_jobs`.
         """
         params = self._job_query_params(
             job_query_mode,
@@ -244,30 +265,64 @@ class SlurmAPI(APIResourse):
             created_by=created_by,
             partition=partition,
             qos=qos,
+            start_time=start_time,
+            end_time=end_time,
         )
         response = self._get(
             f"/slurmclusters/{self._cluster_path(cluster_id)}/jobs", params=params
         )
         return self.ensure_list(response, SlurmJob)
 
+    @staticmethod
+    def _job_window_params(
+        start_time: Optional[int], end_time: Optional[int]
+    ) -> Dict[str, Any]:
+        return {
+            key: value
+            for key, value in (("start_time", start_time), ("end_time", end_time))
+            if value is not None
+        }
+
     def get_job(
-        self, cluster_id: str, job_id: Union[str, int], *, slurm_api: bool = False
+        self,
+        cluster_id: str,
+        job_id: Union[str, int],
+        *,
+        slurm_api: bool = False,
+        start_time: Optional[int] = None,
+        end_time: Optional[int] = None,
     ) -> Union[SlurmJob, Any]:
+        """Get one job of a cluster.
+
+        ``start_time`` and ``end_time`` (Unix seconds) bound when a finished
+        job ended, as the archive window of :meth:`list_jobs` does: the server
+        defaults to the last 7 days and rejects a window longer than 30 days.
+        """
+        params = self._job_window_params(start_time, end_time)
+        if slurm_api:
+            params["slurm_api"] = "true"
         response = self._get(
             f"/slurmclusters/{self._cluster_path(cluster_id)}/jobs/"
             f"{quote(str(job_id), safe='')}",
-            params={"slurm_api": "true"} if slurm_api else None,
+            params=params or None,
         )
         if slurm_api:
             return self.ensure_json(response)
         return self.ensure_type(response, SlurmJob)
 
     def get_job_events(
-        self, cluster_id: str, job_id: Union[str, int]
+        self,
+        cluster_id: str,
+        job_id: Union[str, int],
+        *,
+        start_time: Optional[int] = None,
+        end_time: Optional[int] = None,
     ) -> SlurmJobEventList:
+        """Get a job's attempts and steps; the window works as in :meth:`get_job`."""
         response = self._get(
             f"/slurmclusters/{self._cluster_path(cluster_id)}/jobs/"
-            f"{quote(str(job_id), safe='')}/events"
+            f"{quote(str(job_id), safe='')}/events",
+            params=self._job_window_params(start_time, end_time) or None,
         )
         return self.ensure_type(response, SlurmJobEventList)
 
@@ -298,6 +353,10 @@ class SlurmAPI(APIResourse):
             "slurm_cluster": name,
             "limit": limit,
             "direction": direction,
+            # Always present, even when empty: the server unwraps the
+            # collector's {"message": ...} envelope into plain log text only
+            # when the q key is on the request (the dashboard sends q="" too).
+            "q": query or "",
         }
         optional = {
             "slurm_job": None if job_id is None else str(job_id),
@@ -305,7 +364,6 @@ class SlurmAPI(APIResourse):
             "slurm_step": step,
             "slurm_node": node,
             "slurm_log_type": log_type,
-            "q": query,
             "start": start,
             "end": end,
         }

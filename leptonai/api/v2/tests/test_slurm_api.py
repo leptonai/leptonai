@@ -191,6 +191,70 @@ def test_list_jobs_maps_workspace_filters_and_response():
     )
 
 
+def test_list_jobs_sends_the_archive_window_only_when_given():
+    api, client = _api({"total": 0, "jobs": []})
+
+    api.list_jobs(
+        job_query_mode="archive_only", start_time=1_790_000_000, end_time=1_790_600_000
+    )
+    client._get.assert_called_once_with(
+        "/slurm/jobs",
+        params={
+            "job_query_mode": "archive_only",
+            "start_time": 1_790_000_000,
+            "end_time": 1_790_600_000,
+        },
+    )
+
+    client._get.reset_mock()
+    api.list_jobs(job_query_mode="alive_and_archive")
+    client._get.assert_called_once_with(
+        "/slurm/jobs", params={"job_query_mode": "alive_and_archive"}
+    )
+
+    client._get.reset_mock()
+    client._get.return_value = _Response([])
+    api.list_cluster_jobs(
+        "ns/cluster-a",
+        job_query_mode="archive_only",
+        partition=["batch,batch_long"],
+        end_time=1_790_600_000,
+    )
+    client._get.assert_called_once_with(
+        "/slurmclusters/ns/cluster-a/jobs",
+        params={
+            "job_query_mode": "archive_only",
+            "partition": ["batch,batch_long"],
+            "end_time": 1_790_600_000,
+        },
+    )
+
+
+def test_job_detail_and_events_send_the_window_only_when_given():
+    api, client = _api({"metadata": {"id": "42"}, "spec": {"job_id": 42}})
+
+    api.get_job("ns/cluster-a", 42, start_time=1_790_000_000, end_time=1_790_600_000)
+    client._get.assert_called_once_with(
+        "/slurmclusters/ns/cluster-a/jobs/42",
+        params={"start_time": 1_790_000_000, "end_time": 1_790_600_000},
+    )
+
+    client._get.reset_mock()
+    api.get_job("ns/cluster-a", 42, slurm_api=True, start_time=1_790_000_000)
+    client._get.assert_called_once_with(
+        "/slurmclusters/ns/cluster-a/jobs/42",
+        params={"start_time": 1_790_000_000, "slurm_api": "true"},
+    )
+
+    client._get.reset_mock()
+    client._get.return_value = _Response({"id": 42, "jobs": []})
+    api.get_job_events("ns/cluster-a", 42, end_time=1_790_600_000)
+    client._get.assert_called_once_with(
+        "/slurmclusters/ns/cluster-a/jobs/42/events",
+        params={"end_time": 1_790_600_000},
+    )
+
+
 def test_job_events_and_logs_use_cluster_scoped_parameters():
     event_payload = {
         "id": 42,
@@ -220,7 +284,9 @@ def test_job_events_and_logs_use_cluster_scoped_parameters():
     events = api.get_job_events("ns/cluster a", 42)
 
     assert events.jobs[0].steps[0].id_ == "42.batch"
-    client._get.assert_called_once_with("/slurmclusters/ns/cluster%20a/jobs/42/events")
+    client._get.assert_called_once_with(
+        "/slurmclusters/ns/cluster%20a/jobs/42/events", params=None
+    )
 
     client._get.reset_mock()
     client._get.return_value = _Response({"data": {"result": []}})
@@ -254,6 +320,17 @@ def test_job_events_and_logs_use_cluster_scoped_parameters():
             "end": 200,
         },
     )
+
+
+def test_get_logs_always_sends_q_so_the_server_unwraps_the_envelope():
+    # LEP-7430: without the q key the server returns each line as the
+    # collector's raw {"message": ...} JSON; an empty q asks for plain text.
+    api, client = _api({"data": {"result": []}})
+    api.get_logs("ns/cluster-a", job_id=42)
+
+    params = client._get.call_args.kwargs["params"]
+    assert params["q"] == ""
+    assert "start" not in params and "end" not in params
 
 
 def test_get_logs_returns_typed_entries_in_timestamp_order():

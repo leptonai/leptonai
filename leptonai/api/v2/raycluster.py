@@ -7,7 +7,13 @@ from .shell import (
     ShellUnavailable,
     select_shell_replica,
 )
-from .types.raycluster import LeptonRayCluster
+from .types.raycluster import LeptonRayCluster, LeptonRayJob
+
+
+def _as_list(value: Union[str, List[str], None]) -> Optional[List[str]]:
+    if not value:
+        return None
+    return [value] if isinstance(value, str) else list(value)
 
 
 class RayClusterAPI(APIResourse):
@@ -186,9 +192,49 @@ class RayClusterAPI(APIResourse):
             else name_or_raycluster.metadata.id_  # type: ignore[attr-defined]
         )
 
-    def list_all(self) -> List[LeptonRayCluster]:
-        response = self._get("/rayclusters")
+    def list_all(
+        self,
+        *,
+        q: Optional[str] = None,
+        status: Union[str, List[str], None] = None,
+        created_by: Union[str, List[str], None] = None,
+    ) -> List[LeptonRayCluster]:
+        """List Ray clusters, optionally filtered by the server.
+
+        These are the dashboard's filters, applied by the server:
+        - q         : case-insensitive substring of the cluster name
+        - status    : exact, case-insensitive cluster state ("Not Ready", ...)
+        - created_by: exact, case-insensitive creator (metadata.created_by)
+        Several status or created_by values are ORed; different filters are
+        ANDed. Without filters this is the plain unfiltered list request.
+        """
+        params: Dict[str, Any] = {}
+        if q:
+            params["q"] = q
+        for key, value in (("status", status), ("created_by", created_by)):
+            values = _as_list(value)
+            if values:
+                params[key] = values
+        if params:
+            response = self._get("/rayclusters", params=params)
+        else:
+            response = self._get("/rayclusters")
         return self.ensure_list(response, LeptonRayCluster)
+
+    def list_jobs(
+        self, name_or_raycluster: Union[str, LeptonRayCluster]
+    ) -> List[LeptonRayJob]:
+        """List the Ray jobs of a cluster, as the dashboard's Jobs tab does.
+
+        The server reads the jobs from the cluster's Ray dashboard and maps
+        each Ray status onto a Lepton job state: PENDING is Awaiting, RUNNING
+        is Running, SUCCEEDED is Completed, FAILED and STOPPED are Failed. A
+        job's ID and name are its submission ID, or its Ray job ID when it
+        has none.
+        """
+        name = quote(self._to_name(name_or_raycluster), safe="")
+        response = self._get(f"/rayclusters/{name}/jobs")
+        return self.ensure_list(response, LeptonRayJob)
 
     def create(self, spec: LeptonRayCluster) -> bool:
         response = self._post("/rayclusters", json=self.safe_json(spec))

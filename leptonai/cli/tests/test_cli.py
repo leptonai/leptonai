@@ -65,6 +65,10 @@ class TestLepCli(unittest.TestCase):
             with (
                 self.subTest(name=name),
                 patch("leptonai.cli.job.APIClient") as mock_client,
+                patch(
+                    "leptonai.cli.util._get_valid_nodegroup_ids",
+                    return_value=["ng-1"],
+                ),
             ):
                 result = CliRunner().invoke(
                     cli,
@@ -75,6 +79,8 @@ class TestLepCli(unittest.TestCase):
                         "test-job",
                         "--resource-shape",
                         config.DEFAULT_RESOURCE_SHAPE,
+                        "--node-group",
+                        "ng-1",
                         "--env",
                         f"{name}=value",
                     ],
@@ -87,7 +93,10 @@ class TestLepCli(unittest.TestCase):
                 mock_client.return_value.job.create.assert_not_called()
 
     def test_job_create_rejects_invalid_environment_variable_name(self):
-        with patch("leptonai.cli.job.APIClient") as mock_client:
+        with (
+            patch("leptonai.cli.job.APIClient") as mock_client,
+            patch("leptonai.cli.util._get_valid_nodegroup_ids", return_value=["ng-1"]),
+        ):
             result = CliRunner().invoke(
                 cli,
                 [
@@ -97,6 +106,8 @@ class TestLepCli(unittest.TestCase):
                     "test-job",
                     "--resource-shape",
                     config.DEFAULT_RESOURCE_SHAPE,
+                    "--node-group",
+                    "ng-1",
                     "--env",
                     "1INVALID=value",
                 ],

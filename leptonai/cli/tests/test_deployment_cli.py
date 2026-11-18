@@ -30,6 +30,15 @@ from leptonai.cli.deployment import _filter_endpoints, console as deployment_con
 logger.info(f"Using cache dir: {config.CACHE_DIR}")
 
 
+@pytest.fixture(autouse=True)
+def _skip_node_group_requirement(monkeypatch):
+    """These tests exercise other create options; the --node-group requirement
+    (LEP-7553) is covered in test_node_group_required.py."""
+    monkeypatch.setattr(
+        "leptonai.cli.deployment.require_node_group", lambda *a, **k: None
+    )
+
+
 class _FakeDeploymentAPI:
     def __init__(self):
         self.created_spec = None
@@ -521,38 +530,44 @@ def _endpoint_names(items):
     [
         ("api", ["Alpha-API", "gamma-api"]),
         ("ALPHA", ["Alpha-API"]),
-        ("worker-id", ["beta-worker"]),
+        ("worker-id", []),  # name only, like the server's q
         ("nomatch", []),
     ],
 )
-def test_filter_endpoints_keyword_matches_name_or_id_case_insensitively(
+def test_filter_endpoints_keyword_matches_name_case_insensitively(
     endpoints, keyword, expected
 ):
     assert _endpoint_names(_filter_endpoints(endpoints, keyword=keyword)) == expected
 
 
-def test_filter_endpoints_state_matches_displayed_state_or_phase(endpoints):
-    assert _endpoint_names(_filter_endpoints(endpoints, states=["Not Ready"])) == [
-        "beta-worker"
-    ]
+def test_filter_endpoints_state_matches_real_lifecycle_state(endpoints):
+    # LEP-7611: a stopped endpoint (legacy state "Not Ready", phase "Stopped")
+    # is matched by Stopped only, as in the dashboard.
     assert _endpoint_names(_filter_endpoints(endpoints, states=["Stopped"])) == [
         "beta-worker"
     ]
+    assert _filter_endpoints(endpoints, states=["Not Ready"]) == []
+    unhealthy = _endpoint("delta", state="Not Ready")
+    assert _endpoint_names(
+        _filter_endpoints(endpoints + [unhealthy], states=["Not Ready"])
+    ) == ["delta"]
     assert _endpoint_names(
         _filter_endpoints(endpoints, states=["Ready", "Starting"])
     ) == ["Alpha-API", "gamma-api"]
     assert _filter_endpoints(endpoints, states=["Error"]) == []
 
 
-def test_filter_endpoints_creator_is_case_insensitive_prefix(endpoints):
-    assert _endpoint_names(_filter_endpoints(endpoints, creators=["ALICE"])) == [
-        "Alpha-API",
-        "gamma-api",
-    ]
+def test_filter_endpoints_creator_is_exact_case_insensitive(endpoints):
+    # The server matches created_by exactly (case-insensitive).
     assert _endpoint_names(
-        _filter_endpoints(endpoints, creators=["bob@example.com"])
-    ) == ["beta-worker"]
-    assert _filter_endpoints(endpoints, creators=["example.com"]) == []
+        _filter_endpoints(endpoints, creators=["ALICE@example.com"])
+    ) == ["Alpha-API", "gamma-api"]
+    assert _filter_endpoints(endpoints, creators=["alice"]) == []
+    # owner is not matched, only created_by.
+    other = _endpoint(
+        "delta", created_by="carol@example.com", owner="alice@example.com"
+    )
+    assert _filter_endpoints([other], creators=["alice@example.com"]) == []
 
 
 def test_filter_endpoints_node_group_is_case_insensitive_substring(endpoints):
@@ -567,7 +582,10 @@ def test_filter_endpoints_node_group_is_case_insensitive_substring(endpoints):
 def test_filter_endpoints_combines_filters_with_and(endpoints):
     assert _endpoint_names(
         _filter_endpoints(
-            endpoints, names=["api"], creators=["alice"], states=["Ready"]
+            endpoints,
+            names=["api"],
+            creators=["alice@example.com"],
+            states=["Ready"],
         )
     ) == ["Alpha-API"]
     assert _filter_endpoints(endpoints, names=["api"], states=["Not Ready"]) == []
@@ -588,7 +606,7 @@ def test_endpoint_list_applies_filters_and_ignores_pods(endpoints, monkeypatch):
         _endpoint("alice-pod", created_by="alice@example.com", is_pod=True)
     ]
     result = _invoke_endpoint_list(
-        items, ["-u", "alice", "-s", "ready", "-s", "starting"]
+        items, ["-u", "alice@example.com", "-s", "ready", "-s", "starting"]
     )
     assert result.exit_code == 0, result.output
     assert "Alpha-API" in result.output
@@ -602,10 +620,28 @@ def test_endpoint_list_applies_filters_and_ignores_pods(endpoints, monkeypatch):
 )
 def test_endpoint_list_accepts_loose_state_spellings(endpoints, monkeypatch, spelling):
     monkeypatch.setattr(deployment_console, "width", 240)
-    result = _invoke_endpoint_list(endpoints, ["--state", spelling])
+    unhealthy = _endpoint("delta-api", state="Not Ready")
+    result = _invoke_endpoint_list(endpoints + [unhealthy], ["--state", spelling])
+    assert result.exit_code == 0, result.output
+    assert "delta-api" in result.output
+    assert "beta-worker" not in result.output
+    assert "Alpha-API" not in result.output
+
+
+def test_endpoint_list_shows_and_filters_stopped_endpoint_as_stopped(
+    endpoints, monkeypatch
+):
+    monkeypatch.setattr(deployment_console, "width", 240)
+    result = _invoke_endpoint_list(endpoints, ["--state", "stopped"])
     assert result.exit_code == 0, result.output
     assert "beta-worker" in result.output
-    assert "Alpha-API" not in result.output
+    assert "Stopped" in result.output
+    assert "Not Ready" not in result.output
+
+
+def test_endpoint_list_rejects_abbreviated_state(endpoints):
+    result = _invoke_endpoint_list(endpoints, ["--state", "stopp"])
+    assert result.exit_code == 2
 
 
 def test_endpoint_list_reports_when_no_endpoint_matches(endpoints):
