@@ -558,6 +558,91 @@ def test_job_list_table_shows_slurm_state_and_reason():
     assert "NodeDown" in result.output
 
 
+def test_job_log_help_mentions_batch_step():
+    result = CliRunner().invoke(lep, ["slurm", "job", "log", "--help"])
+
+    assert result.exit_code == 0, result.output
+    assert "batch" in result.output
+    assert "--exclude-batch" in result.output
+
+
+def test_job_log_expands_bare_step_to_full_step_id():
+    client, api = _fake_client()
+    api.list_jobs.return_value = _job_list(
+        _job_entry(42, "train", "ns/cluster-a", state="Completed")
+    )
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        batch = CliRunner().invoke(
+            lep, ["slurm", "job", "log", "-i", "42", "--step", "batch"]
+        )
+        step = CliRunner().invoke(
+            lep, ["slurm", "job", "log", "-i", "42", "--step", "0"]
+        )
+
+    assert batch.exit_code == 0, batch.output
+    assert step.exit_code == 0, step.output
+    assert api.get_logs.call_args_list[0].kwargs["step"] == "42.batch"
+    assert api.get_logs.call_args_list[1].kwargs["step"] == "42.0"
+
+
+def test_job_log_exclude_batch_drops_batch_step_lines():
+    # LEP-7519: srun output is stored twice, once under the batch step and once
+    # under the task step. Excluding the batch step leaves each line once.
+    client, api = _fake_client()
+    api.list_jobs.return_value = _job_list(
+        _job_entry(42, "train", "ns/cluster-a", state="Completed")
+    )
+    api.get_logs.return_value = SlurmLogs(
+        data={
+            "result": [
+                {
+                    "stream": {"slurm_job_step": "42.batch"},
+                    "values": [
+                        ["1700000000000000000", "from-batch"],
+                        ["1700000001000000000", "batch-only"],
+                    ],
+                },
+                {
+                    "stream": {"slurm_job_step": "42.0"},
+                    "values": [["1700000000000000000", "from-task"]],
+                },
+            ]
+        }
+    )
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        result = CliRunner().invoke(
+            lep, ["slurm", "job", "log", "-i", "42", "--exclude-batch"]
+        )
+
+    assert result.exit_code == 0, result.output
+    assert "from-task" in result.output
+    assert "from-batch" not in result.output
+    assert "batch-only" not in result.output
+    # The logs API matches a step exactly, so exclusion happens client-side.
+    assert api.get_logs.call_args.kwargs["step"] is None
+
+
+def test_job_log_rejects_step_with_exclude_batch():
+    client, api = _fake_client()
+    with patch("leptonai.cli.slurm.APIClient", return_value=client):
+        result = CliRunner().invoke(
+            lep,
+            [
+                "slurm",
+                "job",
+                "log",
+                "-i",
+                "42",
+                "--step",
+                "batch",
+                "--exclude-batch",
+            ],
+        )
+
+    assert result.exit_code == 2, result.output
+    api.get_logs.assert_not_called()
+
+
 def test_job_log_maps_scope_and_prints_in_timestamp_order():
     client, api = _fake_client()
     api.list_jobs.return_value = _job_list(

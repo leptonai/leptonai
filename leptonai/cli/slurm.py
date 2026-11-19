@@ -744,6 +744,45 @@ def _print_log_entries(entries: Iterable[SlurmLogEntry], *, timestamps: bool) ->
             click.echo(entry.line)
 
 
+# A bare step is a step name ("batch", "extern") or a step number ("0").
+# Slurm stores the full ID as "<job>.<step>".
+_BARE_STEP_RE = re.compile(r"[A-Za-z][A-Za-z0-9]*|\d+")
+
+
+def _resolve_log_step(step: Optional[str], job_id: str) -> Optional[str]:
+    """Expand a bare step name to the full Slurm step ID for this job.
+
+    ``--step batch`` and ``--step 0`` become ``<job>.batch`` and ``<job>.0``.
+    A value that already names a job, such as ``42.batch`` or ``42.0``, is
+    sent unchanged.
+    """
+    if step is None:
+        return None
+    value = step.strip()
+    if not value or "." in value or not _BARE_STEP_RE.fullmatch(value):
+        return step
+    return f"{job_id}.{value}"
+
+
+def _without_batch_step(
+    entries: Iterable[SlurmLogEntry], job_id: str
+) -> List[SlurmLogEntry]:
+    """Drop lines captured under the job's batch step.
+
+    A plain ``srun`` forwards each task's output to the batch script's stdout,
+    so siowrapper stores it twice: once under ``<job>.batch`` and once under
+    the task step. The batch copy is the only copy for sruns that are not
+    wrapped and for srun's own messages, so it is kept unless asked otherwise.
+    A line whose step label is missing stays, since it cannot be told apart.
+    """
+    batch_step = f"{job_id}.batch"
+    return [
+        entry
+        for entry in entries
+        if str(entry.labels.get("slurm_job_step") or "") != batch_step
+    ]
+
+
 _FOLLOW_LOOKBACK_NS = 5 * 60 * 1_000_000_000
 # The server's own window when no start is sent; used only when the job record
 # carries no usable times.
@@ -809,6 +848,7 @@ def _follow_logs(
     timestamps: bool,
     poll_interval: float,
     seed_start_ns: Optional[int] = None,
+    select: Optional[Callable[[SlurmLogs], List[SlurmLogEntry]]] = None,
 ) -> None:
     """Tail Slurm logs until interrupted.
 
@@ -822,8 +862,12 @@ def _follow_logs(
     limit = common["limit"]
 
     def emit(logs: SlurmLogs) -> Tuple[int, Optional[int]]:
+        # Advance the cursor from every returned line, including ones the
+        # caller hides, so a hidden line is not fetched again next poll.
         entries = logs.entries()
-        _print_log_entries(entries, timestamps=timestamps)
+        _print_log_entries(
+            select(logs) if select is not None else entries, timestamps=timestamps
+        )
         seen = [entry.timestamp for entry in entries if entry.timestamp is not None]
         return len(entries), (max(seen) + 1 if seen else None)
 
@@ -1613,7 +1657,15 @@ def job_attempts(
 @job.command(name="log")
 @_job_resolution_options
 @click.option("--attempt", type=click.IntRange(min=0), help="Zero-based attempt.")
-@click.option("--step", help="Full Slurm step ID.")
+@click.option(
+    "--step",
+    help="Slurm step, as a full ID (42.0), a bare step (0, batch) or a name (extern).",
+)
+@click.option(
+    "--exclude-batch",
+    is_flag=True,
+    help="Hide the batch step, so each srun line is printed once.",
+)
 @click.option("--node", help="Filter by Slurm task node.")
 @click.option(
     "--log-type",
@@ -1662,6 +1714,7 @@ def job_log(
     include_archived: bool,
     attempt: Optional[int],
     step: Optional[str],
+    exclude_batch: bool,
     node: Optional[str],
     log_type: str,
     query: Optional[str],
@@ -1690,6 +1743,8 @@ def job_log(
         raise click.UsageError("--end must be later than --start.")
     if follow and end_ns is not None:
         raise click.UsageError("--end cannot be used together with --follow.")
+    if step and exclude_batch:
+        raise click.UsageError("--step cannot be used together with --exclude-batch.")
     if start_ns is not None:
         window_end = end_ns if end_ns is not None else time.time_ns()
         if window_end - start_ns > _MAX_LOG_WINDOW_NS:
@@ -1763,12 +1818,19 @@ def job_log(
     common = dict(
         job_id=job_id,
         attempt=attempt,
-        step=step,
+        step=_resolve_log_step(step, job_id),
         node=node,
         log_type=resolved_log_type,
         query=query,
         limit=limit,
     )
+
+    def visible(logs: SlurmLogs) -> List[SlurmLogEntry]:
+        entries = logs.entries()
+        if exclude_batch:
+            return _without_batch_step(entries, job_id)
+        return entries
+
     if not follow:
         logs = api.get_logs(
             cluster_id,
@@ -1777,7 +1839,7 @@ def job_log(
             direction="backward",
             **common,
         )
-        _print_log_entries(logs.entries(), timestamps=timestamps)
+        _print_log_entries(visible(logs), timestamps=timestamps)
         return
     _follow_logs(
         api,
@@ -1787,6 +1849,7 @@ def job_log(
         timestamps=timestamps,
         poll_interval=poll_interval,
         seed_start_ns=seed_start_ns,
+        select=visible if exclude_batch else None,
     )
 
 
