@@ -1932,19 +1932,28 @@ def node_groups():
     ]
 
 
-def test_node_group_list_search_matches_name_only(node_groups, monkeypatch):
+@pytest.mark.parametrize("flag", ["--search", "--keyword", "-q"])
+@pytest.mark.parametrize(
+    ("term", "expected"),
+    [
+        ("h100-infer", ["h100-infer"]),
+        ("TRAIN", ["h100-train", "a100-train"]),
+        ("ng-bbb", ["h100-infer"]),
+        ("NG-CCC", ["a100-train"]),
+        ("BB", ["h100-infer"]),
+    ],
+)
+def test_node_group_list_search_matches_name_or_id(
+    node_groups, monkeypatch, flag, term, expected
+):
     monkeypatch.setattr(node_console, "width", 240)
-    result = _invoke_node_group_list(["--search", "TRAIN"], node_groups)
-    assert result.exit_code == 0, result.output
-    assert "h100-train" in result.output
-    assert "a100-train" in result.output
-    assert "h100-infer" not in result.output
+    result = _invoke_node_group_list([flag, term], node_groups)
 
-    # The dashboard's search matches the name only, not the ID.
-    result = _invoke_node_group_list(["-q", "ng-bbb"], node_groups)
     assert result.exit_code == 0, result.output
-    assert "No node groups match the specified filters." in result.output
-    assert "h100-infer" not in result.output
+    shown = [
+        ng.metadata.name for ng in node_groups if ng.metadata.name in result.output
+    ]
+    assert shown == expected
 
 
 @pytest.mark.parametrize(
@@ -1968,9 +1977,12 @@ def test_node_group_list_node_group_filter_ignores_case(
     assert shown == expected
 
 
-def test_node_group_list_search_combines_with_node_group(node_groups, monkeypatch):
+@pytest.mark.parametrize("term", ["train", "NG-AAA"])
+def test_node_group_list_search_combines_with_node_group(
+    node_groups, monkeypatch, term
+):
     monkeypatch.setattr(node_console, "width", 240)
-    result = _invoke_node_group_list(["-ng", "h100", "-q", "train"], node_groups)
+    result = _invoke_node_group_list(["-ng", "h100", "-q", term], node_groups)
     assert result.exit_code == 0, result.output
     assert "h100-train" in result.output
     assert "h100-infer" not in result.output
@@ -2103,10 +2115,21 @@ def test_node_group_list_help_marks_cli_only_and_dashboard_filters():
     helps = {param.name: param.help or "" for param in node_list_command.params}
 
     assert helps["node_group"].startswith("CLI-only")
-    assert "dashboard's search box" in helps["keyword"]
+    assert "name or ID" in helps["keyword"]
+    assert "case-insensitive substring" in helps["keyword"]
     assert "dashboard's Type filter" in helps["types"]
     type_option = next(p for p in node_list_command.params if p.name == "types")
     assert type_option.opts == ["--type", "-t"]
+
+
+def test_node_group_list_help_documents_keyword_name_and_id():
+    result = CliRunner().invoke(cli, ["node", "list", "--help"], terminal_width=160)
+
+    assert result.exit_code == 0, result.output
+    help_text = " ".join(result.output.split())
+    for flag in ("--search", "--keyword", "-q", "--node-group", "-ng"):
+        assert flag in help_text
+    assert "Search node groups by name or ID (case-insensitive substring)" in help_text
 
 
 def _shape(name, listable_in):
