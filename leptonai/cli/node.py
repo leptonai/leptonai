@@ -392,8 +392,7 @@ def _format_shape_entry(shape):
     "keyword",
     type=str,
     help=(
-        "Search node groups by name (case-insensitive substring), as the"
-        " dashboard's search box does. Takes one term."
+        "Search node groups by name or ID (case-insensitive substring). Takes one term."
     ),
     multiple=True,
     callback=single_keyword,
@@ -418,10 +417,10 @@ def list_command(detail=False, node_group=(), keyword=None, types=()):
     aggregated GPU/CPU/memory/disk usage. For per-node detail, use
     'lep node list-nodes -ng <node-group>'.
 
-    --search and --type work like the dashboard's node group filters;
-    --node-group is CLI-only. Repeated values within one option (except
-    --search, which takes one term) are ORed together; different options are
-    combined with AND.
+    --search matches node group names or IDs. --type works like the dashboard's
+    Type filter; --node-group is CLI-only. Repeated values within one option
+    (except --search, which takes one term) are ORed together; different options
+    are combined with AND.
     """
     if detail:
         console.print(
@@ -436,7 +435,7 @@ def list_command(detail=False, node_group=(), keyword=None, types=()):
         ng
         for ng in client.nodegroup.list_all()
         if (not node_group or _node_group_matches(ng, node_group))
-        and keyword_matches(normalized_keyword, ng.metadata.name)
+        and keyword_matches(normalized_keyword, ng.metadata.name, ng.metadata.id_)
         and (not types or any(value in types for value in _node_group_types(ng)))
     ]
     if not filtered_node_groups and (node_group or normalized_keyword or types):
