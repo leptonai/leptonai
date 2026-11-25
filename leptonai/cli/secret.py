@@ -152,9 +152,9 @@ def list_command(keyword=None, owners=(), visibility=None):
     Lists all secrets in the current workspace. Note that the secret values are
     always hidden.
 
-    --search matches the secret name or tags and --owner the owner (as in the
-    dashboard); --visibility narrows to public or private secrets. Different
-    filters are combined with AND.
+    --search matches the secret name (a case-insensitive substring) and --owner
+    the owner (as in the dashboard); --visibility narrows to public or private
+    secrets. Different filters are combined with AND.
     """
     client = APIClient()
     secrets = client.secret.list_all()
