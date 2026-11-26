@@ -83,6 +83,20 @@ def test_secret_list_applies_filters(secrets, monkeypatch):
     assert "HF_TOKEN" not in result.output
 
 
+def test_secret_list_help_documents_name_only_search(secrets):
+    # LEP-7990: the overview used to promise tag search, which the filter no
+    # longer does. Both help sections must describe the name-only search.
+    result = CliRunner().invoke(secret, ["list", "--help"])
+    assert result.exit_code == 0, result.output
+    overview, _, options = result.output.partition("Options:")
+    assert "name or tags" not in overview
+    # Click wraps the option text, so match the words rather than the phrase.
+    for section in (overview, options):
+        assert "case-insensitive" in section
+        assert "substring" in section
+        assert "secret name" in section
+
+
 def test_secret_list_reports_when_nothing_matches(secrets):
     result = _invoke(secrets, ["--owner", "carol"])
     assert result.exit_code == 0, result.output
